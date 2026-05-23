@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kaden Fishing Quest Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="copy">
+          <p class="eyebrow">Prototype 14 • Fishing adventure game</p>
+          <h1>Kaden Fishing Quest</h1>
+          <p>
+            A 3D-style fishing adventure where kids cast from realistic lake docks,
+            watch the bobber drift, reel in fish, upgrade gear, unlock boats, and
+            explore calm nature zones without pressure or combat.
+          </p>
+          <div class="actions">
+            <button id="castBtn" type="button">Cast Line</button>
+            <button id="upgradeBtn" class="ghost" type="button">Upgrade Rod</button>
+          </div>
+        </div>
+
+        <aside class="lake-card" aria-label="3D-style fishing lake mockup">
+          <div class="hud">
+            <span id="fishCount">Fish 0</span>
+            <span id="coins">Coins 25</span>
+            <span id="rod">Rod Lvl 1</span>
+          </div>
+          <div class="camera-tag">Over-the-shoulder lake camera</div>
+          <div class="lake">
+            <span class="water-glare"></span>
+            <span class="rod-line"></span>
+            <span class="bobber" id="bobber"></span>
+            <span class="fish-shadow f1"></span>
+            <span class="fish-shadow f2"></span>
+            <span class="fish-shadow f3"></span>
+            <span class="ripple r1"></span>
+            <span class="ripple r2"></span>
+            <span class="depth depth-near">Dock edge</span>
+            <span class="depth depth-far">Deep water</span>
+          </div>
+          <div class="catch-panel">
+            <span>Last Catch</span>
+            <strong id="lastCatch">Waiting for bite</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section class="cards">
+        <article>
+          <h2>Core Loop</h2>
+          <p>Cast, wait for the bobber, hook fish, earn coins, upgrade gear, unlock boats, and fill the aquarium book.</p>
+        </article>
+        <article>
+          <h2>Fish Collection</h2>
+          <p>Lake Trout, Bluegill, Bass, Catfish, Golden Carp, and rare night fish with size records.</p>
+        </article>
+        <article>
+          <h2>Monetization Ideas</h2>
+          <p>Rewarded ads for bonus bait, cosmetic boats, premium lake packs, and family-safe season quests.</p>
+        </article>
+      </section>
+
+      <section class="quest-log">
+        <h2>Daily Quest Preview</h2>
+        <div class="quest"><span>Catch 3 lake fish</span><strong>+40 coins</strong></div>
+        <div class="quest"><span>Visit North Cove</span><strong>+1 bait box</strong></div>
+        <div class="quest"><span>Upgrade your rod once</span><strong>+XP</strong></div>
+      </section>
+
+      <section class="asset-note">
+        <h2>Prototype Asset Sources</h2>
+        <p>
+          Real lake photo was added as the main prototype asset. Cartoon fish sprites
+          were removed from the active scene to preserve a realistic visual style.
+          Source/license notes are saved in <code>assets/ASSET-SOURCES.md</code>.
+        </p>
+      </section>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
