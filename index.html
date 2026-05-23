@@ -13,12 +13,12 @@
     <main class="shell">
       <section class="hero">
         <div class="copy">
-          <p class="eyebrow">Prototype 14 • Fishing adventure game</p>
+          <p class="eyebrow">Frontend Differentiation Pass</p>
           <h1>Kaden Fishing Quest</h1>
           <p>
-            A 3D-style fishing adventure where kids cast from realistic lake docks,
-            watch the bobber drift, reel in fish, upgrade gear, unlock boats, and
-            explore calm nature zones without pressure or combat.
+            A calm fishing adventure with a real game shell: prepare at camp, cast from
+            the dock, fill the codex, and upgrade gear for deeper-water catches without
+            turning the whole app into one long dashboard.
           </p>
           <div class="actions">
             <button id="castBtn" type="button">Cast Line</button>
@@ -32,7 +32,7 @@
             <span id="coins">Coins 25</span>
             <span id="rod">Rod Lvl 1</span>
           </div>
-          <div class="camera-tag">Over-the-shoulder lake camera</div>
+          <div class="camera-tag" id="zoneTag">Camp at Lake Dock</div>
           <div class="lake">
             <span class="water-glare"></span>
             <span class="rod-line"></span>
@@ -52,37 +52,14 @@
         </aside>
       </section>
 
-      <section class="cards">
-        <article>
-          <h2>Core Loop</h2>
-          <p>Cast, wait for the bobber, hook fish, earn coins, upgrade gear, unlock boats, and fill the aquarium book.</p>
-        </article>
-        <article>
-          <h2>Fish Collection</h2>
-          <p>Lake Trout, Bluegill, Bass, Catfish, Golden Carp, and rare night fish with size records.</p>
-        </article>
-        <article>
-          <h2>Monetization Ideas</h2>
-          <p>Rewarded ads for bonus bait, cosmetic boats, premium lake packs, and family-safe season quests.</p>
-        </article>
-      </section>
+      <nav class="subnav" aria-label="Kaden Fishing Quest views">
+        <button class="subnav-tab active" type="button" data-tab="camp">Camp</button>
+        <button class="subnav-tab" type="button" data-tab="cast">Cast</button>
+        <button class="subnav-tab" type="button" data-tab="codex">Codex</button>
+        <button class="subnav-tab" type="button" data-tab="gear">Gear</button>
+      </nav>
 
-      <section class="quest-log">
-        <h2>Daily Quest Preview</h2>
-        <div class="quest"><span>Catch 3 lake fish</span><strong>+40 coins</strong></div>
-        <div class="quest"><span>Visit North Cove</span><strong>+1 bait box</strong></div>
-        <div class="quest"><span>Upgrade your rod once</span><strong>+XP</strong></div>
-      </section>
-
-      <section class="asset-note">
-        <h2>Prototype Asset Sources</h2>
-        <p>
-          Real lake photo was added as the main prototype asset. Cartoon fish sprites
-          were removed from the active scene to preserve a realistic visual style.
-          Source/license notes are saved in <code>assets/ASSET-SOURCES.md</code>.
-        </p>
-      </section>
-
+      <section id="app" class="app-shell" aria-live="polite"></section>
       <div id="toast" class="toast" role="status" aria-live="polite"></div>
     </main>
     <script src="./app.js"></script>
