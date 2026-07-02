@@ -1,6 +1,13 @@
 import { neon } from "@neondatabase/serverless";
 
-const sql = neon(process.env.DATABASE_URL);
+let sql;
+function getSql() {
+  if (!sql) {
+    if (!process.env.DATABASE_URL) return null;
+    sql = neon(process.env.DATABASE_URL);
+  }
+  return sql;
+}
 
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -8,8 +15,8 @@ function cors(res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
-async function ensurePlayer(playerId) {
-  await sql`
+async function ensurePlayer(playerId, db) {
+  await db`
     INSERT INTO players (id)
     VALUES (${playerId})
     ON CONFLICT (id) DO NOTHING
@@ -27,12 +34,15 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "DATABASE_URL not configured" });
   }
 
+  const db = getSql();
+  if (!db) return res.status(503).json({ error: "DATABASE_URL not configured" });
+
   try {
     if (req.method === "GET") {
       const playerId = req.query.playerId;
       if (!playerId) return res.status(400).json({ error: "playerId required" });
 
-      const rows = await sql`
+      const rows = await db`
         SELECT state, fish_count, coins, best_catch, updated_at
         FROM saves WHERE player_id = ${playerId}
       `;
@@ -44,8 +54,8 @@ export default async function handler(req, res) {
       const { playerId, state } = req.body || {};
       if (!playerId || !state) return res.status(400).json({ error: "playerId and state required" });
 
-      await ensurePlayer(playerId);
-      await sql`
+      await ensurePlayer(playerId, db);
+      await db`
         INSERT INTO saves (player_id, state, fish_count, coins, best_catch)
         VALUES (
           ${playerId},
