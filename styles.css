@@ -300,6 +300,26 @@ body > button {
 .quest-row.done { border-left-color: var(--safe); }
 .claimed { font-size: 0.8rem; color: var(--safe); }
 
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+}
+
+.leaderboard-row .rank {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 1.1rem;
+  color: var(--sun);
+  min-width: 32px;
+}
+
+.leaderboard-row strong { display: block; }
+.leaderboard-row span { font-size: 0.82rem; opacity: 0.75; }
+
 .empty {
   padding: 24px;
   text-align: center;

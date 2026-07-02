@@ -4,7 +4,7 @@ import { XRControllerModelFactory } from "three/addons/webxr/XRControllerModelFa
 import { LakeEnvironment } from "./environment.js";
 import { FishingSystem, FishingState } from "./fishing.js";
 import { initUI } from "./ui.js";
-import { getState, setZone, canAccessZone } from "./state.js";
+import { getState, setZone, canAccessZone, initState } from "./state.js";
 import { ZONES } from "./data.js";
 import * as audio from "./audio.js";
 
@@ -173,7 +173,19 @@ ui = initUI(fishing, {
   },
 });
 
+await initState();
 teleportToZone(getState().zone);
+env.applyZone(getState().zone);
+renderHUDRefresh();
+
+function renderHUDRefresh() {
+  const s = getState();
+  document.getElementById("hud-fish").textContent = s.fish;
+  document.getElementById("hud-coins").textContent = s.coins;
+  document.getElementById("hud-rod").textContent = s.rodLevel;
+  document.getElementById("hud-zone").textContent = s.zone;
+  document.getElementById("hud-boat").textContent = s.boatLevel;
+}
 
 const clock = new THREE.Clock();
 const moveSpeed = 4;

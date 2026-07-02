@@ -1,9 +1,11 @@
 import { DEFAULT_STATE, GEAR_COSTS, QUESTS, STORAGE_KEY } from "./data.js";
+import { loadCloudSave, saveCloudSave, scheduleCloudSave } from "./api.js";
 
-let state = load();
+let state = loadLocal();
 const listeners = new Set();
+let cloudReady = false;
 
-function load() {
+function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return { ...DEFAULT_STATE, ...JSON.parse(raw) };
@@ -11,6 +13,17 @@ function load() {
     /* ignore */
   }
   return { ...DEFAULT_STATE };
+}
+
+export async function initState() {
+  const cloud = await loadCloudSave();
+  if (cloud) {
+    state = { ...DEFAULT_STATE, ...cloud };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    listeners.forEach((fn) => fn(state));
+  }
+  cloudReady = true;
+  return state;
 }
 
 export function getState() {
@@ -25,6 +38,7 @@ export function subscribe(fn) {
 function notify() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   listeners.forEach((fn) => fn(state));
+  if (cloudReady) scheduleCloudSave(state);
 }
 
 export function setZone(zone) {
@@ -108,7 +122,12 @@ export function canAccessZone(zoneId) {
   return state.boatLevel >= (zone || 1);
 }
 
-export function resetProgress() {
+export async function resetProgress() {
   state = { ...DEFAULT_STATE };
   notify();
+  await saveCloudSave(state);
+}
+
+export function isCloudReady() {
+  return cloudReady;
 }

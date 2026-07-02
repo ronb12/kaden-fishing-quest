@@ -1,13 +1,6 @@
 import { FISH_SPECIES, GEAR_COSTS, QUESTS, ZONES } from "./data.js";
-import {
-  getState,
-  subscribe,
-  setZone,
-  upgradeGear,
-  claimQuest,
-  canAccessZone,
-  resetProgress,
-} from "./state.js";
+import { getState, subscribe, setZone, upgradeGear, claimQuest, canAccessZone, resetProgress } from "./state.js";
+import { fetchLeaderboard, getPlayerId } from "./api.js";
 
 let activePanel = "hud";
 
@@ -52,6 +45,9 @@ export function initUI(fishing, callbacks) {
       case "quests":
         panelContent.innerHTML = renderQuests(state);
         break;
+      case "leaderboard":
+        renderLeaderboard();
+        return;
       default:
         panelContent.innerHTML = renderHelp();
     }
@@ -152,6 +148,27 @@ export function initUI(fishing, callbacks) {
         </div>
       `;
     }).join("");
+  }
+
+  async function renderLeaderboard() {
+    panelContent.innerHTML = `<p class="empty">Loading leaderboard...</p>`;
+    const rows = await fetchLeaderboard();
+    if (!rows.length) {
+      panelContent.innerHTML = `<p class="empty">No anglers on the board yet. Be the first!</p>`;
+      return;
+    }
+    panelContent.innerHTML = `
+      <p class="help-tip">Synced via Neon · Your ID: ${getPlayerId().slice(0, 8)}…</p>
+      ${rows.map((r, i) => `
+        <div class="leaderboard-row">
+          <span class="rank">#${i + 1}</span>
+          <div>
+            <strong>${r.display_name || r.player_id.slice(0, 8)}</strong>
+            <span>${r.fish_count} fish · ${r.coins} coins</span>
+          </div>
+        </div>
+      `).join("")}
+    `;
   }
 
   function bindPanelEvents() {

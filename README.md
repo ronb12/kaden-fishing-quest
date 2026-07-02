@@ -2,6 +2,8 @@
 
 A full-featured WebXR VR fishing game built with Three.js. Cast from the dock, fight fish with a tension-based reel minigame, explore three lake zones, fill your fish codex, upgrade gear, and complete quests.
 
+**Live:** https://kaden-fishing-quest-ronell-bradleys-projects.vercel.app
+
 ## Play
 
 - **VR**: Open in a WebXR-capable browser (Meta Quest Browser, etc.) and tap **Enter VR**
@@ -16,8 +18,48 @@ A full-featured WebXR VR fishing game built with Three.js. Cast from the dock, f
 - Fish codex with per-species stats
 - Gear upgrades: rod, boat, bait
 - Quest system with coin rewards
-- Progress saved to localStorage
+- **Neon Postgres** cloud saves and leaderboard
+- **Vercel** serverless API for progress sync
 - WebXR VR + desktop fallback controls
+
+## Deploy to Vercel + Neon
+
+### 1. Neon database
+
+Project: [blue-hall-85263365](https://console.neon.tech/app/projects/blue-hall-85263365)  
+Database: `kaden_fishing_quest`
+
+```bash
+cp .env.example .env
+# Paste your Neon connection string into DATABASE_URL
+npm install
+npm run db:setup
+```
+
+### 2. Vercel project
+
+Project: `kaden-fishing-quest`  
+Repo: `ronb12/kaden-fishing-quest`
+
+1. Import the GitHub repo in [Vercel Dashboard](https://vercel.com)
+2. Add the **Neon** integration (or set `DATABASE_URL` manually in Environment Variables)
+3. Deploy — API routes at `/api/progress` and `/api/leaderboard` activate automatically
+
+```bash
+npm install
+npx vercel link
+npx vercel env pull .env.local
+npm run db:setup
+npx vercel --prod
+```
+
+### API endpoints
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/progress?playerId=` | GET | Load cloud save |
+| `/api/progress` | POST | Save progress `{ playerId, state }` |
+| `/api/leaderboard` | GET | Top 20 anglers |
 
 ## Controls
 
@@ -32,10 +74,9 @@ A full-featured WebXR VR fishing game built with Three.js. Cast from the dock, f
 
 ## Development
 
-Static site — no build step. Serve locally:
-
 ```bash
-npx serve .
+npm install
+npx vercel dev
 ```
 
 Requires HTTPS for WebXR in production (Vercel provides this automatically).
@@ -44,5 +85,6 @@ Requires HTTPS for WebXR in production (Vercel provides this automatically).
 
 - Three.js r170 (CDN import map)
 - WebXR Device API
-- Web Audio API (procedural SFX)
+- Vercel Serverless Functions
+- Neon Postgres (`@neondatabase/serverless`)
 - Vanilla ES modules
