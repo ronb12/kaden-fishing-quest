@@ -22,6 +22,43 @@ A full-featured WebXR VR fishing game built with Three.js. Cast from the dock, f
 - **Vercel** serverless API for progress sync
 - WebXR VR + desktop fallback controls
 
+## Deploy to existing Vercel project
+
+**Production URL:** https://kaden-fishing-quest-ronell-bradleys-projects.vercel.app  
+**Vercel project:** `kaden-fishing-quest`
+
+### Option A — Reconnect Git (fastest, no secrets)
+
+1. [Vercel Dashboard](https://vercel.com) → **kaden-fishing-quest** → **Settings** → **Git**
+2. Connect repository `ronb12/kaden-fishing-quest`, production branch `main`
+3. Click **Redeploy** on the latest commit
+
+### Option B — GitHub Actions (CI deploy)
+
+Add these secrets in GitHub → Settings → Secrets:
+
+| Secret | Where to find it |
+|--------|------------------|
+| `VERCEL_TOKEN` | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
+| `VERCEL_ORG_ID` | `.vercel/project.json` after `vercel link` |
+| `VERCEL_PROJECT_ID` | `.vercel/project.json` after `vercel link` |
+
+Push to `main` triggers automatic production deploy.
+
+### Option C — Deploy hook
+
+1. Vercel → **kaden-fishing-quest** → **Settings** → **Git** → **Deploy Hooks** → create hook for `main`
+2. Add URL as GitHub secret `VERCEL_DEPLOY_HOOK`
+3. Run **Deploy Hook** workflow in GitHub Actions
+
+### Option D — CLI
+
+```bash
+npx vercel login
+npx vercel link --project kaden-fishing-quest
+npx vercel --prod
+```
+
 ## Deploy to Vercel + Neon
 
 ### 1. Neon database
