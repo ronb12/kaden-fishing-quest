@@ -1,0 +1,306 @@
+import * as THREE from "three";
+import { ZONES } from "./data.js";
+
+const WATER_VERT = `
+  varying vec2 vUv;
+  varying vec3 vWorldPos;
+  void main() {
+    vUv = uv;
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vWorldPos = wp.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const WATER_FRAG = `
+  uniform float uTime;
+  uniform vec3 uDeepColor;
+  uniform vec3 uShallowColor;
+  uniform vec3 uSunDir;
+  varying vec2 vUv;
+  varying vec3 vWorldPos;
+
+  float wave(vec2 p) {
+    return sin(p.x * 0.4 + uTime * 1.2) * 0.5
+         + sin(p.y * 0.35 - uTime * 0.9) * 0.4
+         + sin((p.x + p.y) * 0.25 + uTime * 0.7) * 0.3;
+  }
+
+  void main() {
+    vec2 p = vWorldPos.xz * 0.15;
+    float w = wave(p);
+    float fresnel = pow(1.0 - max(dot(normalize(vec3(0.0, 1.0, 0.0)), vec3(0.0, 1.0, 0.3)), 0.0), 2.0);
+    vec3 col = mix(uShallowColor, uDeepColor, fresnel * 0.6 + 0.2);
+    col += vec3(0.15, 0.22, 0.28) * w * 0.08;
+    col += vec3(1.0) * pow(max(dot(reflect(uSunDir, vec3(0.0,1.0,0.0)), vec3(0.0,1.0,0.0)), 0.0), 32.0) * 0.35;
+    gl_FragColor = vec4(col, 0.88);
+  }
+`;
+
+export class LakeEnvironment {
+  constructor(scene) {
+    this.scene = scene;
+    this.waterUniforms = {
+      uTime: { value: 0 },
+      uDeepColor: { value: new THREE.Color(0x07506e) },
+      uShallowColor: { value: new THREE.Color(0x1a9ab8) },
+      uSunDir: { value: new THREE.Vector3(0.4, 0.8, 0.3).normalize() },
+    };
+    this.zoneMarkers = [];
+    this.ambientFish = [];
+    this.waterMesh = null;
+    this.build();
+  }
+
+  build() {
+    this.scene.fog = new THREE.Fog(0x8ec4d8, 30, 120);
+    this.scene.background = new THREE.Color(0xc9edf9);
+
+    const hemi = new THREE.HemisphereLight(0xc9edf9, 0x3a6a5a, 0.7);
+    this.scene.add(hemi);
+
+    const sun = new THREE.DirectionalLight(0xfff4d6, 1.2);
+    sun.position.set(30, 50, 20);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 120;
+    sun.shadow.camera.left = -50;
+    sun.shadow.camera.right = 50;
+    sun.shadow.camera.top = 50;
+    sun.shadow.camera.bottom = -50;
+    this.scene.add(sun);
+    this.sun = sun;
+
+    this.buildGround();
+    this.buildWater();
+    this.buildDock();
+    this.buildTrees();
+    this.buildMountains();
+    this.buildZoneMarkers();
+    this.buildCamp();
+    this.spawnAmbientFish();
+  }
+
+  buildGround() {
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.05;
+    ground.receiveShadow = true;
+    this.scene.add(ground);
+  }
+
+  buildWater() {
+    const geo = new THREE.PlaneGeometry(120, 120, 64, 64);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: this.waterUniforms,
+      vertexShader: WATER_VERT,
+      fragmentShader: WATER_FRAG,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    this.waterMesh = new THREE.Mesh(geo, mat);
+    this.waterMesh.rotation.x = -Math.PI / 2;
+    this.waterMesh.position.y = 0;
+    this.scene.add(this.waterMesh);
+  }
+
+  buildDock() {
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a34, roughness: 0.85 });
+    const dockGroup = new THREE.Group();
+
+    for (let i = 0; i < 12; i++) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 0.5), woodMat);
+      plank.position.set(0, 0.15, -i * 0.55);
+      plank.castShadow = true;
+      plank.receiveShadow = true;
+      dockGroup.add(plank);
+    }
+
+    for (let side of [-1.4, 1.4]) {
+      for (let i = 0; i < 6; i++) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.8), woodMat);
+        post.position.set(side, -0.5, -i * 1.1);
+        post.castShadow = true;
+        dockGroup.add(post);
+      }
+    }
+
+    const railMat = new THREE.MeshStandardMaterial({ color: 0xbd8551 });
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.08), railMat);
+    rail.position.set(0, 0.55, -3);
+    dockGroup.add(rail);
+
+    dockGroup.position.set(0, 0.1, 6);
+    this.scene.add(dockGroup);
+    this.dockGroup = dockGroup;
+  }
+
+  buildTrees() {
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d6b3a, roughness: 0.8 });
+
+    const positions = [
+      [-12, 8], [-8, 14], [10, 12], [14, 6], [-16, -4], [18, -2],
+      [-6, 18], [8, 18], [-20, 10], [20, 8], [-14, 16], [16, 14],
+    ];
+
+    positions.forEach(([x, z]) => {
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 2.5), trunkMat);
+      trunk.position.y = 1.25;
+      trunk.castShadow = true;
+      const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.8, 4, 8), leafMat);
+      leaves.position.y = 4;
+      leaves.castShadow = true;
+      tree.add(trunk, leaves);
+      tree.position.set(x, 0, z);
+      tree.scale.setScalar(0.8 + Math.random() * 0.6);
+      this.scene.add(tree);
+    });
+  }
+
+  buildMountains() {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x6a8a9a, flatShading: true });
+    const peaks = [
+      { x: -40, z: -50, s: 18 },
+      { x: -20, z: -55, s: 14 },
+      { x: 10, z: -58, s: 20 },
+      { x: 35, z: -48, s: 16 },
+    ];
+    peaks.forEach(({ x, z, s }) => {
+      const m = new THREE.Mesh(new THREE.ConeGeometry(s, s * 1.2, 6), mat);
+      m.position.set(x, s * 0.4, z);
+      this.scene.add(m);
+    });
+  }
+
+  buildZoneMarkers() {
+    Object.values(ZONES).forEach((zone) => {
+      const group = new THREE.Group();
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.8, 1.1, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffd37a, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.05;
+      const pillar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 2),
+        new THREE.MeshStandardMaterial({ color: 0x0d4f73, emissive: 0x0d4f73, emissiveIntensity: 0.3 })
+      );
+      pillar.position.y = 1;
+      group.add(ring, pillar);
+      group.position.set(zone.teleport.x, 0, zone.teleport.z + 2);
+      group.userData.zoneId = zone.id;
+      this.scene.add(group);
+      this.zoneMarkers.push(group);
+    });
+  }
+
+  buildCamp() {
+    const tentMat = new THREE.MeshStandardMaterial({ color: 0xe85a4f, roughness: 0.7 });
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.2, 4), tentMat);
+    tent.position.set(-3, 1.1, 10);
+    tent.rotation.y = Math.PI / 4;
+    tent.castShadow = true;
+    this.scene.add(tent);
+
+    const fireGroup = new THREE.Group();
+    const logMat = new THREE.MeshStandardMaterial({ color: 0x4a3020 });
+    for (let i = 0; i < 4; i++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.8), logMat);
+      log.rotation.z = Math.PI / 2;
+      log.rotation.y = (i / 4) * Math.PI * 2;
+      fireGroup.add(log);
+    }
+    const flame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.2, 0.5, 6),
+      new THREE.MeshBasicMaterial({ color: 0xff8833 })
+    );
+    flame.position.y = 0.3;
+    fireGroup.add(flame);
+    fireGroup.position.set(2, 0.05, 9);
+    this.scene.add(fireGroup);
+    this.campFire = fireGroup;
+  }
+
+  spawnAmbientFish() {
+    const colors = [0x4a90c4, 0x3d6b4f, 0xe8a030, 0xc47a5a];
+    for (let i = 0; i < 24; i++) {
+      const fish = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.15, 8, 6),
+        new THREE.MeshStandardMaterial({
+          color: colors[i % colors.length],
+          transparent: true,
+          opacity: 0.55,
+        })
+      );
+      body.scale.set(2, 0.6, 0.8);
+      const tail = new THREE.Mesh(
+        new THREE.ConeGeometry(0.08, 0.2, 4),
+        new THREE.MeshStandardMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.5 })
+      );
+      tail.rotation.z = Math.PI / 2;
+      tail.position.x = -0.35;
+      fish.add(body, tail);
+      fish.position.set(
+        (Math.random() - 0.5) * 60,
+        -0.3 - Math.random() * 0.8,
+        -10 - Math.random() * 40
+      );
+      fish.userData = {
+        speed: 0.3 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+        radius: 2 + Math.random() * 4,
+        origin: fish.position.clone(),
+      };
+      this.scene.add(fish);
+      this.ambientFish.push(fish);
+    }
+  }
+
+  applyZone(zoneId) {
+    const zone = ZONES[zoneId];
+    if (!zone) return;
+    this.scene.fog.color.setHex(zone.fogColor);
+    this.scene.fog.near = zone.fogNear;
+    this.scene.fog.far = zone.fogFar;
+    this.scene.background.setHex(zone.skyTint);
+    this.waterUniforms.uDeepColor.value.setHSL(0.55, 0.5, 0.25 + zone.depth * 0.15);
+    this.waterUniforms.uShallowColor.value.setHSL(0.52, 0.55, 0.45 + zone.depth * 0.1);
+  }
+
+  update(time) {
+    this.waterUniforms.uTime.value = time;
+    if (this.campFire) {
+      const flame = this.campFire.children[4];
+      if (flame) {
+        flame.scale.y = 0.8 + Math.sin(time * 8) * 0.3;
+        flame.scale.x = 0.9 + Math.sin(time * 6) * 0.15;
+      }
+    }
+    this.ambientFish.forEach((fish) => {
+      const d = fish.userData;
+      fish.position.x = d.origin.x + Math.sin(time * d.speed + d.phase) * d.radius;
+      fish.position.z = d.origin.z + Math.cos(time * d.speed * 0.7 + d.phase) * d.radius * 0.5;
+      fish.rotation.y = Math.atan2(
+        Math.cos(time * d.speed + d.phase),
+        -Math.sin(time * d.speed * 0.7 + d.phase)
+      );
+    });
+    this.zoneMarkers.forEach((m, i) => {
+      m.children[0].material.opacity = 0.5 + Math.sin(time * 2 + i) * 0.2;
+    });
+  }
+
+  getWaterHeight(x, z, time) {
+    return (
+      Math.sin(x * 0.06 + time * 1.2) * 0.04 +
+      Math.sin(z * 0.05 - time * 0.9) * 0.03
+    );
+  }
+}

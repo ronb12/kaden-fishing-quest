@@ -3,69 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kaden Fishing Quest Prototype</title>
+    <title>Kaden VR Fishing Quest</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./app-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=DM+Sans:wght@400;700;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./top-tier-upgrades.css" />
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+    </script>
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <div class="copy">
-          <p class="eyebrow">Frontend Differentiation Pass</p>
-          <h1>Kaden Fishing Quest</h1>
-          <p>
-            A calm fishing adventure with a real game shell: prepare at camp, cast from
-            the dock, fill the codex, and upgrade gear for deeper-water catches without
-            turning the whole app into one long dashboard.
-          </p>
-          <div class="actions">
-            <button id="castBtn" type="button">Cast Line</button>
-            <button id="upgradeBtn" class="ghost" type="button">Upgrade Rod</button>
-          </div>
-        </div>
+    <canvas id="game-canvas"></canvas>
 
-        <aside class="lake-card" aria-label="3D-style fishing lake mockup">
-          <div class="hud">
-            <span id="fishCount">Fish 0</span>
-            <span id="coins">Coins 25</span>
-            <span id="rod">Rod Lvl 1</span>
-          </div>
-          <div class="camera-tag" id="zoneTag">Camp at Lake Dock</div>
-          <div class="lake">
-            <span class="water-glare"></span>
-            <span class="rod-line"></span>
-            <span class="bobber" id="bobber"></span>
-            <span class="fish-shadow f1"></span>
-            <span class="fish-shadow f2"></span>
-            <span class="fish-shadow f3"></span>
-            <span class="ripple r1"></span>
-            <span class="ripple r2"></span>
-            <span class="depth depth-near">Dock edge</span>
-            <span class="depth depth-far">Deep water</span>
-          </div>
-          <div class="catch-panel">
-            <span>Last Catch</span>
-            <strong id="lastCatch">Waiting for bite</strong>
-          </div>
-        </aside>
-      </section>
+    <div id="hud" class="hud">
+      <div class="hud-brand">
+        <span class="hud-title">Kaden VR Fishing</span>
+      </div>
+      <div class="hud-stats">
+        <span>🐟 <strong id="hud-fish">0</strong></span>
+        <span>🪙 <strong id="hud-coins">50</strong></span>
+        <span>🎣 Rod <strong id="hud-rod">1</strong></span>
+        <span>⛵ Boat <strong id="hud-boat">1</strong></span>
+        <span>📍 <strong id="hud-zone">Lake Dock</strong></span>
+      </div>
+      <p id="status-text" class="status-text">Click lake to look · Space to cast</p>
+    </div>
 
-      <nav class="subnav" aria-label="Kaden Fishing Quest views">
-        <button class="subnav-tab active" type="button" data-tab="camp">Camp</button>
-        <button class="subnav-tab" type="button" data-tab="cast">Cast</button>
-        <button class="subnav-tab" type="button" data-tab="codex">Codex</button>
-        <button class="subnav-tab" type="button" data-tab="gear">Gear</button>
+    <div id="tension-bar" class="tension-bar">
+      <label>Tension</label>
+      <div class="bar-track"><div id="tension-fill" class="bar-fill tension-fill"></div></div>
+      <label>Reel</label>
+      <div class="bar-track"><div id="reel-progress" class="bar-fill reel-fill"></div></div>
+    </div>
+
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu">☰</button>
+
+    <aside id="vr-menu" class="vr-menu">
+      <header class="menu-header">
+        <h2>Fishing Menu</h2>
+        <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
+      </header>
+      <nav class="menu-tabs">
+        <button class="active" type="button" data-panel="help">Help</button>
+        <button type="button" data-panel="zones">Zones</button>
+        <button type="button" data-panel="codex">Codex</button>
+        <button type="button" data-panel="gear">Gear</button>
+        <button type="button" data-panel="quests">Quests</button>
       </nav>
+      <div id="panel-content" class="panel-content"></div>
+    </aside>
 
-      <section id="app" class="app-shell" aria-live="polite"></section>
-      <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    </main>
-    <script src="./app.js"></script>
-    <script src="./top-tier-upgrades.js"></script>
+    <div id="catch-overlay" class="catch-overlay"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <div class="loading-hint">
+      <p>WebXR VR supported on Quest, Vision Pro, and desktop VR headsets.</p>
+      <p>Desktop: click to look · WASD move · Space cast · R reel · M menu</p>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
   </body>
 </html>
