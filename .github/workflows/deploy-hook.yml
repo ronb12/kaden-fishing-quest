@@ -1,17 +1,26 @@
 name: Deploy Hook
 
-# Trigger existing Vercel project via deploy hook (no token needed).
-# Add secret VERCEL_DEPLOY_HOOK from:
-# Vercel → kaden-fishing-quest → Settings → Git → Deploy Hooks
+# Fallback deploy path: trigger existing Vercel project via deploy hook (no token needed).
+# 1. Vercel → kaden-fishing-quest → Settings → Git → Deploy Hooks → create hook for main
+# 2. Add URL as GitHub secret VERCEL_DEPLOY_HOOK
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   trigger:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Vercel deploy hook
-        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK"
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK not configured — skipping hook deploy."
+            echo "Configure at: https://github.com/ronb12/kaden-fishing-quest/settings/secrets/actions"
+            exit 0
+          fi
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK"
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
