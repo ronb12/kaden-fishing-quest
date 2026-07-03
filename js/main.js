@@ -128,7 +128,6 @@ let handTracking = null;
 let boatVoyageActive = false;
 const travelOverlay = document.getElementById("travel-overlay");
 const fightCoach = document.getElementById("fight-coach");
-const namePrompt = document.getElementById("name-prompt");
 fishing.audioCamera = camera;
 
 document.body.appendChild(VRButton.createButton(renderer));
@@ -748,6 +747,10 @@ function teleportToZone(zoneId) {
   aimAtFishingPool(zone);
 }
 
+const clock = new THREE.Clock();
+const moveSpeed = 4;
+const WORLD_BOUNDS = 45;
+
 function resolvePlayerCollisions() {
   if (!env?.collisions) return;
   correctRigFromEye(player, camera, env.collisions, WORLD_BOUNDS);
@@ -796,19 +799,8 @@ env.updateBoatForLevel(getState().boatLevel);
 
 function maybeShowNamePrompt() {
   if (getState().displayName) return;
-  namePrompt?.classList.add("visible");
-  namePrompt?.setAttribute("aria-hidden", "false");
-  document.getElementById("name-prompt-save")?.addEventListener("click", () => {
-    const input = document.getElementById("name-prompt-input");
-    const result = setDisplayName(input?.value);
-    if (result.ok) {
-      namePrompt?.classList.remove("visible");
-      namePrompt?.setAttribute("aria-hidden", "true");
-      ui?.showToast(result.message);
-    } else {
-      ui?.showToast(result.message);
-    }
-  });
+  // Non-blocking hint — full-screen name modal blocked gameplay (especially VR).
+  ui?.showToast("Tip: set your angler name in Menu → Settings for the leaderboard.");
 }
 maybeShowNamePrompt();
 
@@ -855,10 +847,6 @@ if (touch.active) {
   document.getElementById("status-text").textContent = "Drag right to look · joystick to move · follow the path to the cabin";
   updateTouchUI();
 }
-
-const clock = new THREE.Clock();
-const moveSpeed = 4;
-const WORLD_BOUNDS = 45;
 
 function updateDesktopMovement(dt) {
   if (inVR) return;

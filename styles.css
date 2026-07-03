@@ -1751,6 +1751,14 @@ body.touch-mode .hud-stats {
   font-weight: 800;
   cursor: pointer;
 }
+.name-prompt-skip {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  background: transparent !important;
+  color: rgba(255,255,255,0.75) !important;
+  font-weight: 600 !important;
+}
 
 .daily-section, .chain-section, .trophy-wall { margin-top: 16px; }
 .daily-row, .chain-row, .trophy-row {
