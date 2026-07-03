@@ -106,7 +106,9 @@ export function initUI(fishing, callbacks) {
     return `
       <h3>VR Controls</h3>
       <ul class="help-list">
-        <li><strong>Right Trigger</strong> — Cast / Hook / Reel</li>
+        <li><strong>Cast</strong> — Pull rod back, then swing forward (like a real cast)</li>
+        <li><strong>Hook</strong> — Jerk rod upward on a bite, or pull right trigger</li>
+        <li><strong>Reel</strong> — Crank your wrist in a circle, or pull rod toward you</li>
         <li><strong>Left Trigger on zone pad</strong> — Teleport to zone</li>
         <li><strong>Left Grip</strong> — Open menu</li>
       </ul>

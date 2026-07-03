@@ -19,6 +19,7 @@ import * as audio from "./audio.js";
 import { initTouchControls } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
 import { loadEnvironmentMaps } from "./environment-loader.js";
+import { VRFishingMotion } from "./vr-fishing.js";
 import { BUILD_ID } from "./version.js";
 
 let ui = null;
@@ -81,13 +82,17 @@ for (let i = 0; i < 2; i++) {
 }
 
 fishing.attachToController(controllers[1]);
+const vrMotion = new VRFishingMotion();
 
 document.body.appendChild(VRButton.createButton(renderer));
 
 let inVR = false;
 renderer.xr.addEventListener("sessionstart", () => {
   inVR = true;
+  vrMotion.resetCast();
   teleportToZone(getState().zone);
+  ui?.setStatus(fishing.getStatusText(true));
+  ui?.showToast("VR: pull back and swing to cast · crank wrist to reel");
 });
 renderer.xr.addEventListener("sessionend", () => {
   inVR = false;
@@ -111,15 +116,17 @@ function getAimDirection() {
   return aim.normalize();
 }
 
-function performCast(power) {
-  const aim = getAimDirection();
-  if (inVR) {
-    const swing = fishing.detectCastSwing(controllers[1]);
-    const vrPower = Math.min(1, Math.max(0.3, 0.35 + swing * 12));
-    fishing.startCast(vrPower, aim);
-  } else {
-    fishing.startCast(power, aim);
-  }
+function getVrAimDirection() {
+  const aim = new THREE.Vector3(0, 0, -1);
+  aim.applyQuaternion(controllers[1].quaternion);
+  aim.y = 0;
+  if (aim.lengthSq() < 0.01) return getAimDirection();
+  return aim.normalize();
+}
+
+function performCast(power, aimDir = null) {
+  const aim = aimDir || (inVR ? getVrAimDirection() : getAimDirection());
+  fishing.startCast(power, aim);
 }
 
 document.addEventListener("keydown", (e) => {
@@ -212,17 +219,20 @@ function tryVrZoneTeleport(controller) {
 function handleFishingAction() {
   const fs = fishing.state;
   if (fs === FishingState.IDLE) {
+    if (inVR) {
+      ui?.showToast("Pull rod back, then swing forward to cast");
+      return;
+    }
     if (touch.active) {
       performCast(0.75);
-    } else if (!inVR) {
+    } else {
       castCharging = true;
       castCharge = 0;
-    } else {
-      performCast(0.75);
     }
   } else if (fs === FishingState.BITING) {
     fishing.hookFish();
-  } else if (fs === FishingState.REELING) {
+    vrMotion.pulseHaptic(controllers[1], 0.75, 60);
+  } else if (fs === FishingState.REELING && !inVR) {
     reelHeld = true;
   }
   updateTouchUI();
@@ -322,7 +332,8 @@ function onFishingEvent(type, data) {
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
       ui?.setTension(0, 0, false);
-      ui?.setStatus(fishing.getStatusText());
+      ui?.setStatus(fishing.getStatusText(inVR));
+      vrMotion.resetCast();
       break;
     default:
       ui?.setStatus(fishing.getStatusText());
@@ -474,6 +485,45 @@ function updateDesktopMovement(dt) {
   });
 }
 
+function updateVrFishing(dt) {
+  if (!inVR) return;
+
+  const motion = vrMotion.update(
+    controllers[1],
+    camera,
+    fishing.rodGroup,
+    dt,
+    fishing.state
+  );
+
+  fishing.setVrWindup(motion.swingVisual);
+
+  if (fishing.state === FishingState.IDLE && motion.windup > 0.12) {
+    ui?.setStatus(`Wind up… ${Math.round(motion.windup * 100)}% — swing forward to cast!`);
+  }
+
+  if (motion.castRelease && fishing.state === FishingState.IDLE) {
+    if (fishing.startCast(motion.castRelease.power, motion.castRelease.aimDir)) {
+      ui?.setStatus(fishing.getStatusText(true));
+    }
+  }
+
+  if (motion.hookSet && fishing.state === FishingState.BITING) {
+    fishing.hookFish();
+    ui?.setStatus(fishing.getStatusText(true));
+  }
+
+  if (fishing.state === FishingState.REELING && motion.reelIntensity > 0.02) {
+    fishing.reel(dt, motion.reelIntensity);
+    reelHeld = true;
+  } else if (fishing.state === FishingState.REELING) {
+    fishing.updateReelIdle(dt);
+    reelHeld = false;
+  }
+
+  fishing.updateRodTransform(controllers[1], motion);
+}
+
 function checkZoneTeleports() {
   const pos = inVR ? new THREE.Vector3() : camera.position;
   if (inVR) return;
@@ -496,17 +546,20 @@ renderer.setAnimationLoop(() => {
   const time = clock.elapsedTime;
 
   env.update(time, dt, camera);
+  updateVrFishing(dt);
   updateDesktopMovement(dt);
   checkZoneTeleports();
 
   if (inVR) {
-    fishing.updateRodTransform(controllers[1]);
+    if (fishing.state !== FishingState.REELING) {
+      fishing.updateRodTransform(controllers[1], { swingVisual: fishing.vrWindupBend });
+    }
   }
 
   const isReeling = fishing.state === FishingState.REELING;
-  if (reelHeld && isReeling) {
+  if (!inVR && reelHeld && isReeling) {
     fishing.reel(dt, 1);
-  } else if (isReeling) {
+  } else if (!inVR && isReeling) {
     fishing.updateReelIdle(dt);
   } else if (prevReelHeld) {
     fishing.stopReeling();

@@ -46,6 +46,8 @@ export class FishingSystem {
     this.failReason = "default";
     this.baseRodRotation = { x: -0.55, y: 0.18, z: -0.08 };
     this.rodBend = 0;
+    this.castStartPos = new THREE.Vector3();
+    this.vrWindupBend = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
   }
@@ -103,17 +105,25 @@ export class FishingSystem {
     return pos;
   }
 
-  updateRodTransform(controller) {
+  updateRodTransform(controller, vrMotion = null) {
     if (!controller) return;
     this.rodGroup.position.copy(controller.position);
     this.rodGroup.quaternion.copy(controller.quaternion);
-    const castSwing = this.state === FishingState.CASTING ? Math.sin(this.castAnim * Math.PI) * 0.45 : 0;
+    const windupBend = vrMotion?.swingVisual ?? this.vrWindupBend ?? 0;
+    const castSwing =
+      this.state === FishingState.CASTING
+        ? Math.sin(this.castAnim * Math.PI) * 0.55
+        : windupBend * 0.38;
     const fightBend = this.state === FishingState.REELING ? this.tension * 0.22 : 0;
     const biteBend = this.state === FishingState.BITING ? 0.12 : 0;
     this.rodBend += ((fightBend + biteBend) - this.rodBend) * 0.12;
     this.rodGroup.rotateX(this.baseRodRotation.x - castSwing + this.rodBend, true);
     this.rodGroup.rotateY(this.baseRodRotation.y, true);
     this.rodGroup.rotateZ(this.baseRodRotation.z, true);
+  }
+
+  setVrWindup(amount) {
+    this.vrWindupBend = amount;
   }
 
   surfaceY(x, z, time) {
@@ -151,10 +161,29 @@ export class FishingSystem {
     this.hookGroup.position.y -= 0.04;
     this.hookGroup.visible = this.state === FishingState.IDLE;
     this.bobber.visible =
-      this.state !== FishingState.IDLE &&
-      this.state !== FishingState.CAUGHT &&
-      this.state !== FishingState.FAILED &&
-      this.state !== FishingState.CASTING;
+      this.state === FishingState.CASTING ||
+      (this.state !== FishingState.IDLE &&
+        this.state !== FishingState.CAUGHT &&
+        this.state !== FishingState.FAILED);
+  }
+
+  updateCastFlight(time) {
+    const t = Math.min(1, this.castAnim);
+    const start = this.castStartPos;
+    const end = this.castTarget;
+    const arc = 1.1 + this.castPower * 2.4;
+    const midX = (start.x + end.x) * 0.5;
+    const midZ = (start.z + end.z) * 0.5;
+    const midY = Math.max(start.y, end.y) + arc;
+    const u = 1 - t;
+    this.bobber.position.set(
+      u * u * start.x + 2 * u * t * midX + t * t * end.x,
+      u * u * start.y + 2 * u * t * midY + t * t * end.y,
+      u * u * start.z + 2 * u * t * midZ + t * t * end.z
+    );
+    this.hookGroup.position.copy(this.bobber.position);
+    this.hookGroup.position.y -= 0.05;
+    this.hookGroup.visible = true;
   }
 
   startCast(power = 0.7, aimDir = null) {
@@ -167,6 +196,7 @@ export class FishingSystem {
     this.castPower = Math.min(1, Math.max(0.2, power));
     this.state = FishingState.CASTING;
     this.castAnim = 0;
+    this.castStartPos.copy(this.getRodTipWorld());
     this.hookGroup.visible = false;
     audio.playCast();
 
@@ -209,7 +239,8 @@ export class FishingSystem {
 
   update(dt, time) {
     if (this.state === FishingState.CASTING) {
-      this.castAnim += dt * 2.5;
+      this.castAnim += dt * (2.2 + this.castPower * 1.4);
+      this.updateCastFlight(time);
       if (this.castAnim >= 1) this.finishCast();
     }
 
@@ -530,21 +561,27 @@ export class FishingSystem {
     return vel;
   }
 
-  getStatusText() {
+  getStatusText(vr = false) {
     const bait = getSelectedBait();
     switch (this.state) {
       case FishingState.IDLE:
-        return `Ready — ${bait.name} on hook · aim and cast`;
+        return vr
+          ? `Pull rod back, then swing forward to cast · ${bait.name} on hook`
+          : `Ready — ${bait.name} on hook · aim and cast`;
       case FishingState.CASTING:
-        return "Casting...";
+        return "Line flying...";
       case FishingState.WAITING:
         return this.preBiteWarned
           ? `Something's near the ${bait.name}... get ready!`
           : `Waiting with ${bait.name}...`;
       case FishingState.BITING:
-        return `BITE! ${this.pendingFish?.name || "Fish"} — hook now!`;
+        return vr
+          ? `BITE! Jerk rod upward or pull trigger to hook!`
+          : `BITE! ${this.pendingFish?.name || "Fish"} — hook now!`;
       case FishingState.REELING:
-        return `Hooked! Hold reel — watch tension bar`;
+        return vr
+          ? `Crank the reel handle — pull rod toward you`
+          : `Hooked! Hold reel — watch tension bar`;
       case FishingState.CAUGHT:
         return "Nice catch!";
       case FishingState.FAILED:
