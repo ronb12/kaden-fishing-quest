@@ -345,13 +345,14 @@ export class LakeEnvironment {
       { cat: "env", keys: ["BirchTree_1", "BirchTree_2", "BirchTree_3"] },
     ];
     const positions = [
-      [-12, 8], [-8, 14], [10, 12], [14, 6], [-16, -4], [18, -2],
-      [-6, 18], [8, 18], [-20, 10], [20, 8], [-22, 24], [16, 14],
+      [10, 12], [14, 6], [-16, -4], [18, -2],
+      [8, 18], [20, 8], [16, 14], [-24, 6], [22, 16], [-18, -8],
     ];
 
     positions.forEach(([x, z], i) => {
-      if (!isClearOfCampground(x, z)) return;
       const useKenney = i % 2 === 0;
+      const treeRadius = useKenney ? 9 : 3.5;
+      if (!isClearOfCampground(x, z, treeRadius)) return;
       const source = useKenney ? treeSources[0] : treeSources[1];
       const key = source.keys[i % source.keys.length];
       const gltf = assets?.[source.cat]?.[key];

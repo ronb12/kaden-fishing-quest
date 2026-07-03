@@ -6,11 +6,21 @@ export const CAMP_ORIGIN = { x: -14, z: 20 };
 export const CABIN_SIZE = { width: 9.6, depth: 8.4, height: 3.65, wall: 0.2 };
 export const DOOR_WIDTH = 1.75;
 
-/** Keep trees and props out of the cabin and campground pad. */
-export function isClearOfCampground(x, z) {
-  const padW = CABIN_SIZE.width / 2 + 3.5;
-  const padD = CABIN_SIZE.depth / 2 + 4.5;
-  return Math.abs(x - CAMP_ORIGIN.x) >= padW || Math.abs(z - CAMP_ORIGIN.z) >= padD;
+/** Keep trees and props out of the cabin (checks trunk + canopy radius). */
+export function isClearOfCampground(x, z, radius = 8) {
+  const cx = CAMP_ORIGIN.x;
+  const cz = CAMP_ORIGIN.z;
+  const hw = CABIN_SIZE.width / 2 + 2;
+  const hd = CABIN_SIZE.depth / 2 + 2;
+  const minX = cx - hw;
+  const maxX = cx + hw;
+  const minZ = cz - hd;
+  const maxZ = cz + hd;
+  const closestX = Math.max(minX, Math.min(x, maxX));
+  const closestZ = Math.max(minZ, Math.min(z, maxZ));
+  const dx = x - closestX;
+  const dz = z - closestZ;
+  return dx * dx + dz * dz >= radius * radius;
 }
 
 const _rayDir = new THREE.Vector3();
