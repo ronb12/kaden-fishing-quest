@@ -1,5 +1,6 @@
 const SAMPLE_URLS = {
   ambient: "./assets/audio/ambient/fishing-port.ogg",
+  ambientGulls: "./assets/audio/ambient/gulls-harbor.ogg",
   cast: "./assets/audio/kenney/impactWood_light_001.ogg",
   splash: "./assets/audio/kenney/impactSoft_heavy_002.ogg",
   bite: "./assets/audio/kenney/pepSound3.ogg",
@@ -17,7 +18,7 @@ let ctx = null;
 let buffers = {};
 let sfxEnabled = true;
 let musicEnabled = true;
-let ambientNodes = null;
+let ambientLayers = null;
 let reelNodes = null;
 
 function getCtx() {
@@ -72,7 +73,7 @@ function tone(freq, duration, type = "sine", gain = 0.08, decay = 0.15) {
 }
 
 function playSample(key, { gain = 0.35, rate = 1, loop = false } = {}) {
-  if (!sfxEnabled && key !== "ambient") return false;
+  if (!sfxEnabled && !key.startsWith("ambient")) return false;
   const buffer = buffers[key];
   if (!buffer) return false;
   const ac = getCtx();
@@ -89,10 +90,11 @@ function playSample(key, { gain = 0.35, rate = 1, loop = false } = {}) {
 }
 
 export function startAmbient() {
-  if (!musicEnabled || ambientNodes) return;
-  const played = playSample("ambient", { gain: 0.14, loop: true });
-  if (played) {
-    ambientNodes = played;
+  if (!musicEnabled || ambientLayers) return;
+  const port = playSample("ambient", { gain: 0.11, loop: true });
+  const gulls = playSample("ambientGulls", { gain: 0.05, loop: true });
+  if (port || gulls) {
+    ambientLayers = [port, gulls].filter(Boolean);
     return;
   }
   const ac = getCtx();
@@ -113,22 +115,22 @@ export function startAmbient() {
   g.connect(ac.destination);
   osc1.start();
   osc2.start();
-  ambientNodes = { osc1, osc2, g, procedural: true };
+  ambientLayers = { osc1, osc2, g, procedural: true };
 }
 
 export function stopAmbient() {
-  if (!ambientNodes) return;
+  if (!ambientLayers) return;
   try {
-    if (ambientNodes.procedural) {
-      ambientNodes.osc1.stop();
-      ambientNodes.osc2.stop();
+    if (ambientLayers.procedural) {
+      ambientLayers.osc1.stop();
+      ambientLayers.osc2.stop();
     } else {
-      ambientNodes.src.stop();
+      ambientLayers.forEach((layer) => layer?.src?.stop());
     }
   } catch {
     /* already stopped */
   }
-  ambientNodes = null;
+  ambientLayers = null;
 }
 
 export function playCast() {

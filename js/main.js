@@ -18,6 +18,7 @@ import { BAITS, ZONES } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouchControls } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
+import { loadEnvironmentMaps } from "./environment-loader.js";
 import { BUILD_ID } from "./version.js";
 
 let ui = null;
@@ -29,6 +30,8 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 renderer.xr.enabled = true;
 
 const scene = new THREE.Scene();
@@ -51,9 +54,11 @@ await loadGameAssets((progress, name) => {
   if (loadingLabel) loadingLabel.textContent = name ? `Loading ${name.replace(/_/g, " ")}…` : "Loading assets…";
 });
 await audio.loadAudioAssets();
+if (loadingLabel) loadingLabel.textContent = "Loading sky and lighting…";
+const envMaps = await loadEnvironmentMaps(renderer);
 loadingEl?.classList.add("hidden");
 
-env = new LakeEnvironment(scene);
+env = new LakeEnvironment(scene, envMaps);
 env.applyZone(getState().zone);
 
 fishing = new FishingSystem(scene, env, onFishingEvent);
@@ -490,7 +495,7 @@ renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   const time = clock.elapsedTime;
 
-  env.update(time, dt);
+  env.update(time, dt, camera);
   updateDesktopMovement(dt);
   checkZoneTeleports();
 

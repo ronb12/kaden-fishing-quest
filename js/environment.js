@@ -31,6 +31,9 @@ const WATER_FRAG = `
   uniform vec3 uDeepColor;
   uniform vec3 uShallowColor;
   uniform vec3 uSunDir;
+  uniform samplerCube uEnvMap;
+  uniform vec3 uCameraPos;
+  uniform float uUseEnv;
   varying vec2 vUv;
   varying vec3 vWorldPos;
   varying float vWave;
@@ -40,24 +43,47 @@ const WATER_FRAG = `
     float w = sin(p.x * 0.6 + uTime * 2.0) * 0.5
             + sin(p.y * 0.5 - uTime * 1.6) * 0.45
             + sin((p.x + p.y) * 0.35 + uTime * 1.3) * 0.3;
-    float fresnel = pow(1.0 - max(dot(normalize(vec3(0.0, 1.0, vWave * 2.0)), vec3(0.0, 1.0, 0.3)), 0.0), 2.5);
+    vec3 normal = normalize(vec3(0.0, 1.0, vWave * 2.0));
+    float fresnel = pow(1.0 - max(dot(normal, normalize(vec3(0.0, 1.0, 0.3))), 0.0), 2.5);
     vec3 col = mix(uShallowColor, uDeepColor, fresnel * 0.55 + 0.25);
     col += vec3(0.2, 0.28, 0.35) * w * 0.12;
-    col += vec3(0.85, 0.92, 1.0) * pow(max(dot(reflect(uSunDir, normalize(vec3(0.0,1.0,vWave))), vec3(0.0,1.0,0.0)), 0.0), 48.0) * 0.45;
+    col += vec3(0.85, 0.92, 1.0) * pow(max(dot(reflect(uSunDir, normal), vec3(0.0,1.0,0.0)), 0.0), 48.0) * 0.45;
+    if (uUseEnv > 0.5) {
+      vec3 viewDir = normalize(vWorldPos - uCameraPos);
+      vec3 reflectDir = reflect(viewDir, normal);
+      vec3 envRef = texture(uEnvMap, reflectDir).rgb;
+      col = mix(col, envRef, fresnel * 0.42);
+    }
     float foam = smoothstep(0.08, 0.14, vWave) * 0.15;
     col += vec3(foam);
-    gl_FragColor = vec4(col, 0.92);
+    gl_FragColor = vec4(col, 0.9);
   }
 `;
 
 export class LakeEnvironment {
-  constructor(scene) {
+  static createDummyEnvMap() {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 2;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#8ab0c8";
+    ctx.fillRect(0, 0, 2, 2);
+    const faces = [canvas, canvas, canvas, canvas, canvas, canvas];
+    const cube = new THREE.CubeTexture(faces);
+    cube.needsUpdate = true;
+    return cube;
+  }
+
+  constructor(scene, envMaps = null) {
     this.scene = scene;
+    this.envMaps = envMaps;
     this.waterUniforms = {
       uTime: { value: 0 },
       uDeepColor: { value: new THREE.Color(0x07506e) },
       uShallowColor: { value: new THREE.Color(0x1a9ab8) },
       uSunDir: { value: new THREE.Vector3(0.4, 0.8, 0.3).normalize() },
+      uEnvMap: { value: envMaps?.envMap || LakeEnvironment.createDummyEnvMap() },
+      uCameraPos: { value: new THREE.Vector3() },
+      uUseEnv: { value: envMaps?.envMap ? 1 : 0 },
     };
     this.zoneMarkers = [];
     this.ambientFish = [];
@@ -68,10 +94,16 @@ export class LakeEnvironment {
   }
 
   build() {
-    this.scene.fog = new THREE.Fog(0x8ec4d8, 30, 120);
-    this.scene.background = new THREE.Color(0xc9edf9);
+    if (this.envMaps?.background) {
+      this.scene.background = this.envMaps.background;
+      this.scene.environment = this.envMaps.envMap;
+      this.scene.fog = new THREE.Fog(0x8ab0a8, 35, 140);
+    } else {
+      this.scene.fog = new THREE.Fog(0x8ec4d8, 30, 120);
+      this.scene.background = new THREE.Color(0xc9edf9);
+    }
 
-    const hemi = new THREE.HemisphereLight(0xc9edf9, 0x3a6a5a, 0.7);
+    const hemi = new THREE.HemisphereLight(0xc9edf9, 0x3a6a5a, this.envMaps ? 0.45 : 0.7);
     this.scene.add(hemi);
 
     const sun = new THREE.DirectionalLight(0xfff4d6, 1.2);
@@ -211,10 +243,16 @@ export class LakeEnvironment {
   }
 
   buildGround() {
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 })
-    );
+    const mat = this.envMaps?.groundDiff
+      ? new THREE.MeshStandardMaterial({
+          map: this.envMaps.groundDiff,
+          normalMap: this.envMaps.groundNor,
+          normalScale: new THREE.Vector2(0.4, 0.4),
+          roughness: 0.92,
+          metalness: 0.02,
+        })
+      : new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), mat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.05;
     ground.receiveShadow = true;
@@ -443,10 +481,12 @@ export class LakeEnvironment {
     const zone = ZONES[zoneId];
     if (!zone) return;
     this.currentZoneId = zoneId;
+    if (!this.envMaps) {
+      this.scene.background.setHex(zone.skyTint);
+    }
     this.scene.fog.color.setHex(zone.fogColor);
     this.scene.fog.near = zone.fogNear;
     this.scene.fog.far = zone.fogFar;
-    this.scene.background.setHex(zone.skyTint);
     this.waterUniforms.uDeepColor.value.setHSL(0.55, 0.5, 0.25 + zone.depth * 0.15);
     this.waterUniforms.uShallowColor.value.setHSL(0.52, 0.55, 0.45 + zone.depth * 0.1);
     Object.entries(this.zoneDressing).forEach(([id, group]) => {
@@ -465,8 +505,9 @@ export class LakeEnvironment {
     }
   }
 
-  update(time, dt = 0.016) {
+  update(time, dt = 0.016, camera = null) {
     this.waterUniforms.uTime.value = time;
+    if (camera) this.waterUniforms.uCameraPos.value.copy(camera.position);
     if (this.campFire) {
       const flame = this.campFire.children[4];
       if (flame) {

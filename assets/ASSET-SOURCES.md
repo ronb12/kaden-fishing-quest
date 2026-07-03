@@ -55,6 +55,19 @@ SFX in `assets/audio/kenney/` from:
 | File | Use |
 |------|-----|
 | fishing-port.ogg | Ambient loop — [Small fishing port #1](https://bigsoundbank.com/small-fishing-port-1-s2571.html) by Joseph SARDIN |
+| gulls-harbor.ogg | Layered ambience — [Gulls on the Harbor](https://bigsoundbank.com/gulls-on-the-harbor-s2573.html) by Joseph SARDIN |
+
+## Tier 2 — Poly Haven (CC0)
+
+Environment lighting and PBR terrain in `assets/hdri/` and `assets/textures/`.
+
+| Asset | Source |
+|-------|--------|
+| pond_1k.hdr | [Pond HDRI](https://polyhaven.com/a/pond) — sky, image-based lighting, water reflections |
+| ground_grass_rock_diff.jpg | [Aerial Grass Rock](https://polyhaven.com/a/aerial_grass_rock) — tiled ground albedo |
+| ground_grass_rock_nor.jpg | [Aerial Grass Rock](https://polyhaven.com/a/aerial_grass_rock) — ground normal map |
+
+Credit: [Poly Haven](https://polyhaven.com) — CC0, attribution appreciated.
 
 ## 2D Reference (not used in 3D scene)
 
