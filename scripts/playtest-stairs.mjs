@@ -118,7 +118,7 @@ try {
 
   // Side cut-through should be blocked.
   await page.evaluate(() => {
-    window.__setPlaytestCamera(-1.1, 1.6, 15, -2, 1.6, 15);
+    window.__setPlaytestCamera(-1.1, 1.6, 14, -2, 1.6, 14);
   });
   const sideTrace = await page.evaluate(() => window.__playtest.walk(-1, 0, 0.6));
   const maxLeft = Math.min(...sideTrace.map((p) => p.x));

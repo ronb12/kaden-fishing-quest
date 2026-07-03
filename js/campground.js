@@ -88,8 +88,8 @@ export class Campground {
     const assets = getAssets();
     const pathWood = assets?.kenney?.path_wood;
     const pathPoints = [
-      { x: DOCK_SHORE.x, z: DOCK_SHORE.z },
-      { x: -0.5, z: DOCK_SHORE.z + 1.8 },
+      { x: DOCK_SHORE.x - 2.2, z: DOCK_SHORE.z + 0.6 },
+      { x: -1.8, z: DOCK_SHORE.z + 2.2 },
       { x: -1.8, z: DOCK_SHORE.z + 3.5 },
       { x: -4.2, z: DOCK_SHORE.z + 5.2 },
       { x: -7.2, z: DOCK_SHORE.z + 6.5 },

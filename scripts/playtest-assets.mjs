@@ -78,7 +78,7 @@ try {
   await page.waitForTimeout(2000);
 
   const views = [
-    { name: "dock-spawn", x: 0, y: 1.6, z: 16.8, lookX: 0, lookY: 1, lookZ: 8 },
+    { name: "dock-spawn", x: 0, y: 1.6, z: 18.8, lookX: 0, lookY: 1, lookZ: 8 },
     { name: "dock-end", x: 0, y: 1.6, z: 4, lookX: 0, lookY: 0.8, lookZ: -8 },
     { name: "camp-path", x: -8, y: 1.6, z: 16, lookX: -14, lookY: 1.2, lookZ: 20 },
     { name: "cabin-exterior", x: -10, y: 1.6, z: 24, lookX: -14, lookY: 2.5, lookZ: 20 },

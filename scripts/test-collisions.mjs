@@ -61,7 +61,7 @@ const stairCenter = moveWithCollisions(
 assert("stairs center walkable", Math.abs(stairCenter.x) < 0.1 && stairCenter.z > DOCK_STAIRS.minZ + 0.4);
 
 const throughStairSide = moveWithCollisions(
-  new THREE.Vector3(DOCK_STAIRS.centerX - 0.7, 1.6, 15),
+  new THREE.Vector3(DOCK_STAIRS.centerX - 0.7, 1.6, 14),
   { x: -0.5, z: 0 },
   c
 );

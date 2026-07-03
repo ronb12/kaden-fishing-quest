@@ -1,7 +1,13 @@
 /** Shared dock / shore layout (world coordinates). */
 export const DOCK_GROUP = { x: 0, z: 3.2 };
-/** Shore deck center in dock group local space. */
-export const DOCK_SHORE_LOCAL_Z = 12.4;
+
+/** Pier bridge segment local Z (single span — ends before stairs). */
+export const DOCK_BRIDGE_LOCAL_Z = 4.5;
+/** Stairs mesh local Z in dock group space. */
+export const DOCK_STAIRS_LOCAL_Z = 10.8;
+/** Shore deck center in dock group local space (past stairs, no overlap). */
+export const DOCK_SHORE_LOCAL_Z = 14.4;
+
 /** World-space shore deck where the camp path begins. */
 export const DOCK_SHORE = { x: 0, z: DOCK_GROUP.z + DOCK_SHORE_LOCAL_Z };
 /** Clear spawn on grass just past the shore deck. */
@@ -27,11 +33,11 @@ export function isOnDockWalk(x, z) {
   );
 }
 
-/** Dock_Stairs.glb at local z=11.8, scale 0.38 — measured world XZ footprint. */
+/** Dock_Stairs.glb at local z=10.8, scale 0.38 — measured world XZ footprint. */
 export const DOCK_STAIRS = {
   centerX: DOCK_GROUP.x,
-  minZ: 13.2,
-  maxZ: 16.85,
+  minZ: 12.2,
+  maxZ: 15.85,
   halfWidth: 1.32,
   /** Mesh ramp is high at the dock end (+Z toward shore goes downhill on the tread). */
   highEyeY: 2.92,

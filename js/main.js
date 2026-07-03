@@ -955,5 +955,30 @@ if (new URLSearchParams(location.search).has("playtest")) {
       };
       requestAnimationFrame(tick);
     }),
+    listMeshes: (pattern = "boat|dock|Deep") => {
+      const re = new RegExp(pattern, "i");
+      const items = [];
+      scene.traverse((obj) => {
+        const path = [];
+        let p = obj;
+        while (p) {
+          if (p.name) path.unshift(p.name);
+          p = p.parent;
+        }
+        const fullName = path.join("/") || obj.type;
+        if (!re.test(fullName)) return;
+        const wp = new THREE.Vector3();
+        obj.getWorldPosition(wp);
+        items.push({
+          name: fullName,
+          type: obj.type,
+          visible: obj.visible,
+          x: +wp.x.toFixed(2),
+          y: +wp.y.toFixed(2),
+          z: +wp.z.toFixed(2),
+        });
+      });
+      return items;
+    },
   };
 }
