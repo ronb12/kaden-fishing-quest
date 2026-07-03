@@ -21,36 +21,46 @@ export const DOCK_STAIRS = {
   minZ: 13.2,
   maxZ: 16.85,
   halfWidth: 1.32,
-  lowEyeY: 1.52,
-  highEyeY: 1.86,
+  /** Mesh ramp is high at the dock end (+Z toward shore goes downhill on the tread). */
+  highEyeY: 2.92,
+  lowEyeY: 1.77,
+  eyeOffset: 0.92,
 };
 
 export function isOnDockStairs(x, z) {
   return (
     Math.abs(x - DOCK_STAIRS.centerX) <= DOCK_STAIRS.halfWidth + 0.35 &&
-    z >= DOCK_STAIRS.minZ &&
-    z <= DOCK_STAIRS.maxZ
+    z >= DOCK_STAIRS.minZ - 0.15 &&
+    z <= DOCK_STAIRS.maxZ + 0.2
   );
 }
 
-/** Ramp eye height so the player rides the stairs instead of clipping through them. */
-export function getDockStairEyeHeight(x, z) {
+/** Fallback ramp eye height when mesh raycast misses (high at dock end, lower at shore). */
+export function getDockStairEyeHeightFallback(x, z) {
   if (!isOnDockStairs(x, z)) return null;
   const t = (z - DOCK_STAIRS.minZ) / (DOCK_STAIRS.maxZ - DOCK_STAIRS.minZ);
-  return DOCK_STAIRS.lowEyeY + t * (DOCK_STAIRS.highEyeY - DOCK_STAIRS.lowEyeY);
+  const surface = DOCK_STAIRS.highEyeY - DOCK_STAIRS.eyeOffset
+    + t * ((DOCK_STAIRS.lowEyeY - DOCK_STAIRS.eyeOffset) - (DOCK_STAIRS.highEyeY - DOCK_STAIRS.eyeOffset));
+  return surface + DOCK_STAIRS.eyeOffset;
+}
+
+/** @deprecated use LakeEnvironment.getDockStairEyeHeight */
+export function getDockStairEyeHeight(x, z) {
+  return getDockStairEyeHeightFallback(x, z);
 }
 
 /** Side rails along the stair ramp so players cannot walk through the mesh. */
 export function registerDockStairsCollisions(collisionSystem) {
   const { centerX: cx, minZ, maxZ, halfWidth } = DOCK_STAIRS;
   const railOut = 2.2;
-  const steps = 6;
+  const treadHalf = 0.48;
+  const steps = 8;
   const stepLen = (maxZ - minZ) / steps;
   for (let i = 0; i < steps; i++) {
     const z0 = minZ + i * stepLen;
-    const z1 = minZ + (i + 1) * stepLen + 0.05;
-    collisionSystem.addBox(cx - halfWidth - railOut, cx - halfWidth, z0, z1);
-    collisionSystem.addBox(cx + halfWidth, cx + halfWidth + railOut, z0, z1);
+    const z1 = minZ + (i + 1) * stepLen + 0.04;
+    collisionSystem.addBox(cx - halfWidth - railOut, cx - treadHalf, z0, z1);
+    collisionSystem.addBox(cx + treadHalf, cx + halfWidth + railOut, z0, z1);
   }
 }
 

@@ -22,7 +22,7 @@ import { loadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
 import { moveWithCollisions } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
-import { DOCK_SPAWN, getDockStairEyeHeight } from "./dock-layout.js";
+import { DOCK_SPAWN } from "./dock-layout.js";
 import { tensionZone } from "./fish-fight.js";
 import { getRodStats } from "./gear-stats.js";
 
@@ -511,11 +511,20 @@ function aimAtFishingPool(zone) {
   mouseY = Math.max(-1.2, Math.min(1.2, mouseY));
 }
 
+function applyGroundEyeHeight() {
+  if (inVR) return;
+  let y = 1.6;
+  const stairY = env?.getDockStairEyeHeight?.(camera.position.x, camera.position.z);
+  if (stairY != null) y = stairY;
+  camera.position.y = y;
+}
+
 function teleportToZone(zoneId) {
   const zone = ZONES[zoneId];
   if (!zone) return;
   const offset = new THREE.Vector3(zone.teleport.x, zone.teleport.y + 1.6, zone.teleport.z);
   camera.position.copy(offset);
+  applyGroundEyeHeight();
   aimAtFishingPool(zone);
 }
 
@@ -635,11 +644,12 @@ function updateDesktopMovement(dt) {
     } else {
       camera.position.add(delta);
     }
-    camera.position.y = 1.6;
-    const stairY = getDockStairEyeHeight(camera.position.x, camera.position.z);
-    if (stairY != null) camera.position.y = stairY;
+    if (env?.collisions) {
+      camera.position.copy(env.collisions.resolve(camera.position));
+    }
     camera.position.x = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.x));
     camera.position.z = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.z));
+    applyGroundEyeHeight();
     if (env?.collisions) {
       camera.position.copy(env.collisions.resolve(camera.position));
     }
@@ -724,6 +734,7 @@ renderer.setAnimationLoop(() => {
   env.update(time, dt, camera);
   updateVrFishing(dt);
   updateDesktopMovement(dt);
+  applyGroundEyeHeight();
   checkZoneTeleports();
 
   env.campground?.update(time, camera.position, (event) => {
@@ -856,7 +867,7 @@ if (new URLSearchParams(location.search).has("playtest")) {
           camera.position.add(delta);
         }
         camera.position.y = 1.6;
-        const stairY = getDockStairEyeHeight(camera.position.x, camera.position.z);
+        const stairY = env?.getDockStairEyeHeight?.(camera.position.x, camera.position.z);
         if (stairY != null) camera.position.y = stairY;
         trace.push({
           x: camera.position.x,
@@ -868,7 +879,7 @@ if (new URLSearchParams(location.search).has("playtest")) {
       return trace;
     },
     getStairsInfo: () => {
-      const stairY = getDockStairEyeHeight(camera.position.x, camera.position.z);
+      const stairY = env?.getDockStairEyeHeight?.(camera.position.x, camera.position.z) ?? null;
       return {
         onStairs: stairY != null,
         eyeY: stairY,

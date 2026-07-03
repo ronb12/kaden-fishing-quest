@@ -1,1 +1,1 @@
-export const BUILD_ID = "stairs-collision-2026.07.03";
+export const BUILD_ID = "stairs-mesh-height-2026.07.03";

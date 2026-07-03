@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
-import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, registerDockWalkCollisions } from "./dock-layout.js";
+import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, registerDockWalkCollisions, isOnDockStairs, getDockStairEyeHeightFallback, DOCK_STAIRS } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
 const WATER_VERT = `
@@ -94,6 +94,10 @@ export class LakeEnvironment {
     this.zoneDressing = {};
     this.currentZoneId = "Lake Dock";
     this.collisions = new CollisionSystem();
+    this.dockStairsMeshes = [];
+    this._stairRaycaster = new THREE.Raycaster();
+    this._stairRayOrigin = new THREE.Vector3();
+    this._stairRayDir = new THREE.Vector3(0, -1, 0);
     this.build();
   }
 
@@ -352,6 +356,9 @@ export class LakeEnvironment {
       stairs.position.set(0, 0, 11.8);
       groundAlign(stairs, 0.04);
       dockGroup.add(stairs);
+      stairs.traverse((child) => {
+        if (child.isMesh) this.dockStairsMeshes.push(child);
+      });
     } else {
       const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 2.4), woodMat);
       ramp.position.set(0, 0.16, 10.2);
@@ -684,5 +691,22 @@ export class LakeEnvironment {
       Math.sin(wx * 2.8 - time * 3.0) * 0.05 +
       Math.sin(wz * 3.2 + time * 2.4) * 0.04
     );
+  }
+
+  /** Sample the stair tread under the player so the camera rides the ramp mesh. */
+  getDockStairEyeHeight(x, z) {
+    if (!isOnDockStairs(x, z)) return null;
+
+    if (this.dockStairsMeshes.length) {
+      this._stairRayOrigin.set(x, 8, z);
+      this._stairRaycaster.set(this._stairRayOrigin, this._stairRayDir);
+      const hits = this._stairRaycaster.intersectObjects(this.dockStairsMeshes, false);
+      if (hits.length) {
+        const surface = Math.max(...hits.map((h) => h.point.y));
+        return surface + DOCK_STAIRS.eyeOffset;
+      }
+    }
+
+    return getDockStairEyeHeightFallback(x, z);
   }
 }

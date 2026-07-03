@@ -96,10 +96,13 @@ try {
 
   const stairYs = onStairsSamples.map((p) => p.y);
   const stairRise = stairYs.length > 1 ? stairYs[stairYs.length - 1] - stairYs[0] : 0;
-  if (stairRise > 0.2) pass(`eye height rises on ramp (+${stairRise.toFixed(2)}m)`);
-  else fail("eye height rises on ramp", `rise=${stairRise.toFixed(2)}`);
+  if (Math.abs(stairRise) > 0.25) {
+    pass(`eye height tracks ramp (${stairRise > 0 ? "+" : ""}${stairRise.toFixed(2)}m)`);
+  } else {
+    fail("eye height tracks ramp", `delta=${stairRise.toFixed(2)}`);
+  }
 
-  if (Math.abs(after.camera.x) < DOCK_STAIRS.halfWidth + 0.15) {
+  if (Math.abs(after.camera.x) < 0.55) {
     pass("stayed centered on stairs");
   } else {
     fail("stayed centered on stairs", `x=${after.camera.x.toFixed(2)}`);
@@ -114,7 +117,7 @@ try {
   });
   const sideTrace = await page.evaluate(() => window.__playtest.walk(-1, 0, 0.6));
   const maxLeft = Math.min(...sideTrace.map((p) => p.x));
-  if (maxLeft >= -DOCK_STAIRS.halfWidth - 0.12) {
+  if (maxLeft >= -0.48 - 0.12) {
     pass("stairs side rail blocks cut-through");
   } else {
     fail("stairs side rail blocks cut-through", `minX=${maxLeft.toFixed(2)}`);

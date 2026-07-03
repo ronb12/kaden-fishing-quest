@@ -61,11 +61,11 @@ const stairCenter = moveWithCollisions(
 assert("stairs center walkable", Math.abs(stairCenter.x) < 0.1 && stairCenter.z > DOCK_STAIRS.minZ + 0.4);
 
 const throughStairSide = moveWithCollisions(
-  new THREE.Vector3(DOCK_STAIRS.centerX - 1.1, 1.6, 15),
+  new THREE.Vector3(DOCK_STAIRS.centerX - 0.7, 1.6, 15),
   { x: -0.5, z: 0 },
   c
 );
-assert("stairs side blocked", throughStairSide.x >= -DOCK_STAIRS.halfWidth - 0.1);
+assert("stairs side blocked", throughStairSide.x >= -0.48 - 0.45);
 
 const shoreExit = c.resolve(new THREE.Vector3(DOCK_SHORE.x, 1.6, DOCK_SHORE.z + 1.2));
 assert("shore spawn open", Math.abs(shoreExit.x - DOCK_SHORE.x) < 0.1 && shoreExit.z > DOCK_SHORE.z);
