@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod",
-    "db:setup": "node scripts/setup-db.js"
+    "db:setup": "node scripts/setup-db.js",
+    "test": "node scripts/test-collisions.mjs && node scripts/test-fish-fight.mjs",
+    "playtest": "node scripts/playtest-assets.mjs && node scripts/playtest-gameplay.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

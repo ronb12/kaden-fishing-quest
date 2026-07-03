@@ -63,7 +63,6 @@ loadingEl?.classList.add("hidden");
 
 env = new LakeEnvironment(scene, envMaps);
 env.applyZone(getState().zone);
-aimAtFishingPool(ZONES[getState().zone]);
 
 fishing = new FishingSystem(scene, env, onFishingEvent);
 
@@ -732,5 +731,49 @@ if (new URLSearchParams(location.search).has("playtest")) {
   window.__setPlaytestCamera = (x, y, z, lx, ly, lz) => {
     camera.position.set(x, y, z);
     camera.lookAt(lx, ly, lz);
+    const dx = lx - x;
+    const dz = lz - z;
+    const dy = ly - y;
+    mouseX = Math.atan2(dx, dz);
+    mouseY = Math.atan2(dy, Math.hypot(dx, dz));
+  };
+
+  window.__playtest = {
+    getFishingState: () => fishing.state,
+    getCamera: () => ({ x: camera.position.x, y: camera.position.y, z: camera.position.z }),
+    moveTo: (x, z) => {
+      camera.position.x = x;
+      camera.position.z = z;
+      if (env?.collisions) camera.position.copy(env.collisions.resolve(camera.position));
+    },
+    cast: (power = 0.85) => {
+      const aim = getAimDirection();
+      return fishing.startCast(power, aim);
+    },
+    forceBite: () => {
+      if (fishing.state === FishingState.WAITING) fishing.biteTimer = 0;
+    },
+    hook: () => {
+      if (fishing.state === FishingState.BITING) fishing.hookFish();
+    },
+    reel: (intensity = 1) => {
+      if (fishing.state === FishingState.REELING) fishing.reel(0.05, intensity);
+    },
+    getLineVisible: () => Boolean(fishing.line?.geometry?.attributes?.position?.count > 2),
+    getBobberVisible: () => Boolean(fishing.bobber?.visible),
+    getPoolMarkerVisible: () => {
+      const zone = getState().zone;
+      return Boolean(env?.fishingPoolMarkers?.[zone]?.visible);
+    },
+    getHudText: () => document.getElementById("status-text")?.textContent || "",
+    waitFrames: (n) => new Promise((resolve) => {
+      let left = n;
+      const tick = () => {
+        left -= 1;
+        if (left <= 0) resolve();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }),
   };
 }
