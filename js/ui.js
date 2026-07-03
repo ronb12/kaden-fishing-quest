@@ -47,7 +47,6 @@ import {
 import { renderCodexHTML, bindFishCardEvents, getSpeciesCatchTip, renderFishFieldGuideHTML } from "./fish-guide.js";
 
 let activePanel = "guide";
-let guideView = "walkthrough";
 let leaderboardSort = "fish";
 
 export function initUI(fishing, callbacks) {
@@ -88,6 +87,8 @@ export function initUI(fishing, callbacks) {
   let catchAutoDismissTimer = null;
   let tutorialOverlayMinimized = false;
   let lastTensionZoneTip = null;
+  let statusToneTimer = null;
+  let prevHudStats = { fish: 0, coins: 0 };
 
   function setMenuOpen(open) {
     menu?.classList.toggle("open", open);
@@ -197,8 +198,21 @@ export function initUI(fishing, callbacks) {
   }
 
   function renderHUD(state) {
-    document.getElementById("hud-fish").textContent = state.fish;
-    document.getElementById("hud-coins").textContent = state.coins;
+    const fishEl = document.getElementById("hud-fish");
+    const coinsEl = document.getElementById("hud-coins");
+    if (state.fish > prevHudStats.fish) {
+      fishEl?.classList.remove("stat-bump");
+      void fishEl?.offsetWidth;
+      fishEl?.classList.add("stat-bump");
+    }
+    if (state.coins > prevHudStats.coins) {
+      coinsEl?.classList.remove("stat-bump");
+      void coinsEl?.offsetWidth;
+      coinsEl?.classList.add("stat-bump");
+    }
+    prevHudStats = { fish: state.fish, coins: state.coins };
+    fishEl.textContent = state.fish;
+    coinsEl.textContent = state.coins;
     const rod = getRodStats(state.rodLevel);
     document.getElementById("hud-rod").textContent = `${rod.name}`;
     document.getElementById("hud-zone").textContent = state.zone;
@@ -230,9 +244,6 @@ export function initUI(fishing, callbacks) {
       case "settings":
         panelContent.innerHTML = renderSettings(state);
         break;
-      case "leaderboard":
-        renderLeaderboard();
-        return;
       case "leaderboard":
         renderLeaderboard();
         return;
@@ -745,8 +756,24 @@ export function initUI(fishing, callbacks) {
     showContextualTip,
     showSpeciesCatchTip,
     checkTensionTip,
-    setStatus(text) {
-      if (statusText) statusText.textContent = text;
+    setStatus(text, tone = "") {
+      if (!statusText) return;
+      clearTimeout(statusToneTimer);
+      statusText.textContent = text;
+      statusText.classList.remove("urgent", "strike", "fail");
+      if (tone) {
+        statusText.classList.add(tone);
+        if (tone === "fail") {
+          statusToneTimer = setTimeout(() => statusText.classList.remove("fail"), 1800);
+        }
+      }
+    },
+    setCastCharge(visible, amount = 0) {
+      const bar = document.getElementById("cast-charge-bar");
+      const fill = document.getElementById("cast-charge-fill");
+      bar?.classList.toggle("visible", visible);
+      bar?.setAttribute("aria-hidden", visible ? "false" : "true");
+      if (fill) fill.style.width = `${Math.round(amount * 100)}%`;
     },
     setTension(tension, progress, visible, meta = {}) {
       if (tensionBar) tensionBar.classList.toggle("visible", visible);
@@ -771,12 +798,17 @@ export function initUI(fishing, callbacks) {
         fightPhaseHint.classList.toggle("visible", Boolean(meta.phaseLabel && visible));
       }
     },
-    setBiteAlert(visible, speciesName, timerProgress = 1) {
+    setBiteAlert(visible, speciesName, timerProgress = 1, meta = {}) {
       biteAlert?.classList.toggle("visible", visible);
+      biteAlert?.classList.toggle("legendary", Boolean(meta.legendary && visible));
       reelAlert?.classList.toggle("visible", false);
-      if (speciesName && biteSpecies) biteSpecies.textContent = speciesName;
+      if (speciesName && biteSpecies) {
+        biteSpecies.textContent = meta.legendary ? `⚡ ${speciesName}` : speciesName;
+      }
       if (biteTimerFill) biteTimerFill.style.width = `${timerProgress * 100}%`;
-      if (biteAlertAction) biteAlertAction.textContent = biteActionText();
+      if (biteAlertAction) {
+        biteAlertAction.textContent = meta.legendary ? "LEGENDARY — hook now!" : biteActionText();
+      }
     },
     setReelAlert(visible) {
       reelAlert?.classList.toggle("visible", visible);

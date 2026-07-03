@@ -62,7 +62,10 @@ await loadGameAssets((progress, name) => {
 await audio.loadAudioAssets();
 if (loadingLabel) loadingLabel.textContent = "Loading sky and lighting…";
 const envMaps = await loadEnvironmentMaps(renderer);
+if (loadingLabel) loadingLabel.textContent = "Ready — tight lines!";
+await new Promise((resolve) => setTimeout(resolve, 450));
 loadingEl?.classList.add("hidden");
+setTimeout(() => document.getElementById("hud")?.classList.remove("hud-intro"), 900);
 
 env = new LakeEnvironment(scene, envMaps);
 env.applyZone(getState().zone);
@@ -145,8 +148,10 @@ function refreshStatus() {
   if (castCharging && fishing.state === FishingState.IDLE) {
     const pct = Math.round((0.35 + castCharge * 0.65) * 100);
     ui.setStatus(`Charging cast… ${pct}% — release Space`);
+    ui.setCastCharge?.(true, castCharge);
     return;
   }
+  ui.setCastCharge?.(false);
   if (fishing.state !== FishingState.IDLE) {
     ui.setStatus(fishing.getStatusText(inVR));
     return;
@@ -473,14 +478,14 @@ function onFishingEvent(type, data) {
     case "preBite":
       ui?.showContextualTip?.("preBite");
       audio.playPreBite();
-      ui?.setStatus(fishing.getStatusText());
+      ui?.setStatus(fishing.getStatusText(), "urgent");
       vibrate(30);
       break;
     case "bite":
       ui?.onTutorialTrigger?.("bite");
       ui?.showContextualTip?.("bite");
-      ui?.setBiteAlert(true, data.species?.name, 1);
-      ui?.setStatus(fishing.getStatusText());
+      ui?.setBiteAlert(true, data.species?.name, 1, { legendary: data.legendary });
+      ui?.setStatus(fishing.getStatusText(), "strike");
       if (data.legendary) {
         ui?.showToast("⚡ LEGENDARY FISH nearby!");
         vibrate([80, 40, 80]);
@@ -490,7 +495,7 @@ function onFishingEvent(type, data) {
       }
       break;
     case "biteTick":
-      ui?.setBiteAlert(true, data.species?.name, data.progress);
+      ui?.setBiteAlert(true, data.species?.name, data.progress, { legendary: fishing.legendaryEvent });
       break;
     case "hooked":
       ui?.onTutorialTrigger?.("hooked");
@@ -542,7 +547,7 @@ function onFishingEvent(type, data) {
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
       ui?.setTension(0, 0, false);
-      ui?.setStatus(data.message);
+      ui?.setStatus(data.message, "fail");
       ui?.showToast(data.message);
       break;
     case "reset":
@@ -864,7 +869,7 @@ renderer.setAnimationLoop(() => {
   }
   prevReelHeld = reelHeld && isReeling;
 
-  if (isReeling && !inVR) {
+  if (isReeling) {
     const zone = tensionZone(fishing.tension, getRodStats(getState().rodLevel));
     if ((zone === "warning" || zone === "snap") && zone !== lastTensionZone) {
       audio.playTensionWarning();
@@ -877,6 +882,7 @@ renderer.setAnimationLoop(() => {
   refreshStatus();
 
   fishing.update(dt, time);
+  if (fishing.prospectFish) updateModelAnimations(fishing.prospectFish, dt);
   if (fishing.biteFish) updateModelAnimations(fishing.biteFish, dt);
 
   renderer.render(scene, camera);

@@ -81,6 +81,10 @@ export class FishingSystem {
     this.lureActivity = 0;
     this.lureMotionDecay = 0;
     this.lastUpdateTime = 0;
+    this.splashAudioCooldown = 0;
+    this.bobberRippleTimer = 1.8;
+    this.prospectEmissivePulse = 0;
+    this.lineSnapFlash = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
     this.reelMechanism = null;
@@ -275,20 +279,29 @@ export class FishingSystem {
     const lineRadius = fighting ? 0.012 : casting ? 0.011 : 0.01;
     updateFishingLineMesh(this.line, segments, lineRadius);
     if (this.line.material) {
-      const rod = getRodStats(getState().rodLevel);
-      const zone = tensionZone(this.tension, rod);
-      if (zone === "snap" || zone === "warning") {
-        this.line.material.color.setHex(0xff8866);
-        this.line.material.emissive.setHex(0x662211);
-        this.line.material.opacity = 0.98;
-      } else if (zone === "sweet" && fighting) {
-        this.line.material.color.setHex(0x6ac8a0);
-        this.line.material.emissive.setHex(0x1a4030);
-        this.line.material.opacity = 0.96;
+      if (this.lineSnapFlash > 0) {
+        const flash = this.lineSnapFlash / 0.35;
+        this.line.material.color.setHex(0xff4422);
+        this.line.material.emissive.setHex(0xaa1100);
+        this.line.material.emissiveIntensity = 0.9 + flash * 0.6;
+        this.line.material.opacity = 1;
       } else {
-        this.line.material.color.setHex(0xc8e8e0);
-        this.line.material.emissive.setHex(0x2a5048);
-        this.line.material.opacity = taut ? 0.98 : 0.94;
+        this.line.material.emissiveIntensity = 0.55;
+        const rod = getRodStats(getState().rodLevel);
+        const zone = tensionZone(this.tension, rod);
+        if (zone === "snap" || zone === "warning") {
+          this.line.material.color.setHex(0xff8866);
+          this.line.material.emissive.setHex(0x662211);
+          this.line.material.opacity = 0.98;
+        } else if (zone === "sweet" && fighting) {
+          this.line.material.color.setHex(0x6ac8a0);
+          this.line.material.emissive.setHex(0x1a4030);
+          this.line.material.opacity = 0.96;
+        } else {
+          this.line.material.color.setHex(0xc8e8e0);
+          this.line.material.emissive.setHex(0x2a5048);
+          this.line.material.opacity = taut ? 0.98 : 0.94;
+        }
       }
     }
   }
@@ -340,7 +353,7 @@ export class FishingSystem {
     }
     if (t > 0.82 && !this.castSplashDone) {
       this.castSplashDone = true;
-      this.spawnSplashAt(flyX, endSurface, flyZ);
+      this.spawnSplashAt(flyX, endSurface, flyZ, { splashGain: 0.28 });
     }
   }
 
@@ -400,12 +413,12 @@ export class FishingSystem {
     const sink = bait.sinkSpeed ?? 0.2;
     this.hookGroup.position.y = surface - 0.02 - sink * 0.06;
     this.hookGroup.visible = true;
-    this.spawnSplashAt(this.castTarget.x, surface, this.castTarget.z);
-    audio.playSplash();
+    this.spawnSplashAt(this.castTarget.x, surface, this.castTarget.z, { splashGain: 0.42 });
     this.state = FishingState.WAITING;
     this.preBiteWarned = false;
     this.nibbleIndex = 0;
     this.nibbleDip = 0;
+    this.bobberRippleTimer = 1.4;
     this.lureActivity = isLurePresentation(bait) ? 0.15 : 1;
     this.lureMotionDecay = 0;
     const waitTime = Math.max(
@@ -512,6 +525,16 @@ export class FishingSystem {
     if (this.state === FishingState.WAITING) {
       this.updateProspectFish(dt, time);
       this.updateLureActivity(dt);
+      if (this.bobber.visible) {
+        this.bobberRippleTimer -= dt;
+        if (this.bobberRippleTimer <= 0) {
+          this.bobberRippleTimer = 2.1 + Math.random() * 1.6;
+          const bx = this.bobber.position.x;
+          const bz = this.bobber.position.z;
+          const surface = this.surfaceY(bx, bz, time);
+          this.spawnSplashAt(bx, surface, bz, { scale: 0.42, playSound: false, ringOpacity: 0.42 });
+        }
+      }
     }
 
     if (this.state === FishingState.CAUGHT) {
@@ -524,6 +547,9 @@ export class FishingSystem {
     }
 
     this.updateSplashRings(dt);
+    this.splashAudioCooldown = Math.max(0, this.splashAudioCooldown - dt);
+    if (this.lineSnapFlash > 0) this.lineSnapFlash = Math.max(0, this.lineSnapFlash - dt);
+    if (this.prospectEmissivePulse > 0) this.prospectEmissivePulse = Math.max(0, this.prospectEmissivePulse - dt * 2.2);
 
     if (this.state === FishingState.WAITING) {
       this.biteTimer -= dt * (isLurePresentation(getSelectedBait()) ? Math.max(0.25, this.lureActivity) : 1);
@@ -556,6 +582,7 @@ export class FishingSystem {
 
   triggerNibble() {
     this.nibbleDip = 1;
+    this.prospectEmissivePulse = 1;
     audio.playNibble();
     this.onEvent?.("nibble", { index: this.nibbleIndex });
     if (this.prospectFish) {
@@ -567,15 +594,15 @@ export class FishingSystem {
     this.clearProspectFish();
     const s = getState();
     const preview = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, false);
-    this.prospectFish = buildDetailedFish(preview, 1.05);
+    this.prospectFish = buildDetailedFish(preview, 1.22);
     this.prospectFish.traverse((c) => {
       if (c.isMesh && c.material) {
         c.material = c.material.clone();
         c.material.transparent = true;
-        c.material.opacity = 0.78;
+        c.material.opacity = 0.94;
         c.material.depthWrite = false;
         c.material.emissive = new THREE.Color(preview?.color ?? 0x2a6080);
-        c.material.emissiveIntensity = 0.85;
+        c.material.emissiveIntensity = 1.1;
       }
     });
     this.prospectFish.renderOrder = 6;
@@ -597,16 +624,25 @@ export class FishingSystem {
     const radius = 1.15 - this.nibbleIndex * 0.12 + Math.sin(time * 0.7) * 0.15;
     const fx = bx + Math.cos(this.prospectAngle) * radius;
     const fz = bz + Math.sin(this.prospectAngle) * radius;
-    const swimDepth = 0.24 + this.nibbleIndex * 0.02;
+    const swimDepth = 0.16 + this.nibbleIndex * 0.015;
     const fishY = surface - swimDepth + Math.sin(time * 1.8) * 0.025;
     this.prospectFish.position.set(fx, fishY, fz);
     this.prospectFish.lookAt(bx, surface - swimDepth - 0.06, bz);
     this.prospectFish.rotation.z = Math.sin(time * 2.4) * 0.08;
+    const preBitePulse = this.preBiteWarned ? 0.28 + Math.sin(time * 8) * 0.22 : 0;
+    const emissiveBoost = this.prospectEmissivePulse * 0.45 + preBitePulse;
+    this.prospectFish.traverse((c) => {
+      if (c.isMesh && c.material?.emissiveIntensity != null) {
+        c.material.emissiveIntensity = 1.1 + emissiveBoost;
+      }
+    });
     if (this.prospectFishShadow) {
       this.prospectFishShadow.position.set(fx, surface + 0.015, fz);
       const pulse = 0.95 + Math.sin(time * 2.2 + this.nibbleIndex) * 0.14;
-      this.prospectFishShadow.scale.setScalar(0.9 * pulse);
-      this.prospectFishShadow.material.opacity = 0.42 + this.nibbleIndex * 0.1;
+      const shadowScale = (0.95 + this.nibbleIndex * 0.06) * pulse;
+      this.prospectFishShadow.scale.set(shadowScale, shadowScale, 1);
+      this.prospectFishShadow.rotation.z = this.prospectFish.rotation.y;
+      this.prospectFishShadow.material.opacity = 0.5 + this.nibbleIndex * 0.12 + (this.preBiteWarned ? 0.12 : 0);
     }
   }
 
@@ -633,7 +669,8 @@ export class FishingSystem {
     this.biteWindow = 2.5 + s.rodLevel * 0.2 + getRodStats(s.rodLevel).hookBonus;
     this.biteWindowMax = this.biteWindow;
     this.spawnBiteFish();
-    this.spawnSplash();
+    const rig = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
+    this.spawnSplashAt(rig.x, this.surfaceY(rig.x, rig.z, 0), rig.z, { splashGain: 0.24, playSound: false });
     audio.playBite();
     this.onEvent?.("bite", { species: this.pendingFish, legendary: this.legendaryEvent });
   }
@@ -664,7 +701,9 @@ export class FishingSystem {
     this.biteFish.position.lerpVectors(start, target, this.biteLunge);
     this.biteFish.lookAt(bx, surface + 0.1, bz);
     this.biteFish.rotation.z = Math.sin(this.biteLunge * 22) * 0.18;
-    if (this.biteLunge > 0.55 && Math.random() < dt * 2) this.spawnSplash();
+    if (this.biteLunge > 0.55 && Math.random() < dt * 2) {
+      this.spawnSplashAt(bx, surface, bz, { splashGain: 0.12, scale: 0.75 });
+    }
   }
 
   updateFightFish(dt, time) {
@@ -684,7 +723,7 @@ export class FishingSystem {
     this.biteFish.lookAt(bx, surface + 0.12, bz);
     this.biteFish.rotation.z = Math.sin(time * 11) * 0.35 * (0.5 + this.tension);
     if (this.biteFish.position.y > surface && Math.random() < dt * 3) {
-      this.spawnSplash();
+      this.spawnSplashAt(bx, surface, bz, { splashGain: 0.14, scale: 0.8 });
     }
   }
 
@@ -713,19 +752,26 @@ export class FishingSystem {
     }
   }
 
-  spawnSplashAt(x, surfaceY, z) {
+  spawnSplashAt(x, surfaceY, z, opts = {}) {
     const prev = this.bobber.position.clone();
     this.bobber.position.set(x, surfaceY + 0.04, z);
-    this.spawnSplash();
+    this.spawnSplash(opts);
     this.bobber.position.copy(prev);
+    if (opts.playSound !== false && this.splashAudioCooldown <= 0) {
+      audio.playSplashSoft(opts.splashGain ?? 0.18);
+      this.splashAudioCooldown = 0.14;
+    }
   }
 
-  spawnSplash() {
+  spawnSplash(opts = {}) {
+    const scaleMul = opts.scale ?? 1;
+    const ringOpacity = opts.ringOpacity ?? 0.75;
     for (let i = 0; i < 3; i++) {
       const ring = buildSplashRing();
       ring.position.copy(this.bobber.position);
       ring.position.y = this.bobber.position.y;
-      ring.userData = { age: i * 0.15, maxAge: 0.9 };
+      ring.scale.setScalar(scaleMul);
+      ring.userData = { age: i * 0.15, maxAge: 0.9, ringOpacity, baseScale: scaleMul };
       this.scene.add(ring);
       this.splashRings.push(ring);
     }
@@ -742,8 +788,8 @@ export class FishingSystem {
         return false;
       }
       const scale = 1 + t * 4;
-      ring.scale.set(scale, scale, 1);
-      ring.material.opacity = 0.7 * (1 - t);
+      ring.scale.set(scale * (ring.userData.baseScale ?? 1), scale * (ring.userData.baseScale ?? 1), 1);
+      ring.material.opacity = (ring.userData.ringOpacity ?? 0.75) * (1 - t);
       return true;
     });
   }
@@ -903,6 +949,7 @@ export class FishingSystem {
 
   failCatch(message) {
     if (this.state === FishingState.FAILED || this.state === FishingState.CAUGHT) return;
+    if (this.failReason === "snap") this.lineSnapFlash = 0.35;
     audio.playFail(this.failReason);
     audio.stopReelLoop();
     this.state = FishingState.FAILED;

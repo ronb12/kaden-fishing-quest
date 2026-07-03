@@ -140,8 +140,8 @@ export function playCast() {
   }
 }
 
-export function playSplash() {
-  if (!playSample("splash", { gain: 0.45 })) {
+export function playSplash(gain = 0.45) {
+  if (!playSample("splash", { gain })) {
     if (!sfxEnabled) return;
     const ac = getCtx();
     const bufferSize = ac.sampleRate * 0.15;
@@ -160,6 +160,10 @@ export function playSplash() {
     g.connect(ac.destination);
     src.start();
   }
+}
+
+export function playSplashSoft(gain = 0.16) {
+  playSplash(gain);
 }
 
 export function playBite() {
@@ -183,7 +187,8 @@ export function playHook() {
 }
 
 export function playPreBite() {
-  tone(280, 0.08, "triangle", 0.04, 0.14);
+  tone(280, 0.08, "triangle", 0.05, 0.16);
+  setTimeout(() => tone(420, 0.06, "sine", 0.04, 0.12), 90);
 }
 
 export function playTensionWarning() {

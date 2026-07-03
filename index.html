@@ -22,7 +22,7 @@
   <body>
     <canvas id="game-canvas"></canvas>
 
-    <div id="hud" class="hud">
+    <div id="hud" class="hud hud-intro">
       <div class="hud-brand">
         <span class="hud-title">Kaden VR Fishing<span id="hud-version" class="hud-version"></span></span>
       </div>
@@ -36,6 +36,9 @@
         <span id="sync-indicator" class="sync-indicator sync-local">☁ Local</span>
       </div>
       <p id="status-text" class="status-text">Click to look · WASD to move · E to interact in cabin</p>
+      <div id="cast-charge-bar" class="cast-charge-bar" aria-hidden="true">
+        <div id="cast-charge-fill" class="cast-charge-fill"></div>
+      </div>
     </div>
 
     <div id="tension-bar" class="tension-bar">

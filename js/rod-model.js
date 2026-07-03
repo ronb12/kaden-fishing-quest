@@ -304,7 +304,7 @@ export function buildBiteFish(species) {
       c.material.opacity = 1;
       c.material.depthWrite = false;
       c.material.emissive = new THREE.Color(species?.color ?? 0x4a90c4);
-      c.material.emissiveIntensity = 0.62;
+      c.material.emissiveIntensity = 0.78;
     }
   });
   return fish;
@@ -353,12 +353,19 @@ export function updateFishingLineMesh(lineMesh, points, radius = 0.0022) {
 }
 
 export function buildFishSilhouette() {
+  const shape = new THREE.Shape();
+  shape.moveTo(0.52, 0);
+  shape.quadraticCurveTo(0.18, 0.14, -0.32, 0.07);
+  shape.lineTo(-0.58, 0.24);
+  shape.lineTo(-0.58, -0.24);
+  shape.lineTo(-0.32, -0.07);
+  shape.quadraticCurveTo(0.18, -0.14, 0.52, 0);
   const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(0.62, 24),
+    new THREE.ShapeGeometry(shape),
     new THREE.MeshBasicMaterial({
-      color: 0x0e3040,
+      color: 0x1a6078,
       transparent: true,
-      opacity: 0.68,
+      opacity: 0.58,
       depthWrite: false,
       side: THREE.DoubleSide,
     })

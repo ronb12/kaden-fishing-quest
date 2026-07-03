@@ -59,7 +59,7 @@ const WATER_FRAG = `
     }
     float foam = smoothstep(0.08, 0.14, vWave) * 0.15;
     col += vec3(foam);
-    gl_FragColor = vec4(col, 0.82);
+    gl_FragColor = vec4(col, 0.72);
   }
 `;
 

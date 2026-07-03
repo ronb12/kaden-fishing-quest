@@ -132,9 +132,75 @@ body > button {
   opacity: 0.9;
   font-weight: 700;
   max-width: min(720px, 92vw);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.35;
+  transition: color 0.2s;
+}
+
+.status-text.urgent {
+  color: var(--sun);
+  animation: statusPulse 0.8s ease infinite alternate;
+}
+
+.status-text.strike {
+  color: #ff8a8a;
+  animation: statusPulse 0.45s ease infinite alternate;
+}
+
+.status-text.fail {
+  color: #ff6b6b;
+}
+
+@keyframes statusPulse {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
+}
+
+.cast-charge-bar {
+  margin-top: 8px;
+  width: min(220px, 60vw);
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.cast-charge-bar.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cast-charge-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--lake), var(--sun));
+  transition: width 0.05s linear;
+}
+
+.hud.hud-intro {
+  animation: hudFadeIn 0.8s ease forwards;
+}
+
+@keyframes hudFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hud-stats .stat-bump {
+  animation: statBump 0.45s ease;
+}
+
+@keyframes statBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); color: #fff; }
+  100% { transform: scale(1); }
 }
 
 .tension-bar {
@@ -180,6 +246,22 @@ body > button {
   opacity: 1;
   transform: translate(-50%, 0) scale(1);
   animation: bitePulse 0.5s ease infinite alternate;
+}
+
+.bite-alert.legendary {
+  background: rgba(120, 70, 10, 0.94);
+  border-color: #ffb347;
+  box-shadow: 0 12px 48px rgba(255, 140, 40, 0.45);
+  animation: legendaryPulse 0.7s ease infinite alternate;
+}
+
+.bite-alert.legendary .bite-alert-label {
+  color: #ffe08a;
+}
+
+@keyframes legendaryPulse {
+  from { transform: translate(-50%, 0) scale(1); }
+  to { transform: translate(-50%, -2px) scale(1.02); }
 }
 
 @keyframes bitePulse {
