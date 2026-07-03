@@ -20,6 +20,7 @@ import { initTouchControls } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
 import { loadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
+import { VRHandRig } from "./vr-hands.js";
 import { moveWithCollisions } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
 import { DOCK_SPAWN } from "./dock-layout.js";
@@ -70,6 +71,8 @@ fishing = new FishingSystem(scene, env, onFishingEvent);
 
 const controllerModelFactory = new XRControllerModelFactory();
 const controllers = [];
+const grips = [];
+const controllerModels = [];
 
 for (let i = 0; i < 2; i++) {
   const controller = renderer.xr.getController(i);
@@ -80,10 +83,14 @@ for (let i = 0; i < 2; i++) {
   controllers.push(controller);
 
   const grip = renderer.xr.getControllerGrip(i);
+  grips.push(grip);
   const model = controllerModelFactory.createControllerModel(grip);
+  controllerModels.push(model);
   grip.add(model);
   scene.add(grip);
 }
+
+const vrHands = new VRHandRig(grips, controllerModels);
 
 fishing.attachToController(controllers[1]);
 const vrMotion = new VRFishingMotion();
@@ -94,12 +101,14 @@ let inVR = false;
 renderer.xr.addEventListener("sessionstart", () => {
   inVR = true;
   vrMotion.resetCast();
+  vrHands.setControllerModelsVisible(false);
   teleportToZone(getState().zone);
   ui?.setStatus(fishing.getStatusText(true));
-  ui?.showToast("VR: pull back and swing to cast · crank wrist to reel");
+  ui?.showToast("VR: right hand holds rod · left hand cranks reel when fighting fish");
 });
 renderer.xr.addEventListener("sessionend", () => {
   inVR = false;
+  vrHands.setControllerModelsVisible(true);
 });
 
 const keys = {};
@@ -685,6 +694,7 @@ function updateVrFishing(dt) {
 
   const motion = vrMotion.update(
     controllers[1],
+    controllers[0],
     camera,
     fishing.rodGroup,
     dt,
@@ -692,6 +702,8 @@ function updateVrFishing(dt) {
   );
 
   fishing.setVrWindup(motion.swingVisual);
+  fishing.updateReelVisual(motion.reelRotation ?? 0);
+  vrHands.update(fishing.state, motion, fishing.getReelKnobWorld());
 
   if (fishing.state === FishingState.IDLE && motion.windup > 0.12) {
     ui?.setStatus(`Wind up… ${Math.round(motion.windup * 100)}% — swing forward to cast!`);

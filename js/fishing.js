@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
 import { getState, recordCatch, getSelectedBait } from "./state.js";
 import * as audio from "./audio.js";
-import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, updateFishingLineMesh, linePointsWithSag, buildDetailedFish, buildFishSilhouette, updateBaitAnimation } from "./rod-model.js";
+import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, updateFishingLineMesh, linePointsWithSag, buildDetailedFish, buildFishSilhouette, updateBaitAnimation, attachReelMechanism } from "./rod-model.js";
 import {
   FishFightAI,
   FightPhase,
@@ -82,6 +82,32 @@ export class FishingSystem {
     this.lureMotionDecay = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
+    this.reelMechanism = null;
+    this.reelCrank = null;
+    this.reelSpool = null;
+    this.reelKnob = null;
+  }
+
+  setupReelMechanism() {
+    const rod = this.rodGroup.children[0];
+    if (!rod) return;
+    this.reelMechanism = attachReelMechanism(rod);
+    this.reelSpool = this.reelMechanism.getObjectByName("reelSpool");
+    this.reelCrank = this.reelMechanism.getObjectByName("reelCrank");
+    this.reelKnob = this.reelMechanism.getObjectByName("reelKnob");
+  }
+
+  updateReelVisual(rotation) {
+    if (!this.reelCrank || !this.reelSpool) return;
+    this.reelCrank.rotation.x = rotation;
+    this.reelSpool.rotation.x = rotation * 1.6;
+  }
+
+  getReelKnobWorld(target = new THREE.Vector3()) {
+    if (this.reelKnob) this.reelKnob.getWorldPosition(target);
+    else if (this.reelMechanism) this.reelMechanism.getWorldPosition(target);
+    else this.rodGroup.getWorldPosition(target);
+    return target;
   }
 
   rebuildRod() {
@@ -116,6 +142,7 @@ export class FishingSystem {
     }
 
     this.updateBaitVisual();
+    this.setupReelMechanism();
   }
 
   updateBaitVisual() {
@@ -958,7 +985,7 @@ export class FishingSystem {
           : `STRIKE! ${this.pendingFish?.name || "Fish"} — hook now!`;
       case FishingState.REELING:
         return vr
-          ? this.fightPhaseLabel || "Crank when the fish tires"
+          ? this.fightPhaseLabel || "Crank left hand on the reel when the fish tires"
           : this.fightPhaseLabel || "Reel in the sweet zone — ease off on runs";
       case FishingState.CAUGHT:
         return "Nice catch!";

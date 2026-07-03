@@ -20,8 +20,11 @@ export class VRFishingMotion {
     this.castCooldown = 0;
     this.sampled = false;
     this.prevPos = new THREE.Vector3();
+    this.reelPrevPos = new THREE.Vector3();
+    this.reelSampled = false;
     this.reelPrevPhase = null;
     this.reelCrankIntensity = 0;
+    this.reelRotation = 0;
     this.hookJerkCooldown = 0;
     this.reelHapticCooldown = 0;
   }
@@ -29,6 +32,9 @@ export class VRFishingMotion {
   resetCast() {
     this.windup = 0;
     this.swingVisual = 0;
+    this.reelRotation = 0;
+    this.reelPrevPhase = null;
+    this.reelSampled = false;
   }
 
   pulseHaptic(controller, intensity = 0.45, duration = 35) {
@@ -47,19 +53,79 @@ export class VRFishingMotion {
     }
   }
 
-  update(controller, head, rodGroup, dt, fishingState) {
-    if (!controller) {
-      return { castRelease: null, reelIntensity: 0, hookSet: false, windup: 0, swingVisual: 0, lureMotion: 0 };
+  /** Track circular wrist motion on the reel hand (left) or rod hand as fallback. */
+  measureReelCrank(crankController, rodGroup, dt) {
+    if (!crankController || !rodGroup) return 0;
+
+    rodGroup.getWorldDirection(_rodFwd);
+    _reelAxis.crossVectors(_rodFwd, _headUp);
+    if (_reelAxis.lengthSq() < 0.01) _reelAxis.set(1, 0, 0);
+    else _reelAxis.normalize();
+
+    _handle.set(0, 1, 0).applyQuaternion(crankController.quaternion);
+    _proj.copy(_handle).projectOnPlane(_rodFwd);
+    let reelIntensity = 0;
+    let reelDelta = 0;
+
+    if (_proj.lengthSq() > 0.01) {
+      _proj.normalize();
+      const phase = Math.atan2(_proj.dot(_reelAxis), _proj.dot(_headUp));
+      if (this.reelPrevPhase !== null) {
+        let delta = phase - this.reelPrevPhase;
+        if (delta > Math.PI) delta -= Math.PI * 2;
+        if (delta < -Math.PI) delta += Math.PI * 2;
+        reelDelta = delta;
+        reelIntensity = Math.min(1.5, Math.abs(delta) / (Math.PI / 10));
+      }
+      this.reelPrevPhase = phase;
+    }
+
+    crankController.getWorldPosition(_pos);
+    if (this.reelSampled) {
+      _vel.subVectors(_pos, this.reelPrevPos).divideScalar(Math.max(dt, 0.001));
+      const pullIn = -_vel.dot(_rodFwd);
+      if (pullIn > 0.2) reelIntensity = Math.min(1.5, reelIntensity + pullIn * 0.35);
+    }
+    this.reelPrevPos.copy(_pos);
+    this.reelSampled = true;
+
+    if (reelDelta !== 0) this.reelRotation += reelDelta * 1.8;
+
+    const crankSpeed = reelIntensity;
+    this.reelCrankIntensity += (crankSpeed - this.reelCrankIntensity) * Math.min(1, dt * 14);
+    return reelIntensity;
+  }
+
+  update(rodController, reelController, head, rodGroup, dt, fishingState) {
+    const crankController = fishingState === "reeling" ? reelController || rodController : rodController;
+    if (!rodController) {
+      return {
+        castRelease: null,
+        reelIntensity: 0,
+        hookSet: false,
+        windup: 0,
+        swingVisual: 0,
+        lureMotion: 0,
+        reelRotation: this.reelRotation,
+      };
     }
 
     this.castCooldown = Math.max(0, this.castCooldown - dt);
     this.hookJerkCooldown = Math.max(0, this.hookJerkCooldown - dt);
 
-    controller.getWorldPosition(_pos);
+    rodController.getWorldPosition(_pos);
     if (!this.sampled) {
       this.prevPos.copy(_pos);
       this.sampled = true;
-      return { castRelease: null, reelIntensity: 0, hookSet: false, windup: this.windup, swingVisual: this.swingVisual, lureMotion: 0 };
+      return {
+        castRelease: null,
+        reelIntensity: 0,
+        hookSet: false,
+        windup: this.windup,
+        swingVisual: this.swingVisual,
+        lureMotion: 0,
+        reelRotation: this.reelRotation,
+      };
     }
 
     _vel.subVectors(_pos, this.prevPos).divideScalar(Math.max(dt, 0.001));
@@ -104,7 +170,7 @@ export class VRFishingMotion {
         this.windup = 0;
         this.swingVisual = 0;
         this.castCooldown = 1.1;
-        this.pulseHaptic(controller, 0.65, 55);
+        this.pulseHaptic(rodController, 0.65, 55);
       } else if (!pullingBack && forwardSwing < 0.35) {
         this.windup = Math.max(0, this.windup - dt * 0.7);
         this.swingVisual = Math.max(0, this.swingVisual - dt * 2.5);
@@ -116,42 +182,20 @@ export class VRFishingMotion {
       if (jerk && this.hookJerkCooldown <= 0) {
         hookSet = true;
         this.hookJerkCooldown = 0.45;
-        this.pulseHaptic(controller, 0.8, 70);
+        this.pulseHaptic(rodController, 0.8, 70);
       }
     }
 
     if (fishingState === "reeling" && rodGroup) {
-      rodGroup.getWorldDirection(_rodFwd);
-      _reelAxis.crossVectors(_rodFwd, _headUp);
-      if (_reelAxis.lengthSq() < 0.01) _reelAxis.set(1, 0, 0);
-      else _reelAxis.normalize();
-
-      _handle.set(0, 1, 0).applyQuaternion(controller.quaternion);
-      _proj.copy(_handle).projectOnPlane(_rodFwd);
-      if (_proj.lengthSq() > 0.01) {
-        _proj.normalize();
-        const phase = Math.atan2(_proj.dot(_reelAxis), _proj.dot(_headUp));
-        if (this.reelPrevPhase !== null) {
-          let delta = phase - this.reelPrevPhase;
-          if (delta > Math.PI) delta -= Math.PI * 2;
-          if (delta < -Math.PI) delta += Math.PI * 2;
-          reelIntensity = Math.min(1.5, Math.abs(delta) / (Math.PI / 8));
-        }
-        this.reelPrevPhase = phase;
-      }
-
-      const pullIn = -_vel.dot(_rodFwd);
-      if (pullIn > 0.25) reelIntensity = Math.min(1.5, reelIntensity + pullIn * 0.4);
-
-      const crankSpeed = reelIntensity;
-      this.reelCrankIntensity += (crankSpeed - this.reelCrankIntensity) * Math.min(1, dt * 14);
+      const reelIntensity = this.measureReelCrank(crankController, rodGroup, dt);
       this.reelHapticCooldown = Math.max(0, this.reelHapticCooldown - dt);
-      if (crankSpeed > 0.12 && this.reelHapticCooldown <= 0) {
-        this.pulseHaptic(controller, 0.12 + crankSpeed * 0.08, 18);
+      if (reelIntensity > 0.12 && this.reelHapticCooldown <= 0) {
+        this.pulseHaptic(crankController, 0.12 + reelIntensity * 0.08, 18);
         this.reelHapticCooldown = 0.09;
       }
     } else {
       this.reelPrevPhase = null;
+      this.reelSampled = false;
       this.reelCrankIntensity = Math.max(0, this.reelCrankIntensity - dt * 4);
     }
 
@@ -162,6 +206,7 @@ export class VRFishingMotion {
       windup: this.windup,
       swingVisual: this.swingVisual,
       lureMotion,
+      reelRotation: this.reelRotation,
     };
   }
 }

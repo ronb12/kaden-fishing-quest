@@ -68,7 +68,7 @@ export function initUI(fishing, callbacks) {
   function reelHintText() {
     switch (inputMode()) {
       case "touch": return "Hold Reel in the green zone — ease off during runs";
-      case "vr": return "Crank your wrist to reel — ease off during runs";
+      case "vr": return "Crank left hand in a circle on the reel — ease off during runs";
       default: return "Hold R to reel in the green zone — ease off during runs";
     }
   }
@@ -136,7 +136,8 @@ export function initUI(fishing, callbacks) {
       <ul class="help-list">
         <li><strong>Cast</strong> — Pull rod back, then swing forward (like a real cast)</li>
         <li><strong>Hook</strong> — Jerk rod upward on a bite, or pull right trigger</li>
-        <li><strong>Reel</strong> — Crank your wrist in a circle, or pull rod toward you</li>
+        <li><strong>Reel (VR)</strong> — Left hand cranks the reel in a circle; right hand holds the rod</li>
+        <li><strong>Reel (desktop)</strong> — Hold R in the green tension zone</li>
         <li><strong>Left Trigger on zone pad</strong> — Teleport to zone</li>
         <li><strong>Left Grip</strong> — Open menu</li>
       </ul>

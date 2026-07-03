@@ -122,6 +122,41 @@ export function buildRealisticRod(rodLevel = 1) {
   return built;
 }
 
+/** Visible reel spool + crank handle for VR reeling animation. */
+export function attachReelMechanism(rod) {
+  const existing = rod.getObjectByName("reelMechanism");
+  if (existing) return existing;
+
+  const mechanism = new THREE.Group();
+  mechanism.name = "reelMechanism";
+  const metal = mat(0xb0b8c0, { metalness: 0.9, roughness: 0.18, envMapIntensity: 1.4 });
+
+  const spool = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.044, 0.052, 16), metal);
+  spool.rotation.z = Math.PI / 2;
+  spool.name = "reelSpool";
+  mechanism.add(spool);
+
+  const crank = new THREE.Group();
+  crank.name = "reelCrank";
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.014, 0.014), metal);
+  arm.position.x = 0.029;
+  crank.add(arm);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), metal);
+  knob.position.set(0.058, 0, 0);
+  knob.name = "reelKnob";
+  crank.add(knob);
+  mechanism.add(crank);
+
+  const lineGuide = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.003, 6, 12), metal);
+  lineGuide.rotation.y = Math.PI / 2;
+  lineGuide.position.set(0.03, 0.03, 0);
+  mechanism.add(lineGuide);
+
+  mechanism.position.set(0.12, -0.05, 0);
+  rod.add(mechanism);
+  return mechanism;
+}
+
 function buildProceduralFish(species, size = 1) {
   const group = new THREE.Group();
   const color = species?.color ?? 0x4a90c4;
