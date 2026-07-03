@@ -320,6 +320,58 @@ body > button {
 .leaderboard-row strong { display: block; }
 .leaderboard-row span { font-size: 0.82rem; opacity: 0.75; }
 
+.bait-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.bait-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 14px;
+  color: white;
+  background: rgba(255,255,255,0.06);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bait-card .bait-icon {
+  grid-row: span 2;
+  font-size: 1.6rem;
+  align-self: center;
+}
+
+.bait-card strong { font-size: 0.95rem; }
+.bait-card .bait-desc {
+  grid-column: 2;
+  font-size: 0.78rem;
+  opacity: 0.75;
+  line-height: 1.4;
+}
+
+.bait-card.active {
+  border-color: var(--sun);
+  background: rgba(255,211,122,0.12);
+}
+
+.bait-card.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bait-equipped {
+  grid-column: 2;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: var(--sun);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .empty {
   padding: 24px;
   text-align: center;

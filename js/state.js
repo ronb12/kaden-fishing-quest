@@ -1,4 +1,4 @@
-import { DEFAULT_STATE, GEAR_COSTS, QUESTS, STORAGE_KEY } from "./data.js";
+import { DEFAULT_STATE, GEAR_COSTS, QUESTS, STORAGE_KEY, BAITS, getBait, isBaitUnlocked } from "./data.js";
 import { loadCloudSave, saveCloudSave, scheduleCloudSave } from "./api.js";
 
 let state = loadLocal();
@@ -19,6 +19,7 @@ export async function initState() {
   const cloud = await loadCloudSave();
   if (cloud) {
     state = { ...DEFAULT_STATE, ...cloud };
+    if (!state.selectedBait) state.selectedBait = "worm";
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     listeners.forEach((fn) => fn(state));
   }
@@ -45,6 +46,20 @@ export function setZone(zone) {
   state.zone = zone;
   if (zone === "North Cove") state.questProgress.visitedCove = true;
   notify();
+}
+
+export function setBait(baitId) {
+  const bait = getBait(baitId);
+  if (!isBaitUnlocked(bait, state.baitKit)) {
+    return { ok: false, message: `Upgrade bait kit to use ${bait.name}.` };
+  }
+  state.selectedBait = baitId;
+  notify();
+  return { ok: true, message: `Equipped ${bait.name}.` };
+}
+
+export function getSelectedBait() {
+  return getBait(state.selectedBait || "worm");
 }
 
 export function recordCatch(catchData) {

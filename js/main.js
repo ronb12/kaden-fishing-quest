@@ -4,7 +4,8 @@ import { XRControllerModelFactory } from "three/addons/webxr/XRControllerModelFa
 import { LakeEnvironment } from "./environment.js";
 import { FishingSystem, FishingState } from "./fishing.js";
 import { initUI } from "./ui.js";
-import { getState, setZone, canAccessZone, initState } from "./state.js";
+import { getState, setZone, canAccessZone, initState, setBait, getSelectedBait } from "./state.js";
+import { BAITS } from "./data.js";
 import { ZONES } from "./data.js";
 import * as audio from "./audio.js";
 
@@ -70,6 +71,20 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Digit2") switchZone("North Cove");
   if (e.code === "Digit3") switchZone("Deep Water");
   if (e.code === "KeyM") ui?.toggleMenu();
+  if (e.code === "KeyB") {
+    ui?.openPanel?.("bait");
+  }
+  const baitKeyMap = { Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5 };
+  if (baitKeyMap[e.code] !== undefined) {
+    const bait = BAITS[baitKeyMap[e.code]];
+    if (bait) {
+      const result = setBait(bait.id);
+      if (result.ok) {
+        fishing.onBaitChanged();
+        ui?.showToast(result.message);
+      }
+    }
+  }
 });
 document.addEventListener("keyup", (e) => {
   keys[e.code] = false;
@@ -171,6 +186,8 @@ ui = initUI(fishing, {
     teleportToZone(zone);
     env.applyZone(zone);
   },
+  onRodUpgrade: () => fishing.onRodLevelUp(),
+  onBaitChange: () => fishing.onBaitChanged(),
 });
 
 await initState();
@@ -185,6 +202,11 @@ function renderHUDRefresh() {
   document.getElementById("hud-rod").textContent = s.rodLevel;
   document.getElementById("hud-zone").textContent = s.zone;
   document.getElementById("hud-boat").textContent = s.boatLevel;
+  const baitEl = document.getElementById("hud-bait");
+  if (baitEl) {
+    const bait = getSelectedBait();
+    baitEl.textContent = `${bait.icon} ${bait.name}`;
+  }
 }
 
 const clock = new THREE.Clock();

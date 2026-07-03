@@ -1,5 +1,5 @@
-import { FISH_SPECIES, GEAR_COSTS, QUESTS, ZONES } from "./data.js";
-import { getState, subscribe, setZone, upgradeGear, claimQuest, canAccessZone, resetProgress } from "./state.js";
+import { FISH_SPECIES, GEAR_COSTS, QUESTS, ZONES, BAITS, isBaitUnlocked } from "./data.js";
+import { getState, subscribe, setZone, upgradeGear, claimQuest, canAccessZone, resetProgress, setBait, getSelectedBait } from "./state.js";
 import { fetchLeaderboard, getPlayerId } from "./api.js";
 
 let activePanel = "hud";
@@ -28,6 +28,9 @@ export function initUI(fishing, callbacks) {
     document.getElementById("hud-rod").textContent = state.rodLevel;
     document.getElementById("hud-zone").textContent = state.zone;
     document.getElementById("hud-boat").textContent = state.boatLevel;
+    const bait = getSelectedBait();
+    const baitEl = document.getElementById("hud-bait");
+    if (baitEl) baitEl.textContent = `${bait.icon} ${bait.name}`;
   }
 
   function renderPanel(state) {
@@ -41,6 +44,9 @@ export function initUI(fishing, callbacks) {
         break;
       case "gear":
         panelContent.innerHTML = renderGear(state);
+        break;
+      case "bait":
+        panelContent.innerHTML = renderBait(state);
         break;
       case "quests":
         panelContent.innerHTML = renderQuests(state);
@@ -69,6 +75,7 @@ export function initUI(fishing, callbacks) {
         <li><strong>Mouse</strong> — Look around</li>
         <li><strong>WASD</strong> — Move</li>
         <li><strong>1–3</strong> — Switch zones</li>
+        <li><strong>B</strong> — Bait menu · <strong>4–9</strong> — Quick-select bait</li>
       </ul>
       <p class="help-tip">Cast into the lake, wait for a bite, hook fast, then reel while managing tension.</p>
     `;
@@ -118,8 +125,29 @@ export function initUI(fishing, callbacks) {
         <button data-upgrade="boat">Upgrade (${GEAR_COSTS.boat}c)</button>
       </div>
       <div class="gear-row">
-        <div><strong>Bait Kit ${state.baitKit}</strong><span>Faster bites, better odds</span></div>
+        <div><strong>Bait Kit ${state.baitKit}</strong><span>Unlocks advanced baits</span></div>
         <button data-upgrade="bait">Upgrade (${GEAR_COSTS.bait}c)</button>
+      </div>
+    `;
+  }
+
+  function renderBait(state) {
+    return `
+      <p class="help-tip">Choose bait before casting. Each type attracts different fish.</p>
+      <div class="bait-grid">
+        ${BAITS.map((b) => {
+          const unlocked = isBaitUnlocked(b, state.baitKit);
+          const active = state.selectedBait === b.id;
+          return `
+            <button class="bait-card ${active ? "active" : ""} ${unlocked ? "" : "locked"}"
+              data-bait="${b.id}" ${unlocked ? "" : "disabled"}>
+              <span class="bait-icon">${b.icon}</span>
+              <strong>${b.name}</strong>
+              <span class="bait-desc">${unlocked ? b.description : `Requires Bait Kit Lvl ${b.unlockLevel}`}</span>
+              ${active ? '<span class="bait-equipped">Equipped</span>' : ""}
+            </button>
+          `;
+        }).join("")}
       </div>
     `;
   }
@@ -186,6 +214,16 @@ export function initUI(fishing, callbacks) {
       btn.addEventListener("click", () => {
         const result = upgradeGear(btn.dataset.upgrade);
         showToast(result.ok ? result.message : result.message);
+        if (result.ok && btn.dataset.upgrade === "rod") {
+          callbacks.onRodUpgrade?.();
+        }
+      });
+    });
+    panelContent?.querySelectorAll("[data-bait]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const result = setBait(btn.dataset.bait);
+        showToast(result.message);
+        if (result.ok) callbacks.onBaitChange?.();
       });
     });
     panelContent?.querySelectorAll("[data-claim]").forEach((btn) => {
@@ -244,7 +282,7 @@ export function initUI(fishing, callbacks) {
         <div class="catch-card rarity-${catchData.rarity}">
           <p class="catch-label">Caught!</p>
           <h2>${catchData.name}</h2>
-          <p>${catchData.weight} lb · ${catchData.rarity}</p>
+          <p>${catchData.weight} lb · ${catchData.rarity}${catchData.baitUsed ? ` · ${catchData.baitUsed}` : ""}</p>
           <p class="catch-value">+${catchData.value} coins</p>
         </div>
       `;
@@ -254,6 +292,14 @@ export function initUI(fishing, callbacks) {
     toggleMenu() {
       menu?.classList.toggle("open");
       if (menu?.classList.contains("open")) renderPanel(getState());
+    },
+    openPanel(name) {
+      activePanel = name;
+      document.querySelectorAll("[data-panel]").forEach((t) =>
+        t.classList.toggle("active", t.dataset.panel === activePanel)
+      );
+      menu?.classList.add("open");
+      renderPanel(getState());
     },
   };
 }

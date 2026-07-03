@@ -1,7 +1,8 @@
 import * as THREE from "three";
-import { ZONES, pickFish, rollWeight, formatCatch } from "./data.js";
-import { getState, recordCatch } from "./state.js";
+import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
+import { getState, recordCatch, getSelectedBait } from "./state.js";
 import * as audio from "./audio.js";
+import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook } from "./rod-model.js";
 
 export const FishingState = {
   IDLE: "idle",
@@ -20,7 +21,10 @@ export class FishingSystem {
     this.onEvent = onEvent;
     this.state = FishingState.IDLE;
     this.rodGroup = new THREE.Group();
+    this.rodTip = null;
     this.bobber = null;
+    this.hookGroup = null;
+    this.baitMesh = null;
     this.line = null;
     this.castTarget = new THREE.Vector3();
     this.biteTimer = 0;
@@ -30,39 +34,58 @@ export class FishingSystem {
     this.pendingFish = null;
     this.castPower = 0;
     this.lastControllerPos = new THREE.Vector3();
-    this.buildRod();
+    this.rebuildRod();
     scene.add(this.rodGroup);
   }
 
-  buildRod() {
-    const rodMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.6 });
-    const handleMat = new THREE.MeshStandardMaterial({ color: 0x2a1810 });
+  rebuildRod() {
+    while (this.rodGroup.children.length) {
+      this.rodGroup.remove(this.rodGroup.children[0]);
+    }
+    const { rod } = buildRealisticRod(getState().rodLevel);
+    while (rod.children.length) {
+      this.rodGroup.add(rod.children[0]);
+    }
+    this.rodTip = this.rodGroup.getObjectByName("rodTip");
 
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.18), handleMat);
-    handle.rotation.x = Math.PI / 2;
-    handle.position.z = -0.09;
-    this.rodGroup.add(handle);
+    if (!this.line) {
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      this.line = new THREE.Line(
+        lineGeo,
+        new THREE.LineBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.85 })
+      );
+      this.scene.add(this.line);
+    }
 
-    const blank = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.015, 1.4), rodMat);
-    blank.rotation.x = Math.PI / 2;
-    blank.position.z = -0.8;
-    this.rodGroup.add(blank);
+    if (!this.bobber) {
+      this.bobber = buildBobber();
+      this.bobber.visible = false;
+      this.scene.add(this.bobber);
+    }
 
-    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.012), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-    tip.position.set(0, 0, -1.55);
-    this.rodGroup.add(tip);
-    this.rodTip = tip;
+    if (!this.hookGroup) {
+      this.hookGroup = new THREE.Group();
+      this.hookGroup.add(buildHook());
+      this.hookGroup.visible = false;
+      this.scene.add(this.hookGroup);
+    }
 
-    const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-    const lineMat = new THREE.LineBasicMaterial({ color: 0xeeeeee, linewidth: 1 });
-    this.line = new THREE.Line(lineGeo, lineMat);
-    this.scene.add(this.line);
+    this.updateBaitVisual();
+  }
 
-    const bobberGeo = new THREE.SphereGeometry(0.06, 12, 12);
-    const bobberMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, emissive: 0x440000, emissiveIntensity: 0.2 });
-    this.bobber = new THREE.Mesh(bobberGeo, bobberMat);
-    this.bobber.visible = false;
-    this.scene.add(this.bobber);
+  updateBaitVisual() {
+    if (this.baitMesh) {
+      this.hookGroup?.remove(this.baitMesh);
+      this.baitMesh.traverse((c) => {
+        if (c.geometry) c.geometry.dispose();
+        if (c.material) c.material.dispose();
+      });
+    }
+    const bait = getSelectedBait();
+    this.baitMesh = buildBaitMesh(bait);
+    this.baitMesh.position.y = -0.028;
+    this.hookGroup?.add(this.baitMesh);
+    this.onEvent?.("baitChanged", bait);
   }
 
   attachToController(controller) {
@@ -71,7 +94,7 @@ export class FishingSystem {
 
   getRodTipWorld() {
     const pos = new THREE.Vector3();
-    this.rodTip.getWorldPosition(pos);
+    if (this.rodTip) this.rodTip.getWorldPosition(pos);
     return pos;
   }
 
@@ -80,19 +103,39 @@ export class FishingSystem {
     this.rodGroup.position.copy(controller.position);
     this.rodGroup.quaternion.copy(controller.quaternion);
     this.rodGroup.rotateX(-Math.PI / 4, true);
+    this.rodGroup.rotateY(0.08, true);
   }
 
   updateLine() {
     const tip = this.getRodTipWorld();
     const points = [tip.clone()];
+
     if (this.bobber.visible) {
       points.push(this.bobber.position.clone());
+      if (this.hookGroup.visible) {
+        const hookPos = new THREE.Vector3();
+        this.hookGroup.getWorldPosition(hookPos);
+        points.push(hookPos);
+      }
+    } else if (this.hookGroup.visible) {
+      const hookPos = new THREE.Vector3();
+      this.hookGroup.getWorldPosition(hookPos);
+      points.push(hookPos);
     } else {
       const end = tip.clone();
-      end.y -= 0.3;
+      end.y -= 0.15;
       points.push(end);
     }
+
     this.line.geometry.setFromPoints(points);
+  }
+
+  showRigAtTip() {
+    const tip = this.getRodTipWorld();
+    this.hookGroup.position.copy(tip);
+    this.hookGroup.position.y -= 0.04;
+    this.hookGroup.visible = this.state === FishingState.IDLE;
+    this.bobber.visible = this.state !== FishingState.IDLE && this.state !== FishingState.CAUGHT && this.state !== FishingState.FAILED;
   }
 
   startCast(power = 0.7) {
@@ -101,8 +144,10 @@ export class FishingSystem {
     const zone = ZONES[s.zone];
     if (!zone) return false;
 
+    const bait = getSelectedBait();
     this.castPower = Math.min(1, Math.max(0.2, power));
     this.state = FishingState.CASTING;
+    this.hookGroup.visible = false;
     audio.playCast();
 
     const angle = Math.random() * Math.PI * 2;
@@ -117,32 +162,37 @@ export class FishingSystem {
       this.bobber.position.copy(this.castTarget);
       this.bobber.position.y = 0.08;
       this.bobber.visible = true;
+      this.hookGroup.position.copy(this.castTarget);
+      this.hookGroup.position.y = 0.02;
+      this.hookGroup.visible = true;
       audio.playSplash();
       this.state = FishingState.WAITING;
-      const waitTime = 1.5 + Math.random() * 4 - s.baitKit * 0.2;
+      const waitTime = Math.max(0.8, 1.5 + Math.random() * 4 - s.baitKit * 0.2 - bait.waitBonus);
       this.biteTimer = waitTime;
-      this.onEvent?.("cast", { target: this.castTarget.clone() });
+      this.onEvent?.("cast", { target: this.castTarget.clone(), bait });
     }, 400);
 
     return true;
   }
 
   update(dt, time) {
+    this.showRigAtTip();
     this.updateLine();
 
     if (this.bobber.visible && this.state !== FishingState.IDLE) {
       const w = this.env.getWaterHeight(this.bobber.position.x, this.bobber.position.z, time);
       this.bobber.position.y = 0.06 + w + Math.sin(time * 3) * 0.01;
+      this.hookGroup.position.copy(this.bobber.position);
+      this.hookGroup.position.y -= 0.05;
       if (this.state === FishingState.BITING) {
         this.bobber.position.y += Math.sin(time * 12) * 0.04;
+        this.bobber.rotation.z = Math.sin(time * 14) * 0.15;
       }
     }
 
     if (this.state === FishingState.WAITING) {
       this.biteTimer -= dt;
-      if (this.biteTimer <= 0) {
-        this.triggerBite();
-      }
+      if (this.biteTimer <= 0) this.triggerBite();
     }
 
     if (this.state === FishingState.BITING) {
@@ -154,15 +204,13 @@ export class FishingSystem {
 
     if (this.state === FishingState.REELING) {
       this.reelProgress += dt * (0.15 + getState().rodLevel * 0.03);
-      if (this.reelProgress >= 1) {
-        this.completeCatch();
-      }
+      if (this.reelProgress >= 1) this.completeCatch();
     }
   }
 
   triggerBite() {
     const s = getState();
-    this.pendingFish = pickFish(s.zone, s.rodLevel, s.baitKit);
+    this.pendingFish = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait);
     this.state = FishingState.BITING;
     this.biteWindow = 2.5 + s.rodLevel * 0.2;
     audio.playBite();
@@ -195,17 +243,17 @@ export class FishingSystem {
       this.failCatch("Fish shook the hook — keep reeling!");
       return;
     }
-    if (this.reelProgress >= 1) {
-      this.completeCatch();
-    }
+    if (this.reelProgress >= 1) this.completeCatch();
     this.onEvent?.("reeling", { tension: this.tension, progress: this.reelProgress });
   }
 
   completeCatch() {
     if (!this.pendingFish) return;
     const s = getState();
+    const bait = getSelectedBait();
     const weight = rollWeight(this.pendingFish);
     const catchData = formatCatch(this.pendingFish, weight, s.zone);
+    catchData.baitUsed = bait.name;
     recordCatch(catchData);
     audio.playCatch();
     this.state = FishingState.CAUGHT;
@@ -223,11 +271,21 @@ export class FishingSystem {
   reset() {
     this.state = FishingState.IDLE;
     this.bobber.visible = false;
+    this.hookGroup.visible = true;
     this.pendingFish = null;
     this.tension = 0;
     this.reelProgress = 0;
     this.biteTimer = 0;
+    this.bobber.rotation.z = 0;
     this.onEvent?.("reset");
+  }
+
+  onRodLevelUp() {
+    this.rebuildRod();
+  }
+
+  onBaitChanged() {
+    this.updateBaitVisual();
   }
 
   detectCastSwing(controller) {
@@ -238,13 +296,14 @@ export class FishingSystem {
   }
 
   getStatusText() {
+    const bait = getSelectedBait();
     switch (this.state) {
       case FishingState.IDLE:
-        return "Ready — cast your line (trigger / Space)";
+        return `Ready — ${bait.name} on hook · cast (trigger / Space)`;
       case FishingState.CASTING:
         return "Casting...";
       case FishingState.WAITING:
-        return "Waiting for a bite...";
+        return `Waiting with ${bait.name}...`;
       case FishingState.BITING:
         return "BITE! Hook now (trigger / Space)";
       case FishingState.REELING:

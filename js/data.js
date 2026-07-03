@@ -61,12 +61,88 @@ export const FISH_SPECIES = [
 
 export const GEAR_COSTS = { rod: 25, boat: 40, bait: 18 };
 
+export const BAITS = [
+  {
+    id: "worm",
+    name: "Nightcrawler",
+    icon: "🪱",
+    description: "Classic all-rounder. Fast bites for panfish and bass.",
+    color: 0xc46a3a,
+    meshType: "worm",
+    waitBonus: 0.35,
+    rarityBonus: 0,
+    speciesBoost: ["bluegill", "sunfish", "bass"],
+    unlockLevel: 1,
+  },
+  {
+    id: "cricket",
+    name: "Cricket",
+    icon: "🦗",
+    description: "Top choice for bluegill and sunfish in shallows.",
+    color: 0x6a5a3a,
+    meshType: "cricket",
+    waitBonus: 0.45,
+    rarityBonus: 0,
+    speciesBoost: ["bluegill", "sunfish"],
+    unlockLevel: 1,
+  },
+  {
+    id: "minnow",
+    name: "Live Minnow",
+    icon: "🐟",
+    description: "Predators love it. Great for bass and trout.",
+    color: 0x8ab4c4,
+    meshType: "minnow",
+    waitBonus: 0.15,
+    rarityBonus: 0.06,
+    speciesBoost: ["bass", "trout", "night-pike"],
+    unlockLevel: 1,
+  },
+  {
+    id: "spinner",
+    name: "Spinner Lure",
+    icon: "✨",
+    description: "Flashy blade attracts aggressive strikes.",
+    color: 0xc0c0c0,
+    meshType: "spinner",
+    waitBonus: 0,
+    rarityBonus: 0.1,
+    speciesBoost: ["bass", "trout", "lunker-bass"],
+    unlockLevel: 2,
+  },
+  {
+    id: "dough",
+    name: "Dough Ball",
+    icon: "🟡",
+    description: "Carp and catfish can't resist dough.",
+    color: 0xe8c840,
+    meshType: "dough",
+    waitBonus: 0.2,
+    rarityBonus: 0.12,
+    speciesBoost: ["golden-carp", "catfish"],
+    unlockLevel: 2,
+  },
+  {
+    id: "jig",
+    name: "Deep Jig",
+    icon: "⚓",
+    description: "Heavy jig for deep water trophies.",
+    color: 0x3a5a6a,
+    meshType: "jig",
+    waitBonus: -0.1,
+    rarityBonus: 0.18,
+    speciesBoost: ["catfish", "night-pike", "lunker-bass"],
+    unlockLevel: 3,
+  },
+];
+
 export const DEFAULT_STATE = {
   fish: 0,
   coins: 50,
   rodLevel: 1,
   boatLevel: 1,
   baitKit: 1,
+  selectedBait: "worm",
   zone: "Lake Dock",
   questProgress: { lakeFish: 0, visitedCove: false, rodUpgraded: false },
   codex: {},
@@ -89,12 +165,14 @@ export const RARITY_WEIGHTS = {
   legendary: 3,
 };
 
-export function pickFish(zone, rodLevel, baitKit) {
+export function pickFish(zone, rodLevel, baitKit, baitId = "worm") {
   const zoneFish = FISH_SPECIES.filter((f) => f.zones.includes(zone));
-  const bonus = (rodLevel - 1) * 0.04 + (baitKit - 1) * 0.03;
+  const bait = BAITS.find((b) => b.id === baitId) || BAITS[0];
+  const bonus = (rodLevel - 1) * 0.04 + (baitKit - 1) * 0.03 + bait.rarityBonus;
   const weights = zoneFish.map((f) => {
     let w = RARITY_WEIGHTS[f.rarity] || 10;
     if (f.rarity !== "common") w *= 1 + bonus;
+    if (bait.speciesBoost.includes(f.id)) w *= 1.8;
     return w;
   });
   const total = weights.reduce((a, b) => a + b, 0);
@@ -104,6 +182,14 @@ export function pickFish(zone, rodLevel, baitKit) {
     if (roll <= 0) return zoneFish[i];
   }
   return zoneFish[0];
+}
+
+export function getBait(baitId) {
+  return BAITS.find((b) => b.id === baitId) || BAITS[0];
+}
+
+export function isBaitUnlocked(bait, baitKit) {
+  return baitKit >= bait.unlockLevel;
 }
 
 export function rollWeight(species) {
