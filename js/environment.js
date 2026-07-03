@@ -107,6 +107,8 @@ export class LakeEnvironment {
   build() {
     if (this.envMaps?.background) {
       this.scene.background = this.envMaps.background;
+      this.scene.backgroundBlurriness = 0;
+      this.scene.backgroundIntensity = 1;
       this.scene.environment = this.envMaps.envMap;
       this.scene.fog = new THREE.Fog(0x8ab0a8, 48, 150);
     } else {
@@ -318,6 +320,7 @@ export class LakeEnvironment {
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.05;
     ground.receiveShadow = true;
+    this.groundMesh = ground;
     this.scene.add(ground);
   }
 
@@ -852,6 +855,26 @@ export class LakeEnvironment {
     const dx = x - pos.x;
     const dz = z - pos.z;
     return dx * dx + dz * dz <= radius * radius;
+  }
+
+  setEnvironmentMaps(envMaps) {
+    this.envMaps = envMaps;
+    if (!envMaps) return;
+    if (envMaps.background) {
+      this.scene.background = envMaps.background;
+      this.scene.backgroundBlurriness = 0;
+      this.scene.backgroundIntensity = 1;
+    }
+    if (envMaps.envMap) {
+      this.scene.environment = envMaps.envMap;
+      this.waterUniforms.uEnvMap.value = envMaps.envMap;
+      this.waterUniforms.uUseEnv.value = 1;
+    }
+    if (envMaps.groundDiff && this.groundMesh?.material) {
+      this.groundMesh.material.map = envMaps.groundDiff;
+      this.groundMesh.material.normalMap = envMaps.groundNor;
+      this.groundMesh.material.needsUpdate = true;
+    }
   }
 
   setQuality(quality) {

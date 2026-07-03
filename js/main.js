@@ -18,7 +18,7 @@ import { BAITS, ZONES, BOAT_USE_LEVEL, canUseBoat, canBoatTravelToZone } from ".
 import * as audio from "./audio.js";
 import { initTouchControls } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
-import { loadEnvironmentMaps } from "./environment-loader.js";
+import { loadEnvironmentMaps, reloadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
 import { VRHandRig } from "./vr-hands.js";
 import { moveWithCollisions } from "./collisions.js";
@@ -32,6 +32,7 @@ let touch = { active: false };
 
 const canvas = document.getElementById("game-canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -46,6 +47,7 @@ camera.position.set(DOCK_SPAWN.x, 1.6, DOCK_SPAWN.z);
 
 let env = null;
 let fishing = null;
+let envMaps = null;
 
 const loadingEl = document.getElementById("asset-loading");
 const loadingFill = document.getElementById("asset-loading-fill");
@@ -61,7 +63,7 @@ await loadGameAssets((progress, name) => {
 });
 await audio.loadAudioAssets();
 if (loadingLabel) loadingLabel.textContent = "Loading sky and lighting…";
-const envMaps = await loadEnvironmentMaps(renderer);
+envMaps = await loadEnvironmentMaps(renderer, getState().settings?.quality || "high");
 if (loadingLabel) loadingLabel.textContent = "Ready — tight lines!";
 await new Promise((resolve) => setTimeout(resolve, 450));
 loadingEl?.classList.add("hidden");
@@ -630,11 +632,16 @@ ui = initUI(fishing, {
     }
   },
   onBaitChange: () => fishing.onBaitChanged(),
-  onSettingsChange: (settings) => {
+  onSettingsChange: async (settings) => {
     audio.applyAudioSettings(settings);
     env.setQuality(settings.quality || "high");
     const pr = settings.quality === "low" ? 1 : Math.min(window.devicePixelRatio, 2);
     renderer.setPixelRatio(pr);
+    const reloaded = await reloadEnvironmentMaps(renderer, scene, envMaps, settings.quality || "high");
+    if (reloaded) {
+      envMaps = reloaded;
+      env.setEnvironmentMaps(envMaps);
+    }
   },
   onCastAgain: () => performCast(0.75),
 });

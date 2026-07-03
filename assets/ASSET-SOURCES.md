@@ -63,7 +63,8 @@ Environment lighting and PBR terrain in `assets/hdri/` and `assets/textures/`.
 
 | Asset | Source |
 |-------|--------|
-| pond_1k.hdr | [Pond HDRI](https://polyhaven.com/a/pond) — sky, image-based lighting, water reflections |
+| pond_1k.hdr | [Pond HDRI](https://polyhaven.com/a/pond) — low-quality sky fallback |
+| pond_2k.hdr | [Pond HDRI](https://polyhaven.com/a/pond) — sharp sky background + IBL source |
 | ground_grass_rock_diff.jpg | [Aerial Grass Rock](https://polyhaven.com/a/aerial_grass_rock) — tiled ground albedo |
 | ground_grass_rock_nor.jpg | [Aerial Grass Rock](https://polyhaven.com/a/aerial_grass_rock) — ground normal map |
 

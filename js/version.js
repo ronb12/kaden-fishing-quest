@@ -1,1 +1,1 @@
-export const BUILD_ID = "game-polish-2026.07.03";
+export const BUILD_ID = "sky-clarity-2026.07.03";
