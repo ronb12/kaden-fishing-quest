@@ -840,6 +840,41 @@ if (new URLSearchParams(location.search).has("playtest")) {
       return Boolean(env?.fishingPoolMarkers?.[zone]?.visible);
     },
     getHudText: () => document.getElementById("status-text")?.textContent || "",
+    walk: (dirX, dirZ, duration = 1) => {
+      const dt = 0.05;
+      const moveSpeed = 4;
+      const steps = Math.max(1, Math.ceil(duration / dt));
+      const trace = [];
+      for (let i = 0; i < steps; i++) {
+        const dir = new THREE.Vector3(dirX, 0, dirZ);
+        if (dir.lengthSq() > 0) dir.normalize();
+        dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), mouseX));
+        const delta = dir.multiplyScalar(moveSpeed * dt);
+        if (env?.collisions) {
+          camera.position.copy(moveWithCollisions(camera.position, delta, env.collisions));
+        } else {
+          camera.position.add(delta);
+        }
+        camera.position.y = 1.6;
+        const stairY = getDockStairEyeHeight(camera.position.x, camera.position.z);
+        if (stairY != null) camera.position.y = stairY;
+        trace.push({
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+          onStairs: stairY != null,
+        });
+      }
+      return trace;
+    },
+    getStairsInfo: () => {
+      const stairY = getDockStairEyeHeight(camera.position.x, camera.position.z);
+      return {
+        onStairs: stairY != null,
+        eyeY: stairY,
+        camera: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+      };
+    },
     waitFrames: (n) => new Promise((resolve) => {
       let left = n;
       const tick = () => {
