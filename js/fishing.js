@@ -85,7 +85,6 @@ export class FishingSystem {
     this.baitMesh = buildBaitMesh(bait);
     this.baitMesh.position.y = -0.028;
     this.hookGroup?.add(this.baitMesh);
-    this.onEvent?.("baitChanged", bait);
   }
 
   attachToController(controller) {

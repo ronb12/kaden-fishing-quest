@@ -9,6 +9,8 @@ import { BAITS } from "./data.js";
 import { ZONES } from "./data.js";
 import * as audio from "./audio.js";
 
+let ui = null;
+
 const canvas = document.getElementById("game-canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -25,7 +27,6 @@ const env = new LakeEnvironment(scene);
 env.applyZone(getState().zone);
 
 const fishing = new FishingSystem(scene, env, onFishingEvent);
-let ui = null;
 
 const controllerModelFactory = new XRControllerModelFactory();
 const controllers = [];
