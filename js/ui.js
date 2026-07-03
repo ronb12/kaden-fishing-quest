@@ -26,6 +26,7 @@ import {
 } from "./state.js";
 import { fetchLeaderboard, getPlayerId } from "./api.js";
 import * as audio from "./audio.js";
+import { tensionZone } from "./fish-fight.js";
 
 let activePanel = "hud";
 let leaderboardSort = "fish";
@@ -45,6 +46,8 @@ export function initUI(fishing, callbacks) {
   const biteSpecies = document.getElementById("bite-species");
   const biteTimerFill = document.getElementById("bite-timer-fill");
   const reelAlert = document.getElementById("reel-alert");
+  const fightPhaseHint = document.getElementById("fight-phase-hint");
+  const tensionZoneLabel = document.getElementById("tension-zone-label");
 
   function showToast(msg) {
     toast.textContent = msg;
@@ -127,7 +130,7 @@ export function initUI(fishing, callbacks) {
         <li><strong>Hold Cast</strong> — Charge power, release to cast</li>
         <li><strong>HOOK!</strong> when fish bites · <strong>Hold Reel</strong> after hooking</li>
       </ul>
-      <p class="help-tip">Watch the bobber dip before a bite. Keep tension in the green zone while reeling — stop reeling if it gets too high!</p>
+      <p class="help-tip">Watch for nibbles and a shadow under the bobber. Reel in the green tension zone when the fish tires — ease off during runs or your line will snap!</p>
     `;
   }
 
@@ -405,10 +408,28 @@ export function initUI(fishing, callbacks) {
     setStatus(text) {
       if (statusText) statusText.textContent = text;
     },
-    setTension(tension, progress, visible) {
+    setTension(tension, progress, visible, meta = {}) {
       if (tensionBar) tensionBar.classList.toggle("visible", visible);
-      if (tensionFill) tensionFill.style.width = `${tension * 100}%`;
+      if (tensionFill) {
+        tensionFill.style.width = `${tension * 100}%`;
+        const zone = meta.zone || tensionZone(tension);
+        tensionFill.dataset.zone = zone;
+        if (tensionZoneLabel) {
+          const labels = {
+            sweet: "· sweet spot",
+            high: "· ease off",
+            warning: "· danger!",
+            snap: "· too high!",
+            loose: "· reel in",
+          };
+          tensionZoneLabel.textContent = visible ? labels[zone] || "" : "";
+        }
+      }
       if (reelProgress) reelProgress.style.width = `${progress * 100}%`;
+      if (fightPhaseHint) {
+        fightPhaseHint.textContent = meta.phaseLabel || "";
+        fightPhaseHint.classList.toggle("visible", Boolean(meta.phaseLabel && visible));
+      }
     },
     setBiteAlert(visible, speciesName, timerProgress = 1) {
       biteAlert?.classList.toggle("visible", visible);

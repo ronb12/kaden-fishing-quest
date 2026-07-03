@@ -2,7 +2,14 @@ import * as THREE from "three";
 import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
 import { getState, recordCatch, getSelectedBait } from "./state.js";
 import * as audio from "./audio.js";
-import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, linePointsWithSag } from "./rod-model.js";
+import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, linePointsWithSag, buildDetailedFish } from "./rod-model.js";
+import {
+  FishFightAI,
+  FightPhase,
+  nibbleCountForBait,
+  tensionZone,
+  TENSION,
+} from "./fish-fight.js";
 
 export const FishingState = {
   IDLE: "idle",
@@ -48,6 +55,16 @@ export class FishingSystem {
     this.rodBend = 0;
     this.castStartPos = new THREE.Vector3();
     this.vrWindupBend = 0;
+    this.fightAI = new FishFightAI();
+    this.nibbleThresholds = [];
+    this.nibbleIndex = 0;
+    this.nibbleDip = 0;
+    this.prospectFish = null;
+    this.prospectAngle = 0;
+    this.fishPull = new THREE.Vector2();
+    this.lineShake = 0;
+    this.castAccuracy = 0.5;
+    this.fightPhaseLabel = "";
     this.rebuildRod();
     scene.add(this.rodGroup);
   }
@@ -114,7 +131,9 @@ export class FishingSystem {
       this.state === FishingState.CASTING
         ? Math.sin(this.castAnim * Math.PI) * 0.55
         : windupBend * 0.38;
-    const fightBend = this.state === FishingState.REELING ? this.tension * 0.22 : 0;
+    const fightBend = this.state === FishingState.REELING
+      ? this.tension * 0.22 + Math.hypot(this.fishPull.x, this.fishPull.y) * 0.14
+      : 0;
     const biteBend = this.state === FishingState.BITING ? 0.12 : 0;
     this.rodBend += ((fightBend + biteBend) - this.rodBend) * 0.12;
     this.rodGroup.rotateX(this.baseRodRotation.x - castSwing + this.rodBend, true);
@@ -133,14 +152,22 @@ export class FishingSystem {
   updateLine() {
     const tip = this.getRodTipWorld();
     const segments = [];
+    const fighting = this.state === FishingState.REELING;
+    const taut = fighting && this.tension > 0.35;
+    const baseSag = fighting ? 0.04 + (1 - this.tension) * 0.1 : 0.14;
+    const shake = this.lineShake * (fighting ? 0.04 + this.tension * 0.06 : 0);
 
     if (this.bobber.visible) {
-      const sag = this.state === FishingState.REELING ? 0.06 : 0.14;
-      segments.push(...linePointsWithSag(tip, this.bobber.position, 12, sag));
+      const bobPos = this.bobber.position.clone();
+      if (shake > 0) {
+        bobPos.x += Math.sin(this.lineShake * 22) * shake;
+        bobPos.z += Math.cos(this.lineShake * 19) * shake;
+      }
+      segments.push(...linePointsWithSag(tip, bobPos, taut ? 16 : 12, baseSag));
       if (this.hookGroup.visible) {
         const hookPos = new THREE.Vector3();
         this.hookGroup.getWorldPosition(hookPos);
-        segments.push(...linePointsWithSag(this.bobber.position, hookPos, 6, 0.04).slice(1));
+        segments.push(...linePointsWithSag(bobPos, hookPos, 6, taut ? 0.015 : 0.04).slice(1));
       }
     } else if (this.hookGroup.visible) {
       const hookPos = new THREE.Vector3();
@@ -153,6 +180,19 @@ export class FishingSystem {
     }
 
     this.line.geometry.setFromPoints(segments);
+    if (this.line.material) {
+      const zone = tensionZone(this.tension);
+      if (zone === "snap" || zone === "warning") {
+        this.line.material.color.setHex(0xff8866);
+        this.line.material.opacity = 0.95;
+      } else if (zone === "sweet" && fighting) {
+        this.line.material.color.setHex(0xa8e8c8);
+        this.line.material.opacity = 0.92;
+      } else {
+        this.line.material.color.setHex(0xc8ddd8);
+        this.line.material.opacity = taut ? 0.9 : 0.82;
+      }
+    }
   }
 
   showRigAtTip() {
@@ -200,7 +240,6 @@ export class FishingSystem {
     this.hookGroup.visible = false;
     audio.playCast();
 
-    let angle;
     const dist = zone.castRadius * this.castPower * 0.55 + zone.castRadius * 0.25;
     if (aimDir && aimDir.lengthSq() > 0.01) {
       this.castTarget.set(
@@ -209,13 +248,18 @@ export class FishingSystem {
         zone.castCenter.z + aimDir.z * dist
       );
     } else {
-      angle = Math.random() * Math.PI * 2;
+      const angle = Math.random() * Math.PI * 2;
       this.castTarget.set(
         zone.castCenter.x + Math.cos(angle) * dist,
         0,
         zone.castCenter.z + Math.sin(angle) * dist
       );
     }
+
+    const castDx = this.castTarget.x - zone.castCenter.x;
+    const castDz = this.castTarget.z - zone.castCenter.z;
+    const castDist = Math.hypot(castDx, castDz);
+    this.castAccuracy = Math.max(0, 1 - castDist / (zone.castRadius * 0.95));
 
     return true;
   }
@@ -232,9 +276,20 @@ export class FishingSystem {
     audio.playSplash();
     this.state = FishingState.WAITING;
     this.preBiteWarned = false;
-    const waitTime = Math.max(0.8, 1.5 + Math.random() * 4 - s.baitKit * 0.2 - bait.waitBonus);
+    this.nibbleIndex = 0;
+    this.nibbleDip = 0;
+    const waitTime = Math.max(
+      0.8,
+      (1.8 + Math.random() * 4 - s.baitKit * 0.2 - bait.waitBonus) * (1.1 - this.castAccuracy * 0.35)
+    );
     this.biteTimer = waitTime;
-    this.onEvent?.("cast", { target: this.castTarget.clone(), bait });
+    const nibbleTotal = nibbleCountForBait(bait);
+    this.nibbleThresholds = [];
+    for (let i = 0; i < nibbleTotal; i++) {
+      this.nibbleThresholds.push(waitTime * (0.2 + ((i + 1) / (nibbleTotal + 1)) * 0.65));
+    }
+    this.spawnProspectFish();
+    this.onEvent?.("cast", { target: this.castTarget.clone(), bait, accuracy: this.castAccuracy });
   }
 
   update(dt, time) {
@@ -249,18 +304,24 @@ export class FishingSystem {
 
     if (this.bobber.visible && this.state !== FishingState.IDLE && this.state !== FishingState.CAUGHT) {
       const waterY = this.surfaceY(this.bobber.position.x, this.bobber.position.z, time);
-      this.bobber.position.y = waterY + Math.sin(time * 3) * 0.015;
+      let bobY = waterY + Math.sin(time * 3) * 0.015;
 
-      if (this.state === FishingState.WAITING && this.biteTimer < 0.9 && !this.preBiteWarned) {
-        this.preBiteWarned = true;
-        this.onEvent?.("preBite", {});
+      if (this.nibbleDip > 0) {
+        this.nibbleDip = Math.max(0, this.nibbleDip - dt * 3.5);
+        bobY -= 0.05 + this.nibbleDip * 0.08;
       }
+
       if (this.state === FishingState.WAITING && this.preBiteWarned && this.biteTimer > 0) {
-        this.bobber.position.y -= 0.04 + Math.sin(time * 16) * 0.025;
+        bobY -= 0.04 + Math.sin(time * 16) * 0.025;
       }
 
-      this.hookGroup.position.copy(this.bobber.position);
-      this.hookGroup.position.y -= 0.05;
+      if (this.state === FishingState.REELING) {
+        bobY += this.fishPull.x * 0.08 + Math.sin(time * 11) * 0.03 * this.tension;
+        this.bobber.position.x += this.fishPull.x * dt * 0.35;
+        this.bobber.position.z += this.fishPull.y * dt * 0.35;
+      }
+
+      this.bobber.position.y = bobY;
 
       if (this.state === FishingState.BITING) {
         this.bobber.position.y += Math.sin(time * 12) * 0.05;
@@ -270,7 +331,17 @@ export class FishingSystem {
 
       if (this.state === FishingState.REELING) {
         this.updateFightFish(dt, time);
+        this.lineShake += dt * (1.5 + this.tension * 4);
+      } else {
+        this.lineShake *= 0.9;
       }
+
+      this.hookGroup.position.copy(this.bobber.position);
+      this.hookGroup.position.y -= 0.05;
+    }
+
+    if (this.state === FishingState.WAITING) {
+      this.updateProspectFish(dt, time);
     }
 
     if (this.state === FishingState.CAUGHT) {
@@ -286,6 +357,17 @@ export class FishingSystem {
 
     if (this.state === FishingState.WAITING) {
       this.biteTimer -= dt;
+      while (
+        this.nibbleIndex < this.nibbleThresholds.length &&
+        this.biteTimer <= this.nibbleThresholds[this.nibbleIndex]
+      ) {
+        this.triggerNibble();
+        this.nibbleIndex += 1;
+      }
+      if (this.biteTimer <= 0.9 && !this.preBiteWarned) {
+        this.preBiteWarned = true;
+        this.onEvent?.("preBite", {});
+      }
       if (this.biteTimer <= 0) this.triggerBite();
     }
 
@@ -302,8 +384,61 @@ export class FishingSystem {
     }
   }
 
+  triggerNibble() {
+    this.nibbleDip = 1;
+    audio.playNibble();
+    this.onEvent?.("nibble", { index: this.nibbleIndex });
+    if (this.prospectFish) {
+      this.prospectAngle += 0.8;
+    }
+  }
+
+  spawnProspectFish() {
+    this.clearProspectFish();
+    const s = getState();
+    const preview = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, false);
+    this.prospectFish = buildDetailedFish(preview, 0.45);
+    this.prospectFish.traverse((c) => {
+      if (c.isMesh && c.material) {
+        c.material = c.material.clone();
+        c.material.transparent = true;
+        c.material.opacity = 0.32;
+        c.material.emissive = new THREE.Color(preview?.color ?? 0x2a6080);
+        c.material.emissiveIntensity = 0.2;
+      }
+    });
+    this.prospectAngle = Math.random() * Math.PI * 2;
+    this.scene.add(this.prospectFish);
+  }
+
+  updateProspectFish(dt, time) {
+    if (!this.prospectFish) return;
+    this.prospectAngle += dt * (0.6 + this.nibbleIndex * 0.15);
+    const bx = this.bobber.position.x;
+    const bz = this.bobber.position.z;
+    const surface = this.surfaceY(bx, bz, time);
+    const radius = 1.15 - this.nibbleIndex * 0.12 + Math.sin(time * 0.7) * 0.15;
+    this.prospectFish.position.set(
+      bx + Math.cos(this.prospectAngle) * radius,
+      surface - 0.22 - Math.sin(time * 1.8) * 0.04,
+      bz + Math.sin(this.prospectAngle) * radius
+    );
+    this.prospectFish.lookAt(bx, surface - 0.12, bz);
+  }
+
+  clearProspectFish() {
+    if (!this.prospectFish) return;
+    this.scene.remove(this.prospectFish);
+    this.prospectFish.traverse((c) => {
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    });
+    this.prospectFish = null;
+  }
+
   triggerBite() {
     const s = getState();
+    this.clearProspectFish();
     this.legendaryEvent = Math.random() < 0.04 && s.zone === "Deep Water";
     this.pendingFish = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, this.legendaryEvent);
     this.state = FishingState.BITING;
@@ -353,14 +488,16 @@ export class FishingSystem {
     const bx = this.bobber.position.x;
     const bz = this.bobber.position.z;
     const surface = this.surfaceY(bx, bz, time);
-    const pull = new THREE.Vector3(
-      bx - 0.12,
+    const pullX = this.fishPull.x * 0.45;
+    const pullZ = this.fishPull.y * 0.45;
+    const target = new THREE.Vector3(
+      bx - 0.12 + pullX,
       surface - 0.08 + this.reelProgress * 0.55 + Math.sin(time * 9) * 0.14,
-      bz - 0.08
+      bz - 0.08 + pullZ
     );
-    this.biteFish.position.lerp(pull, dt * 4);
+    this.biteFish.position.lerp(target, dt * 4);
     this.biteFish.lookAt(bx, this.bobber.position.y, bz);
-    this.biteFish.rotation.z = Math.sin(time * 11) * 0.35;
+    this.biteFish.rotation.z = Math.sin(time * 11) * 0.35 * (0.5 + this.tension);
     if (this.biteFish.position.y > surface - 0.02 && Math.random() < dt * 3) {
       this.spawnSplash();
     }
@@ -428,35 +565,65 @@ export class FishingSystem {
   hookFish() {
     if (this.state !== FishingState.BITING) return false;
     this.state = FishingState.REELING;
-    this.tension = 0.3;
+    this.tension = 0.28;
     this.reelProgress = 0;
     this.escapeTimer = 0;
+    this.fishPull.set(0, 0);
+    this.fightAI.reset(this.pendingFish);
+    this.fightPhaseLabel = this.fightAI.getPhaseLabel();
     this.onEvent?.("hooked", { species: this.pendingFish, legendary: this.legendaryEvent });
     return true;
+  }
+
+  applyFightStep(dt, isReeling, reelIntensity = 1) {
+    const fight = this.fightAI.update(dt, isReeling, reelIntensity);
+    this.tension += fight.tensionDelta;
+    this.tension = Math.max(0, Math.min(1, this.tension));
+    this.fishPull.x += (fight.pullX - this.fishPull.x) * Math.min(1, dt * 5);
+    this.fishPull.y += (fight.pullZ - this.fishPull.y) * Math.min(1, dt * 5);
+    this.fightPhaseLabel = this.fightAI.getPhaseLabel();
+    return fight;
+  }
+
+  applyReelProgress(dt, intensity, reelMult = 1) {
+    const s = getState();
+    const zone = tensionZone(this.tension);
+    let rate = 0.1 + s.rodLevel * 0.025;
+
+    if (zone === "sweet") rate *= 1.35 * reelMult;
+    else if (zone === "high") rate *= 0.55 * reelMult;
+    else if (zone === "loose") rate *= 0.35;
+    else if (zone === "warning") rate *= 0.2;
+    else rate *= 0.05;
+
+    if (this.fightAI.phase === FightPhase.THRASH) rate *= 0.08;
+
+    this.reelProgress += dt * rate * intensity;
   }
 
   updateReelIdle(dt) {
     if (this.state !== FishingState.REELING) return;
     audio.stopReelLoop();
-    const fight =
-      (this.pendingFish?.rarity === "legendary" ? 0.07 : this.pendingFish?.rarity === "rare" ? 0.05 : 0.035) *
-      dt *
-      60;
-    this.tension += fight * 0.4;
-    this.tension = Math.min(1, this.tension);
+    const fight = this.applyFightStep(dt, false, 0);
     this.escapeTimer += dt;
-    const escapeLimit = this.pendingFish?.rarity === "legendary" ? 3 : 4.5;
+    const escapeLimit = this.pendingFish?.rarity === "legendary" ? 3.5 : 5;
     if (this.escapeTimer >= escapeLimit) {
       this.failReason = "escape";
-      this.failCatch("Fish got away — keep reeling!");
+      this.failCatch("Fish got away — reel when it tires!");
       return;
     }
-    if (this.tension >= 0.95) {
+    if (this.tension >= TENSION.SNAP) {
       this.failReason = "snap";
       this.failCatch("Line snapped — ease up on the tension!");
       return;
     }
-    this.onEvent?.("reeling", { tension: this.tension, progress: this.reelProgress });
+    this.onEvent?.("reeling", {
+      tension: this.tension,
+      progress: this.reelProgress,
+      phase: fight.phase,
+      phaseLabel: this.fightPhaseLabel,
+      fishPull: fight.pullIntensity,
+    });
   }
 
   reel(dt, intensity = 1) {
@@ -464,27 +631,34 @@ export class FishingSystem {
     audio.startReelLoop();
     audio.updateReelLoop(this.tension);
     this.escapeTimer = 0;
-    const s = getState();
-    const fishFight =
-      (this.pendingFish?.rarity === "legendary" ? 0.09 : this.pendingFish?.rarity === "rare" ? 0.06 : 0.04) *
-      dt *
-      60;
-    this.tension += intensity * 0.11 - fishFight;
-    this.tension = Math.max(0, Math.min(1, this.tension));
-    this.reelProgress += dt * (0.1 + s.rodLevel * 0.025) * intensity;
+    const fight = this.applyFightStep(dt, true, intensity);
 
-    if (this.tension >= 0.95) {
+    if (this.tension > TENSION.WARNING && intensity > 0.15) {
+      this.tension += dt * (1.8 + intensity * 2.2);
+    }
+
+    this.applyReelProgress(dt, intensity, fight.reelMult);
+    this.tension = Math.max(0, Math.min(1, this.tension));
+
+    if (this.tension >= TENSION.SNAP) {
       this.failReason = "snap";
       this.failCatch("Line snapped — ease up on the tension!");
       return;
     }
-    if (this.tension < 0.08 && this.reelProgress > 0.15) {
+    if (this.tension < TENSION.LOOSE && this.reelProgress > 0.12 && fight.phase !== FightPhase.TIRED) {
       this.failReason = "escape";
-      this.failCatch("Fish shook the hook — keep reeling!");
+      this.failCatch("Fish shook the hook — wait for a tired moment!");
       return;
     }
     if (this.reelProgress >= 1) this.completeCatch();
-    this.onEvent?.("reeling", { tension: this.tension, progress: this.reelProgress });
+    this.onEvent?.("reeling", {
+      tension: this.tension,
+      progress: this.reelProgress,
+      phase: fight.phase,
+      phaseLabel: this.fightPhaseLabel,
+      fishPull: fight.pullIntensity,
+      phaseChanged: fight.phaseChanged,
+    });
   }
 
   stopReeling() {
@@ -534,6 +708,13 @@ export class FishingSystem {
     this.preBiteWarned = false;
     this.escapeTimer = 0;
     this.legendaryEvent = false;
+    this.nibbleThresholds = [];
+    this.nibbleIndex = 0;
+    this.nibbleDip = 0;
+    this.fishPull.set(0, 0);
+    this.lineShake = 0;
+    this.fightPhaseLabel = "";
+    this.clearProspectFish();
     this.bobber.rotation.z = 0;
     this.clearBiteFish();
     this.splashRings.forEach((ring) => {
@@ -571,17 +752,19 @@ export class FishingSystem {
       case FishingState.CASTING:
         return "Line flying...";
       case FishingState.WAITING:
-        return this.preBiteWarned
-          ? `Something's near the ${bait.name}... get ready!`
-          : `Waiting with ${bait.name}...`;
+        return this.nibbleDip > 0.5
+          ? "Nibble! Fish is tasting the bait..."
+          : this.preBiteWarned
+            ? `Something big near the ${bait.name}... set the hook!`
+            : `Waiting with ${bait.name}... watch for nibbles`;
       case FishingState.BITING:
         return vr
-          ? `BITE! Jerk rod upward or pull trigger to hook!`
-          : `BITE! ${this.pendingFish?.name || "Fish"} — hook now!`;
+          ? `STRIKE! Jerk rod up or pull trigger — hook now!`
+          : `STRIKE! ${this.pendingFish?.name || "Fish"} — hook now!`;
       case FishingState.REELING:
         return vr
-          ? `Crank the reel handle — pull rod toward you`
-          : `Hooked! Hold reel — watch tension bar`;
+          ? this.fightPhaseLabel || "Crank when the fish tires"
+          : this.fightPhaseLabel || "Reel in the sweet zone — ease off on runs";
       case FishingState.CAUGHT:
         return "Nice catch!";
       case FishingState.FAILED:

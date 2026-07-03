@@ -259,8 +259,57 @@ body > button {
   transition: width 0.08s linear;
 }
 
+.tension-track {
+  position: relative;
+  overflow: hidden;
+}
+
+.tension-zone-sweet {
+  position: absolute;
+  left: 28%;
+  width: 42%;
+  top: 0;
+  bottom: 0;
+  background: rgba(90, 200, 140, 0.22);
+  border-left: 1px solid rgba(90, 200, 140, 0.45);
+  border-right: 1px solid rgba(90, 200, 140, 0.45);
+  pointer-events: none;
+  z-index: 0;
+}
+
 .tension-fill {
+  position: relative;
+  z-index: 1;
   background: linear-gradient(90deg, var(--safe), var(--sun), var(--danger));
+}
+
+.tension-fill[data-zone="sweet"] {
+  box-shadow: 0 0 12px rgba(90, 200, 140, 0.55);
+}
+
+.tension-fill[data-zone="warning"],
+.tension-fill[data-zone="snap"] {
+  background: linear-gradient(90deg, var(--sun), var(--danger));
+}
+
+.tension-zone-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--sun);
+}
+
+.fight-phase-hint {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffd37a;
+  min-height: 1.1em;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.fight-phase-hint.visible {
+  opacity: 1;
 }
 
 .reel-fill {

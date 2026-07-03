@@ -169,6 +169,12 @@ export function playBite() {
   }
 }
 
+export function playNibble() {
+  if (!playSample("splash", { gain: 0.1, rate: 1.75 })) {
+    tone(420, 0.04, "sine", 0.035, 0.06);
+  }
+}
+
 export function startReelLoop() {
   if (!sfxEnabled || reelNodes) return;
   const played = playSample("reel", { gain: 0.12, loop: true, rate: 0.85 });

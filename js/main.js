@@ -372,6 +372,10 @@ function updateTouchUI() {
 
 function onFishingEvent(type, data) {
   switch (type) {
+    case "nibble":
+      ui?.setStatus(fishing.getStatusText(inVR));
+      vibrate(12);
+      break;
     case "preBite":
       ui?.setStatus(fishing.getStatusText());
       vibrate(30);
@@ -393,12 +397,21 @@ function onFishingEvent(type, data) {
     case "hooked":
       ui?.setBiteAlert(false);
       ui?.setReelAlert(true);
-      ui?.setStatus(fishing.getStatusText());
-      ui?.setTension(fishing.tension, fishing.reelProgress, true);
+      ui?.setStatus(fishing.getStatusText(inVR));
+      ui?.setTension(fishing.tension, fishing.reelProgress, true, {
+        phaseLabel: fishing.fightPhaseLabel,
+      });
       break;
     case "reeling":
-      ui?.setTension(data.tension, data.progress, true);
-      ui?.setStatus(fishing.getStatusText());
+      ui?.setTension(data.tension, data.progress, true, {
+        phase: data.phase,
+        phaseLabel: data.phaseLabel,
+      });
+      ui?.setStatus(fishing.getStatusText(inVR));
+      if (data.phaseChanged && inVR) {
+        const strong = data.phase === "run" || data.phase === "thrash" || data.phase === "surge";
+        vrMotion.pulseHaptic(controllers[1], strong ? 0.55 : 0.25, strong ? 55 : 30);
+      }
       break;
     case "caught":
       ui?.setBiteAlert(false);

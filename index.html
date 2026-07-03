@@ -39,10 +39,14 @@
     </div>
 
     <div id="tension-bar" class="tension-bar">
-      <label>Tension</label>
-      <div class="bar-track"><div id="tension-fill" class="bar-fill tension-fill"></div></div>
+      <label>Tension <span id="tension-zone-label" class="tension-zone-label"></span></label>
+      <div class="bar-track tension-track">
+        <div class="tension-zone-sweet" aria-hidden="true"></div>
+        <div id="tension-fill" class="bar-fill tension-fill"></div>
+      </div>
       <label>Reel progress</label>
       <div class="bar-track"><div id="reel-progress" class="bar-fill reel-fill"></div></div>
+      <p id="fight-phase-hint" class="fight-phase-hint"></p>
     </div>
 
     <div id="bite-alert" class="bite-alert" aria-live="assertive">
@@ -53,8 +57,8 @@
     </div>
 
     <div id="reel-alert" class="reel-alert">
-      <p>Hooked! Hold <strong>REEL</strong> to pull in</p>
-      <p class="reel-hint">Ease off if tension gets too high</p>
+      <p>Hooked! Reel when tension is in the <strong>green zone</strong></p>
+      <p class="reel-hint">Ease off during runs — crank hard when the fish tires</p>
     </div>
 
     <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu">☰</button>
