@@ -428,7 +428,7 @@ touch = initTouchControls({
 }) || { active: false };
 
 if (touch.active) {
-  document.getElementById("status-text").textContent = "Drag right to look · joystick to move · tap Cast";
+  document.getElementById("status-text").textContent = "Drag right to look · joystick to move · follow the path to the cabin";
   updateTouchUI();
 }
 
@@ -476,6 +476,9 @@ function updateDesktopMovement(dt) {
     camera.position.y = 1.6;
     camera.position.x = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.x));
     camera.position.z = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.z));
+    if (env.campground) {
+      camera.position.copy(env.campground.resolveCollisions(camera.position));
+    }
   }
 
   const rodOffset = new THREE.Vector3(0.45, -0.24, -0.55).applyQuaternion(camera.quaternion);
@@ -549,6 +552,14 @@ renderer.setAnimationLoop(() => {
   updateVrFishing(dt);
   updateDesktopMovement(dt);
   checkZoneTeleports();
+
+  env.campground?.update(time, camera.position, (event) => {
+    if (event === "enter") {
+      ui?.showToast("Inside the fishing cabin — explore the shelves and rod rack!");
+    } else if (event === "exit") {
+      ui?.showToast("Back at the campground");
+    }
+  });
 
   if (inVR) {
     if (fishing.state !== FishingState.REELING) {
