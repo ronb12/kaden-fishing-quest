@@ -1019,6 +1019,20 @@ export class LakeEnvironment {
     );
   }
 
+  /** Raycast pier/stair tread top under the player (world Y). */
+  raycastDockSurface(x, z) {
+    if (!this.dockWalkMeshes.length) return null;
+    this._stairRayOrigin.set(x, 8, z);
+    this._stairRaycaster.set(this._stairRayOrigin, this._stairRayDir);
+    const hits = this._stairRaycaster.intersectObjects(this.dockWalkMeshes, false);
+    let surface = null;
+    for (const hit of hits) {
+      if (hit.point.y < 0.25) continue;
+      if (surface == null || hit.point.y > surface) surface = hit.point.y;
+    }
+    return surface;
+  }
+
   /** Sample pier/stair tread under the player so the camera rides the dock mesh. */
   getDockWalkEyeHeight(x, z) {
     const cache = this._dockEyeCache;
@@ -1028,20 +1042,15 @@ export class LakeEnvironment {
     cache.x = x;
     cache.z = z;
 
+    const surface = this.raycastDockSurface(x, z);
+    if (surface != null) {
+      cache.y = surface + DOCK_EYE_OFFSET;
+      return cache.y;
+    }
+
     if (!isOnDockWalk(x, z)) {
       cache.y = null;
       return null;
-    }
-
-    if (this.dockWalkMeshes.length) {
-      this._stairRayOrigin.set(x, 8, z);
-      this._stairRaycaster.set(this._stairRayOrigin, this._stairRayDir);
-      const hits = this._stairRaycaster.intersectObjects(this.dockWalkMeshes, false);
-      if (hits.length) {
-        const surface = Math.max(...hits.map((h) => h.point.y));
-        cache.y = surface + DOCK_EYE_OFFSET;
-        return cache.y;
-      }
     }
 
     if (isOnDockStairs(x, z)) {
@@ -1050,6 +1059,12 @@ export class LakeEnvironment {
     }
     cache.y = DOCK_WALK.plankEyeY;
     return cache.y;
+  }
+
+  /** Feet height on pier/stairs, or null on open ground. */
+  getDockSurfaceHeight(x, z) {
+    const eye = this.getDockWalkEyeHeight(x, z);
+    return eye != null ? eye - DOCK_EYE_OFFSET : null;
   }
 
   /** @deprecated use getDockWalkEyeHeight */

@@ -24,7 +24,7 @@ import { VRFishingMotion } from "./vr-fishing.js";
 import { VRHandRig } from "./vr-hands.js";
 import { moveWithCollisions, correctRigFromEye } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
-import { DOCK_SPAWN } from "./dock-layout.js";
+import { DOCK_SPAWN, DOCK_EYE_OFFSET, DOCK_WALK, clampBoardwalkX } from "./dock-layout.js";
 import { tensionZone } from "./fish-fight.js";
 import { getRodStats } from "./gear-stats.js";
 import { VRComfort } from "./vr-comfort.js";
@@ -731,12 +731,24 @@ function aimAtFishingPool(zone) {
   camera.rotation.x = mouseY;
 }
 
+function clampDockWalkPosition() {
+  if (!env?.getDockSurfaceHeight) return;
+  player.position.x = clampBoardwalkX(
+    player.position.x,
+    player.position.z,
+    (x, z) => env.getDockSurfaceHeight(x, z)
+  );
+}
+
 function applyGroundEyeHeight() {
-  if (inVR) return;
-  let y = 1.6;
-  const stairY = env?.getDockWalkEyeHeight?.(player.position.x, player.position.z);
-  if (stairY != null) y = stairY;
-  camera.position.y = y;
+  const surface = env?.getDockSurfaceHeight?.(player.position.x, player.position.z);
+  if (surface != null) {
+    player.position.y = surface;
+    if (!inVR) camera.position.y = DOCK_EYE_OFFSET;
+  } else {
+    player.position.y = 0;
+    if (!inVR) camera.position.y = 1.6;
+  }
 }
 
 function teleportToZone(zoneId) {
@@ -754,6 +766,8 @@ const WORLD_BOUNDS = 45;
 function resolvePlayerCollisions() {
   if (!env?.collisions) return;
   correctRigFromEye(player, camera, env.collisions, WORLD_BOUNDS);
+  clampDockWalkPosition();
+  applyGroundEyeHeight();
 }
 
 ui = initUI(fishing, {
@@ -1075,7 +1089,7 @@ window.addEventListener("resize", () => {
 if (new URLSearchParams(location.search).has("playtest")) {
   window.__setPlaytestCamera = (x, y, z, lx, ly, lz) => {
     player.position.set(x, 0, z);
-    camera.position.y = y;
+    applyGroundEyeHeight();
     camera.lookAt(lx, ly, lz);
     const dx = lx - x;
     const dz = lz - z;
@@ -1097,6 +1111,7 @@ if (new URLSearchParams(location.search).has("playtest")) {
     moveTo: (x, z) => {
       player.position.x = x;
       player.position.z = z;
+      applyGroundEyeHeight();
       resolvePlayerCollisions();
     },
     cast: (power = 0.85) => {

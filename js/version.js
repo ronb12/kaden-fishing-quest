@@ -1,1 +1,1 @@
-export const BUILD_ID = "game-start-fix-2026.07.03";
+export const BUILD_ID = "dock-walk-fix-2026.07.03";

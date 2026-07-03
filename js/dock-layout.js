@@ -17,6 +17,8 @@ export const DOCK_SPAWN = { x: 0, y: 0, z: DOCK_SHORE.z + 1.2 };
 export const DOCK_WALK = {
   centerX: DOCK_GROUP.x,
   halfWidth: 1.4,
+  /** Tighter X clamp so the player stays on plank tops, not inside rails. */
+  collisionHalfWidth: 1.02,
   startZ: 0.35,
   endZ: DOCK_SHORE.z + 1.4,
   /** Pier deck top ~1.67m + standing eye offset when raycast misses a gap. */
@@ -31,6 +33,17 @@ export function isOnDockWalk(x, z) {
     z >= DOCK_WALK.startZ &&
     z <= DOCK_WALK.endZ
   );
+}
+
+export function clampBoardwalkX(x, z, getSurfaceHeight) {
+  const inCorridor = z >= DOCK_WALK.startZ && z <= DOCK_WALK.endZ;
+  const onSurface = getSurfaceHeight?.(x, z) != null;
+  if (!inCorridor && !onSurface) return x;
+
+  const cx = DOCK_WALK.centerX;
+  let hw = DOCK_WALK.collisionHalfWidth;
+  if (isOnDockStairs(x, z)) hw = DOCK_STAIRS.halfWidth;
+  return Math.max(cx - hw, Math.min(cx + hw, x));
 }
 
 /** Dock_Stairs.glb at local z=10.8, scale 0.38 — measured world XZ footprint. */
@@ -70,8 +83,8 @@ export function getDockStairEyeHeight(x, z) {
 /** Side rails along the stair ramp so players cannot walk through the mesh. */
 export function registerDockStairsCollisions(collisionSystem) {
   const { centerX: cx, minZ, maxZ, halfWidth } = DOCK_STAIRS;
-  const railOut = 2.2;
-  const treadHalf = 0.48;
+  const railOut = 0.3;
+  const treadHalf = 0.42;
   const steps = 8;
   const stepLen = (maxZ - minZ) / steps;
   for (let i = 0; i < steps; i++) {
@@ -84,12 +97,12 @@ export function registerDockStairsCollisions(collisionSystem) {
 
 /** Side rails + lake-end cap so players stay on the planks. */
 export function registerDockWalkCollisions(collisionSystem) {
-  const { centerX: cx, halfWidth, startZ, endZ } = DOCK_WALK;
-  const railOut = 2.2;
-  collisionSystem.addBox(cx - halfWidth - railOut, cx - halfWidth, startZ, DOCK_STAIRS.minZ - 0.05);
-  collisionSystem.addBox(cx + halfWidth, cx + halfWidth + railOut, startZ, DOCK_STAIRS.minZ - 0.05);
-  collisionSystem.addBox(cx - halfWidth - railOut, cx - halfWidth, DOCK_STAIRS.maxZ + 0.05, endZ);
-  collisionSystem.addBox(cx + halfWidth, cx + halfWidth + railOut, DOCK_STAIRS.maxZ + 0.05, endZ);
-  collisionSystem.addBox(cx - halfWidth - 0.5, cx + halfWidth + 0.5, -4, startZ);
+  const { centerX: cx, collisionHalfWidth: hw, startZ, endZ } = DOCK_WALK;
+  const railOut = 0.3;
+  collisionSystem.addBox(cx - hw - railOut, cx - hw, startZ, DOCK_STAIRS.minZ - 0.05);
+  collisionSystem.addBox(cx + hw, cx + hw + railOut, startZ, DOCK_STAIRS.minZ - 0.05);
+  collisionSystem.addBox(cx - hw - railOut, cx - hw, DOCK_STAIRS.maxZ + 0.05, endZ);
+  collisionSystem.addBox(cx + hw, cx + hw + railOut, DOCK_STAIRS.maxZ + 0.05, endZ);
+  collisionSystem.addBox(cx - hw - 0.5, cx + hw + 0.5, -4, startZ);
   registerDockStairsCollisions(collisionSystem);
 }

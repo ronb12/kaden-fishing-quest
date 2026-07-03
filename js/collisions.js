@@ -91,15 +91,14 @@ export function moveWithCollisions(position, delta, collisionSystem, playerRadiu
   return collisionSystem.resolve(_tmp, playerRadius);
 }
 
-/** Apply collision correction to a player rig from the camera's world position. */
+/** Apply collision correction to a player rig from feet position (XZ). */
 export function correctRigFromEye(rig, camera, collisionSystem, worldBounds = 45, playerRadius = 0.42) {
   if (!rig || !camera || !collisionSystem) return;
-  const eye = _tmp;
-  camera.getWorldPosition(eye);
-  const resolved = collisionSystem.resolve(eye, playerRadius);
+  const feet = _tmp.set(rig.position.x, rig.position.y, rig.position.z);
+  const resolved = collisionSystem.resolve(feet, playerRadius);
   resolved.x = Math.max(-worldBounds, Math.min(worldBounds, resolved.x));
   resolved.z = Math.max(-worldBounds, Math.min(worldBounds, resolved.z));
   const fixed = collisionSystem.resolve(resolved, playerRadius);
-  rig.position.x += fixed.x - eye.x;
-  rig.position.z += fixed.z - eye.z;
+  rig.position.x += fixed.x - feet.x;
+  rig.position.z += fixed.z - feet.z;
 }

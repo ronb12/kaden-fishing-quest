@@ -140,7 +140,7 @@ try {
 
   await page.evaluate(() => window.__playtest.moveTo(3, 8));
   const sidePos = await page.evaluate(() => window.__playtest.getCamera());
-  if (sidePos.x < 4.1) pass("dock side rail blocks water");
+  if (sidePos.x < 1.55) pass("dock side rail blocks water");
   else fail("dock side rail blocks water", `x=${sidePos.x}`);
 
   await page.keyboard.press("KeyB");

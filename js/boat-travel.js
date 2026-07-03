@@ -29,7 +29,7 @@ export function startBoatVoyage({ from, to, player, camera, overlayEl, duration 
         player.position.z = eye.z;
       }
       if (camera) {
-        camera.position.y = eye.y;
+        camera.position.y = Math.max(0.92, eye.y - (player?.position.y ?? 0));
       }
       if (p < 1) requestAnimationFrame(tick);
       else {
