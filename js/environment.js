@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
-import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, registerDockWalkCollisions, isOnDockStairs, getDockStairEyeHeightFallback, DOCK_STAIRS } from "./dock-layout.js";
+import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, registerDockWalkCollisions, isOnDockStairs, isOnDockWalk, getDockStairEyeHeightFallback, DOCK_STAIRS, DOCK_WALK, DOCK_EYE_OFFSET } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
 const WATER_VERT = `
@@ -95,6 +95,7 @@ export class LakeEnvironment {
     this.currentZoneId = "Lake Dock";
     this.collisions = new CollisionSystem();
     this.dockStairsMeshes = [];
+    this.dockWalkMeshes = [];
     this._stairRaycaster = new THREE.Raycaster();
     this._stairRayOrigin = new THREE.Vector3();
     this._stairRayDir = new THREE.Vector3(0, -1, 0);
@@ -384,6 +385,9 @@ export class LakeEnvironment {
     dockGroup.position.set(DOCK_GROUP.x, 0, DOCK_GROUP.z);
     this.scene.add(dockGroup);
     this.dockGroup = dockGroup;
+    dockGroup.traverse((child) => {
+      if (child.isMesh) this.dockWalkMeshes.push(child);
+    });
   }
 
   buildTrees() {
@@ -693,20 +697,26 @@ export class LakeEnvironment {
     );
   }
 
-  /** Sample the stair tread under the player so the camera rides the ramp mesh. */
-  getDockStairEyeHeight(x, z) {
-    if (!isOnDockStairs(x, z)) return null;
+  /** Sample pier/stair tread under the player so the camera rides the dock mesh. */
+  getDockWalkEyeHeight(x, z) {
+    if (!isOnDockWalk(x, z)) return null;
 
-    if (this.dockStairsMeshes.length) {
+    if (this.dockWalkMeshes.length) {
       this._stairRayOrigin.set(x, 8, z);
       this._stairRaycaster.set(this._stairRayOrigin, this._stairRayDir);
-      const hits = this._stairRaycaster.intersectObjects(this.dockStairsMeshes, false);
+      const hits = this._stairRaycaster.intersectObjects(this.dockWalkMeshes, false);
       if (hits.length) {
         const surface = Math.max(...hits.map((h) => h.point.y));
-        return surface + DOCK_STAIRS.eyeOffset;
+        return surface + DOCK_EYE_OFFSET;
       }
     }
 
-    return getDockStairEyeHeightFallback(x, z);
+    if (isOnDockStairs(x, z)) return getDockStairEyeHeightFallback(x, z);
+    return DOCK_WALK.plankEyeY;
+  }
+
+  /** @deprecated use getDockWalkEyeHeight */
+  getDockStairEyeHeight(x, z) {
+    return this.getDockWalkEyeHeight(x, z);
   }
 }

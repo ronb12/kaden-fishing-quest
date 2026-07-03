@@ -67,15 +67,20 @@ try {
   await page.waitForFunction(() => window.__playtest?.walk, { timeout: 30000 });
   await page.waitForTimeout(1000);
 
-  // Start at dock end, face up the boardwalk toward shore (+Z).
+  // Start on mid boardwalk, then walk toward shore (+Z).
   await page.evaluate(() => {
-    window.__setPlaytestCamera(0, 1.6, 12, 0, 1.6, 18);
+    window.__setPlaytestCamera(0, 2.5, 8, 0, 2.5, 16);
   });
   await page.evaluate(() => window.__playtest.waitFrames(20));
 
-  const before = await page.evaluate(() => window.__playtest.getStairsInfo());
-  if (!before.onStairs) pass("starts below top of stairs");
-  else fail("starts below top of stairs", JSON.stringify(before));
+  const boardStart = await page.evaluate(() => window.__playtest.getStairsInfo());
+  if (boardStart.eyeY > 2.4) pass("boardwalk eye height on pier deck");
+  else fail("boardwalk eye height on pier deck", JSON.stringify(boardStart));
+
+  await page.evaluate(() => {
+    window.__setPlaytestCamera(0, 2.5, 12, 0, 2.5, 18);
+  });
+  await page.evaluate(() => window.__playtest.waitFrames(10));
 
   await page.screenshot({ path: "/opt/cursor/artifacts/stairs-before.png" });
 

@@ -13,7 +13,19 @@ export const DOCK_WALK = {
   halfWidth: 1.4,
   startZ: 0.35,
   endZ: DOCK_SHORE.z + 1.4,
+  /** Pier deck top ~1.67m + standing eye offset when raycast misses a gap. */
+  plankEyeY: 2.58,
 };
+
+export const DOCK_EYE_OFFSET = 0.92;
+
+export function isOnDockWalk(x, z) {
+  return (
+    Math.abs(x - DOCK_WALK.centerX) <= DOCK_WALK.halfWidth + 0.35 &&
+    z >= DOCK_WALK.startZ &&
+    z <= DOCK_WALK.endZ
+  );
+}
 
 /** Dock_Stairs.glb at local z=11.8, scale 0.38 — measured world XZ footprint. */
 export const DOCK_STAIRS = {
@@ -24,7 +36,7 @@ export const DOCK_STAIRS = {
   /** Mesh ramp is high at the dock end (+Z toward shore goes downhill on the tread). */
   highEyeY: 2.92,
   lowEyeY: 1.77,
-  eyeOffset: 0.92,
+  eyeOffset: DOCK_EYE_OFFSET,
 };
 
 export function isOnDockStairs(x, z) {

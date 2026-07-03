@@ -514,7 +514,7 @@ function aimAtFishingPool(zone) {
 function applyGroundEyeHeight() {
   if (inVR) return;
   let y = 1.6;
-  const stairY = env?.getDockStairEyeHeight?.(camera.position.x, camera.position.z);
+  const stairY = env?.getDockWalkEyeHeight?.(camera.position.x, camera.position.z);
   if (stairY != null) y = stairY;
   camera.position.y = y;
 }
@@ -867,22 +867,22 @@ if (new URLSearchParams(location.search).has("playtest")) {
           camera.position.add(delta);
         }
         camera.position.y = 1.6;
-        const stairY = env?.getDockStairEyeHeight?.(camera.position.x, camera.position.z);
-        if (stairY != null) camera.position.y = stairY;
+        const walkY = env?.getDockWalkEyeHeight?.(camera.position.x, camera.position.z);
+        if (walkY != null) camera.position.y = walkY;
         trace.push({
           x: camera.position.x,
           y: camera.position.y,
           z: camera.position.z,
-          onStairs: stairY != null,
+          onStairs: walkY != null,
         });
       }
       return trace;
     },
     getStairsInfo: () => {
-      const stairY = env?.getDockStairEyeHeight?.(camera.position.x, camera.position.z) ?? null;
+      const walkY = env?.getDockWalkEyeHeight?.(camera.position.x, camera.position.z) ?? null;
       return {
-        onStairs: stairY != null,
-        eyeY: stairY,
+        onStairs: walkY != null,
+        eyeY: walkY,
         camera: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
       };
     },
