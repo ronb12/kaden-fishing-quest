@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
-import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z } from "./dock-layout.js";
+import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, registerDockWalkCollisions } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
 const WATER_VERT = `
@@ -132,14 +132,19 @@ export class LakeEnvironment {
     this.campground = new Campground(this.scene, this.collisions);
     this.campFire = this.campground.campFire;
     this.buildZoneDressing();
+    this.buildDockCollisions();
     this.buildEnvironmentCollisions();
     this.spawnAmbientFish();
   }
 
+  buildDockCollisions() {
+    registerDockWalkCollisions(this.collisions);
+  }
+
   buildEnvironmentCollisions() {
     const c = this.collisions;
-    // Dock zone sign.
-    c.addCircle(1.5, 11.5, 0.55);
+    // Dock zone sign (off the walkable center line).
+    c.addCircle(2.2, 11.5, 0.45);
     // North Cove rocks.
     for (const [x, z] of [
       [-22, -8], [-14, -12], [-24, -16], [-12, -18], [-20, -22],
@@ -188,7 +193,7 @@ export class LakeEnvironment {
       new THREE.BoxGeometry(1.2, 0.6, 0.08),
       new THREE.MeshStandardMaterial({ color: 0x8b5a34 })
     );
-    sign.position.set(1.5, 1.2, 11.5);
+    sign.position.set(2.2, 1.2, 11.5);
     group.add(sign);
     group.visible = true;
     this.scene.add(group);
@@ -358,13 +363,15 @@ export class LakeEnvironment {
     shoreDeck.receiveShadow = true;
     dockGroup.add(shoreDeck);
 
-    const shoreBerm = new THREE.Mesh(
-      new THREE.BoxGeometry(11, 0.2, 8),
-      new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 })
-    );
-    shoreBerm.position.set(0, 0.06, 13.8);
-    shoreBerm.receiveShadow = true;
-    dockGroup.add(shoreBerm);
+    const bermMat = new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 });
+    const bermW = 3.4;
+    const bermD = 4.8;
+    for (const side of [-1, 1]) {
+      const berm = new THREE.Mesh(new THREE.BoxGeometry(bermW, 0.2, bermD), bermMat);
+      berm.position.set(side * 4.3, 0.06, 15.6);
+      berm.receiveShadow = true;
+      dockGroup.add(berm);
+    }
 
     dockGroup.position.set(DOCK_GROUP.x, 0, DOCK_GROUP.z);
     this.scene.add(dockGroup);

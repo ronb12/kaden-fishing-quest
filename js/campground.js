@@ -709,10 +709,10 @@ export class Campground {
   buildSigns() {
     const postMat = woodMat(0x6a4a28);
     const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.6), postMat);
-    signPost.position.set(DOCK_SHORE.x + 0.5, 0.8, DOCK_SHORE.z + 0.6);
+    signPost.position.set(DOCK_SHORE.x + 2.2, 0.8, DOCK_SHORE.z + 0.6);
     this.group.add(signPost);
     const sign = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 0.08), woodMat(0x9a7048));
-    sign.position.set(DOCK_SHORE.x + 0.5, 1.5, DOCK_SHORE.z + 0.6);
+    sign.position.set(DOCK_SHORE.x + 2.2, 1.5, DOCK_SHORE.z + 0.6);
     this.group.add(sign);
 
     const cabinSign = sign.clone();
@@ -774,8 +774,8 @@ export class Campground {
       c.addCircle(x, z, 0.85);
     }
 
-    // Camp signs.
-    c.addCircle(DOCK_SHORE.x + 0.5, DOCK_SHORE.z + 0.6, 0.35);
+    // Camp signs (offset from dock walkway).
+    c.addCircle(DOCK_SHORE.x + 2.2, DOCK_SHORE.z + 0.6, 0.35);
     c.addBoxCenter(CAMP_ORIGIN.x, CAMP_ORIGIN.z - CABIN_SIZE.depth / 2 - 1.4, 0.85, 0.2);
   }
 

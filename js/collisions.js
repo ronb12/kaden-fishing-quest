@@ -53,6 +53,22 @@ export class CollisionSystem {
   }
 
   pushOutOfBox(p, box, radius) {
+    const insideX = p.x > box.minX && p.x < box.maxX;
+    const insideZ = p.z > box.minZ && p.z < box.maxZ;
+
+    if (insideX && insideZ) {
+      const toMinX = p.x - box.minX;
+      const toMaxX = box.maxX - p.x;
+      const toMinZ = p.z - box.minZ;
+      const toMaxZ = box.maxZ - p.z;
+      const minDist = Math.min(toMinX, toMaxX, toMinZ, toMaxZ);
+      if (minDist === toMinX) p.x = box.minX - radius;
+      else if (minDist === toMaxX) p.x = box.maxX + radius;
+      else if (minDist === toMinZ) p.z = box.minZ - radius;
+      else p.z = box.maxZ + radius;
+      return;
+    }
+
     const closestX = Math.max(box.minX, Math.min(p.x, box.maxX));
     const closestZ = Math.max(box.minZ, Math.min(p.z, box.maxZ));
     const dx = p.x - closestX;
