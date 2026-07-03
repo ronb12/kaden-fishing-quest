@@ -102,6 +102,7 @@ export class LakeEnvironment {
     this.waterMesh = null;
     this.zoneDressing = {};
     this.currentZoneId = "Lake Dock";
+    this.qualityMode = "high";
     this.collisions = new CollisionSystem();
     this.dockStairsMeshes = [];
     this.dockWalkMeshes = [];
@@ -189,6 +190,7 @@ export class LakeEnvironment {
     this.buildDockZoneExtras();
     this.buildCoveZoneExtras();
     this.buildDeepWaterExtras();
+    this.buildMoonlitCoveExtras();
   }
 
   buildDockZoneExtras() {
@@ -299,6 +301,48 @@ export class LakeEnvironment {
     group.visible = false;
     this.scene.add(group);
     this.zoneDressing["Deep Water"] = group;
+  }
+
+  buildMoonlitCoveExtras() {
+    const group = new THREE.Group();
+    group.name = "Moonlit Cove";
+    const assets = getAssets();
+    const lilyGltf = assets?.kenney?.lily_small;
+    if (lilyGltf) {
+      [[-4, -32], [-12, -36], [-6, -40], [2, -34]].forEach(([x, z], i) => {
+        const lily = cloneModel(lilyGltf, { scale: 1.4 + i * 0.15, rotationY: i * 0.7 });
+        lily.position.set(x, 0, z);
+        groundAlign(lily, 0.01);
+        group.add(lily);
+      });
+    }
+    const rockKeys = ["rock_smallA", "rock_smallB", "rock_tallA"];
+    [[-14, -30], [-2, -42], [-10, -44]].forEach(([x, z], i) => {
+      const gltf = assets?.kenney?.[rockKeys[i % rockKeys.length]];
+      if (gltf) {
+        const rock = cloneModel(gltf, { scale: 1.8 + i * 0.3, rotationY: i * 1.1 });
+        rock.position.set(x, 0, z);
+        groundAlign(rock, 0.02);
+        group.add(rock);
+      }
+    });
+    const pierGltf = assets?.env?.Dock_Stairs || assets?.env?.Dock_Long_NoRope;
+    if (pierGltf) {
+      const pier = cloneModel(pierGltf, { scale: 0.28, rotationY: Math.PI * 0.15 });
+      pier.position.set(-8, 0, -26);
+      groundAlign(pier, 0.02);
+      group.add(pier);
+    }
+    const moonGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(3.5, 32),
+      new THREE.MeshBasicMaterial({ color: 0x8899cc, transparent: true, opacity: 0.08, side: THREE.DoubleSide })
+    );
+    moonGlow.rotation.x = -Math.PI / 2;
+    moonGlow.position.set(-8, 0.04, -38);
+    group.add(moonGlow);
+    group.visible = false;
+    this.scene.add(group);
+    this.zoneDressing["Moonlit Cove"] = group;
   }
 
   buildGround() {
@@ -808,8 +852,7 @@ export class LakeEnvironment {
       this.scene.background.setHex(zone.skyTint);
     }
     this.scene.fog.color.setHex(zone.fogColor);
-    this.scene.fog.near = zone.fogNear;
-    this.scene.fog.far = zone.fogFar;
+    this.applyFogForQuality(zone);
     this.waterUniforms.uDeepColor.value.setHSL(0.55, 0.5, 0.25 + zone.depth * 0.15);
     this.waterUniforms.uShallowColor.value.setHSL(0.52, 0.55, 0.45 + zone.depth * 0.1);
     Object.entries(this.zoneDressing).forEach(([id, group]) => {
@@ -870,12 +913,31 @@ export class LakeEnvironment {
   }
 
   setQuality(quality) {
+    this.qualityMode = quality || "high";
     const low = quality === "low";
+    const quest = quality === "quest";
+    const segs = low || quest ? 48 : 128;
     if (this.waterMesh) {
       this.waterMesh.geometry.dispose();
-      const segs = low ? 48 : 128;
       this.waterMesh.geometry = new THREE.PlaneGeometry(120, 120, segs, segs);
     }
+    if (this.sun) this.sun.castShadow = !low && !quest;
+    this.ambientFish.forEach((fish, i) => {
+      if (quest) fish.visible = i < 8;
+      else if (low) fish.visible = i % 2 === 0;
+      else fish.visible = true;
+    });
+    if (this.currentZoneId) {
+      const zone = ZONES[this.currentZoneId];
+      if (zone) this.applyFogForQuality(zone);
+    }
+  }
+
+  applyFogForQuality(zone) {
+    if (!this.scene?.fog || !zone) return;
+    const quest = this.qualityMode === "quest";
+    this.scene.fog.near = quest ? zone.fogNear * 0.9 : zone.fogNear;
+    this.scene.fog.far = quest ? Math.min(zone.fogFar, 100) : zone.fogFar;
   }
 
   update(time, dt = 0.016, camera = null) {

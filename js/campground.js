@@ -638,6 +638,22 @@ export class Campground {
     radio.position.set(-4.0, 0.94, 1.5);
     cabin.add(radio);
 
+    const questBoard = this.tagInteractable(
+      new THREE.Group(),
+      "quest-board",
+      "Read quest board"
+    );
+    const board = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.04), woodMat(0x5a3a20));
+    questBoard.add(board);
+    const note = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.58, 0.38),
+      new THREE.MeshStandardMaterial({ color: 0xfff8e8, roughness: 0.95 })
+    );
+    note.position.z = 0.025;
+    questBoard.add(note);
+    questBoard.position.set(-3.2, 1.35, 1.5);
+    cabin.add(questBoard);
+
     this.buildCeilingBeams(cabin, CABIN_SIZE.width, CABIN_SIZE.depth, height);
     this.buildInteriorClutter(cabin, halfW, halfD);
 

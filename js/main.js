@@ -13,6 +13,7 @@ import {
   getSelectedBait,
   updateSettings,
   subscribe,
+  setDisplayName,
 } from "./state.js";
 import { BAITS, ZONES, BOAT_USE_LEVEL, canUseBoat, canBoatTravelToZone } from "./data.js";
 import * as audio from "./audio.js";
@@ -26,6 +27,12 @@ import { BUILD_ID } from "./version.js";
 import { DOCK_SPAWN } from "./dock-layout.js";
 import { tensionZone } from "./fish-fight.js";
 import { getRodStats } from "./gear-stats.js";
+import { VRComfort } from "./vr-comfort.js";
+import { VRHud } from "./vr-ui.js";
+import { startBoatVoyage, getBoatTravelDuration } from "./boat-travel.js";
+import { HandTrackingInput } from "./hand-tracking.js";
+import { getBoatSpeedMultiplier } from "./data.js";
+import { getRadioReport } from "./retention.js";
 
 let ui = null;
 let touch = { active: false };
@@ -99,21 +106,43 @@ const vrHands = new VRHandRig(grips, controllerModels);
 
 fishing.attachToController(controllers[1]);
 const vrMotion = new VRFishingMotion();
+const vrComfort = new VRComfort(camera, () => getState().settings);
+const vrHud = new VRHud(
+  document.getElementById("vr-hud"),
+  document.getElementById("vr-tension"),
+  document.getElementById("vr-tension-fill")
+);
+let handTracking = null;
+let boatVoyageActive = false;
+const travelOverlay = document.getElementById("travel-overlay");
+const fightCoach = document.getElementById("fight-coach");
+const namePrompt = document.getElementById("name-prompt");
+fishing.audioCamera = camera;
 
 document.body.appendChild(VRButton.createButton(renderer));
 
 let inVR = false;
-renderer.xr.addEventListener("sessionstart", () => {
+renderer.xr.addEventListener("sessionstart", async () => {
   inVR = true;
+  document.body.classList.add("vr-active");
   vrMotion.resetCast();
+  vrComfort.reset();
   vrHands.setControllerModelsVisible(false);
+  vrHud.setActive(true);
+  vrHud.setHint("Swing rod back, then forward to cast · crank left hand to reel");
   teleportToZone(getState().zone);
-  ui?.setStatus(fishing.getStatusText(true));
-  ui?.showToast("VR: right hand holds rod · left hand cranks reel when fighting fish");
+  const session = renderer.xr.getSession();
+  handTracking = new HandTrackingInput(session, () => getState().settings);
+  await handTracking.tryEnable(session);
+  ui?.showToast("VR: snap-turn with stick · trigger at skiff to sail · left grip = menu");
 });
 renderer.xr.addEventListener("sessionend", () => {
   inVR = false;
+  document.body.classList.remove("vr-active");
   vrHands.setControllerModelsVisible(true);
+  vrHud.setActive(false);
+  handTracking?.disable();
+  handTracking = null;
 });
 
 const keys = {};
@@ -139,34 +168,39 @@ function dismissLoadingHint() {
 }
 
 function refreshStatus() {
-  if (!ui || inVR) return;
+  if (!ui) return;
   updateBoatInteractTarget();
   let text;
   let tone = "";
   if (boatInteractTarget && fishing.state === FishingState.IDLE) {
-    text = `[E] ${boatInteractTarget.label}`;
+    text = inVR ? `[Trigger] ${boatInteractTarget.label}` : `[E] ${boatInteractTarget.label}`;
   } else if (cabinInteractTarget && fishing.state === FishingState.IDLE) {
-    text = `[E] ${cabinInteractTarget.label}`;
+    text = inVR ? `[Trigger] ${cabinInteractTarget.label}` : `[E] ${cabinInteractTarget.label}`;
   } else if (castCharging && fishing.state === FishingState.IDLE) {
     const pct = Math.round((0.35 + castCharge * 0.65) * 100);
     text = `Charging cast… ${pct}% — release Space`;
     ui.setCastCharge?.(true, castCharge);
-    if (text !== lastHudStatus) {
-      lastHudStatus = text;
-      ui.setStatus(text, tone);
-    }
+    if (inVR) vrHud.setStatus(text, tone);
+    else if (text !== lastHudStatus) { lastHudStatus = text; ui.setStatus(text, tone); }
     return;
   } else {
     ui.setCastCharge?.(false);
     if (fishing.state !== FishingState.IDLE) {
       text = fishing.getStatusText(inVR);
+      tone = fishing.state === FishingState.BITING ? "strike" : fishing.state === FishingState.WAITING && fishing.preBiteWarned ? "urgent" : "";
     } else if (touch.active) {
       text = "Hold Cast to charge · drag right to look · joystick to move";
     } else if (pointerLocked) {
       text = "WASD move · hold Space to cast · hold R to reel · M menu · H guide";
+    } else if (inVR) {
+      text = fishing.getStatusText(true);
     } else {
       text = "Click to look · WASD to move · walk the boardwalk to the lake";
     }
+  }
+  if (inVR) {
+    vrHud.setStatus(text, tone);
+    return;
   }
   if (text !== lastHudStatus) {
     lastHudStatus = text;
@@ -195,10 +229,10 @@ let boatInteractTarget = null;
 
 function updateBoatInteractTarget() {
   boatInteractTarget = null;
-  if (inVR || getState().zone !== "Lake Dock" || fishing.state !== FishingState.IDLE) return;
+  if (getState().zone !== "Lake Dock" || fishing.state !== FishingState.IDLE) return;
   if (!env?.isNearMooringBoat(camera.position.x, camera.position.z)) return;
   if (canUseBoat(getState().boatLevel)) {
-    boatInteractTarget = { label: "Board skiff — travel to fishing zones" };
+    boatInteractTarget = { label: "Board skiff — sail to fishing zones" };
   } else {
     boatInteractTarget = { label: `Skiff locked — upgrade to Boat Lvl ${BOAT_USE_LEVEL}` };
   }
@@ -243,10 +277,14 @@ function handleCabinInteraction(id) {
     case "lantern":
       ui?.showToast(cg.toggleLantern());
       break;
-    case "fireplace":
-      ui?.showToast(cg.toggleFireplace());
+    case "fireplace": {
+      const msg = cg.toggleFireplace();
+      audio.setFireplaceActive(cg.fireplaceOn, camera.position, camera);
+      ui?.showToast(msg);
       break;
+    }
     case "trophy": {
+      ui?.openPanel("codex");
       const count = Object.keys(state.codex).length;
       ui?.showToast(
         count > 0 ? `Trophy wall — ${count} species logged` : "Empty trophy wall — go catch some fish!"
@@ -272,7 +310,11 @@ function handleCabinInteraction(id) {
       ui?.showToast("Muddy fishing boots — ready for the dock");
       break;
     case "radio":
-      ui?.showToast("Soft radio static… lake forecast sounds calm");
+      ui?.showToast(getRadioReport(state).replace(/\n/g, " · "));
+      break;
+    case "quest-board":
+      ui?.openPanel("quests");
+      ui?.showToast("Quest board — dailies, chains, and story quests");
       break;
     default:
       break;
@@ -300,6 +342,7 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Digit1") switchZone("Lake Dock");
   if (e.code === "Digit2") switchZone("North Cove");
   if (e.code === "Digit3") switchZone("Deep Water");
+  if (e.code === "Digit4") switchZone("Moonlit Cove");
   if (e.code === "KeyM") ui?.toggleMenu();
   if (e.code === "KeyH") ui?.openPanel?.("guide");
   if (e.code === "KeyB") ui?.openPanel?.("bait");
@@ -355,6 +398,11 @@ document.addEventListener("mousemove", (e) => {
 
 function onSelect(i) {
   if (i === 0 && inVR) {
+    updateBoatInteractTarget();
+    if (boatInteractTarget) {
+      tryBoatInteract();
+      return;
+    }
     tryVrZoneTeleport(controllers[0]);
     return;
   }
@@ -520,10 +568,20 @@ function onFishingEvent(type, data) {
       ui?.onTutorialTrigger?.("hooked");
       ui?.setBiteAlert(false);
       ui?.setReelAlert(true);
+      if (!getState().settings?.fightCoachSeen) {
+        fightCoach?.classList.add("visible");
+        fightCoach?.setAttribute("aria-hidden", "false");
+        updateSettings({ fightCoachSeen: true });
+        setTimeout(() => {
+          fightCoach?.classList.remove("visible");
+          fightCoach?.setAttribute("aria-hidden", "true");
+        }, 9000);
+      }
       ui?.setStatus(fishing.getStatusText(inVR));
       ui?.setTension(fishing.tension, fishing.reelProgress, true, {
         phaseLabel: fishing.fightPhaseLabel,
       });
+      vrHud.setTension(fishing.tension, fishing.reelProgress, true);
       break;
     case "reeling": {
       const t = data.tension ?? 0;
@@ -535,14 +593,16 @@ function onFishingEvent(type, data) {
       if (!changed) break;
       uiFrameCache.reelTension = t;
       uiFrameCache.reelProgress = p;
+      const tensionOpts = { reelAssist: getState().settings?.reelAssist };
       ui?.checkTensionTip?.(
-        tensionZone(t, getRodStats(getState().rodLevel)),
+        tensionZone(t, getRodStats(getState().rodLevel), tensionOpts),
         data.phase
       );
       ui?.setTension(t, p, true, {
         phase: data.phase,
         phaseLabel: data.phaseLabel,
       });
+      vrHud.setTension(t, p, true);
       ui?.setStatus(fishing.getStatusText(inVR));
       if (data.phaseChanged && inVR) {
         const strong = data.phase === "run" || data.phase === "thrash" || data.phase === "surge";
@@ -592,7 +652,7 @@ function onFishingEvent(type, data) {
   updateTouchUI();
 }
 
-function switchZone(zoneId) {
+function switchZone(zoneId, opts = {}) {
   if (!canAccessZone(zoneId)) {
     const zone = ZONES[zoneId];
     if (zone?.boatRequired >= 2 && !canUseBoat(getState().boatLevel)) {
@@ -602,10 +662,39 @@ function switchZone(zoneId) {
     }
     return;
   }
-  setZone(zoneId);
-  teleportToZone(zoneId);
-  env.applyZone(zoneId);
-  ui?.showToast(`Now at ${zoneId}`);
+  const useBoat =
+    opts.byBoat &&
+    getState().zone === "Lake Dock" &&
+    zoneId !== "Lake Dock" &&
+    canUseBoat(getState().boatLevel);
+  const apply = () => {
+    setZone(zoneId);
+    teleportToZone(zoneId);
+    env.applyZone(zoneId);
+    ui?.showToast(`Now at ${zoneId}`);
+  };
+  if (useBoat && !boatVoyageActive) {
+    boatVoyageActive = true;
+    const dest = ZONES[zoneId].teleport;
+    const duration = getBoatTravelDuration(getState().boatLevel) / getBoatSpeedMultiplier(getState().boatLevel);
+    startBoatVoyage({
+      from: camera.position,
+      to: { x: dest.x, y: dest.y + 1.6, z: dest.z },
+      camera,
+      overlayEl: travelOverlay,
+      duration,
+      onMidpoint: () => env.applyZone(zoneId),
+      onComplete: () => {
+        setZone(zoneId);
+        applyGroundEyeHeight();
+        aimAtFishingPool(ZONES[zoneId]);
+        boatVoyageActive = false;
+        ui?.showToast(`Docked at ${zoneId}`);
+      },
+    });
+    return;
+  }
+  apply();
 }
 
 function aimAtFishingPool(zone) {
@@ -644,9 +733,8 @@ function teleportToZone(zoneId) {
 ui = initUI(fishing, {
   onEnterVR: () => {},
   isVR: () => inVR,
-  onZoneChange: (zone) => {
-    teleportToZone(zone);
-    env.applyZone(zone);
+  onZoneChange: (zone, opts) => {
+    switchZone(zone, opts);
   },
   onRodUpgrade: () => {
     fishing.onRodLevelUp();
@@ -662,7 +750,10 @@ ui = initUI(fishing, {
   onSettingsChange: async (settings) => {
     audio.applyAudioSettings(settings);
     env.setQuality(settings.quality || "high");
-    const pr = settings.quality === "low" ? 1 : Math.min(window.devicePixelRatio, 2);
+    const pr =
+      settings.quality === "low" || settings.quality === "quest"
+        ? 1
+        : Math.min(window.devicePixelRatio, 2);
     renderer.setPixelRatio(pr);
     const reloaded = await reloadEnvironmentMaps(renderer, scene, envMaps, settings.quality || "high");
     if (reloaded) {
@@ -679,6 +770,24 @@ env.setQuality(getState().settings?.quality || "high");
 teleportToZone(getState().zone);
 env.applyZone(getState().zone);
 env.updateBoatForLevel(getState().boatLevel);
+
+function maybeShowNamePrompt() {
+  if (getState().displayName) return;
+  namePrompt?.classList.add("visible");
+  namePrompt?.setAttribute("aria-hidden", "false");
+  document.getElementById("name-prompt-save")?.addEventListener("click", () => {
+    const input = document.getElementById("name-prompt-input");
+    const result = setDisplayName(input?.value);
+    if (result.ok) {
+      namePrompt?.classList.remove("visible");
+      namePrompt?.setAttribute("aria-hidden", "true");
+      ui?.showToast(result.message);
+    } else {
+      ui?.showToast(result.message);
+    }
+  });
+}
+maybeShowNamePrompt();
 
 subscribe((state) => {
   ui?.updateSyncStatus?.();
@@ -838,6 +947,17 @@ function updateVrFishing(dt) {
     reelHeld = false;
   }
 
+  const handInput = handTracking?.poll();
+  if (handInput?.reel > 0.02 && fishing.state === FishingState.REELING) {
+    fishing.reel(dt, handInput.reel);
+    reelHeld = true;
+  }
+  if (handInput?.cast && fishing.state === FishingState.IDLE && motion.windup > 0.5) {
+    if (fishing.startCast(motion.windup, getVrAimDirection())) {
+      ui?.setStatus(fishing.getStatusText(true));
+    }
+  }
+
   fishing.updateRodTransform(controllers[1], motion);
 
   if (fishing.state === FishingState.WAITING && motion.lureMotion > 0.02) {
@@ -867,6 +987,16 @@ renderer.setAnimationLoop(() => {
   const time = clock.elapsedTime;
 
   env.update(time, dt, camera);
+  audio.updateAudioListener(camera);
+  if (inVR) {
+    vrComfort.update(dt, controllers[0], controllers[1]);
+    vrComfort.tick(dt);
+  }
+  if (env?.campground?.insideCabin && env.campground.fireplaceOn) {
+    audio.setFireplaceActive(true, camera.position, camera);
+  } else {
+    audio.setFireplaceActive(false);
+  }
   updateVrFishing(dt);
   updateDesktopMovement(dt);
   applyGroundEyeHeight();
@@ -904,7 +1034,8 @@ renderer.setAnimationLoop(() => {
   prevReelHeld = reelHeld && isReeling;
 
   if (isReeling) {
-    const zone = tensionZone(fishing.tension, getRodStats(getState().rodLevel));
+    const tensionOpts = { reelAssist: getState().settings?.reelAssist };
+    const zone = tensionZone(fishing.tension, getRodStats(getState().rodLevel), tensionOpts);
     if ((zone === "warning" || zone === "snap") && zone !== lastTensionZone) {
       audio.playTensionWarning();
     }

@@ -141,8 +141,8 @@ export const TENSION = {
   LOOSE: 0.1,
 };
 
-export function tensionZone(tension, rod = null) {
-  const sweet = rod ? getSweetZone(rod.level) : { low: TENSION.SWEET_LOW, high: TENSION.SWEET_HIGH };
+export function tensionZone(tension, rod = null, options = {}) {
+  const sweet = rod ? getSweetZone(rod.level, options) : { low: TENSION.SWEET_LOW, high: TENSION.SWEET_HIGH };
   const snap = rod ? getSnapThreshold(rod.level) : TENSION.SNAP;
   if (tension >= snap) return "snap";
   if (tension >= TENSION.WARNING) return "warning";

@@ -1,5 +1,6 @@
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as THREE from "three";
+import { getRequiredFishModelKeys } from "./data.js";
 
 const BASE = "./assets/models";
 
@@ -38,9 +39,11 @@ export function getAssets() {
 export async function loadGameAssets(onProgress) {
   const loader = new GLTFLoader();
   const cache = { fish: {}, rod: {}, bait: {}, env: {}, kenney: {} };
+  const requiredFish = new Set(getRequiredFishModelKeys());
   const entries = [];
   for (const [category, names] of Object.entries(MANIFEST)) {
     for (const name of names) {
+      if (category === "fish" && !requiredFish.has(name)) continue;
       entries.push({ category, name, url: `${BASE}/${category}/${name}.glb` });
     }
   }

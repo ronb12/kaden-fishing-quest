@@ -25,6 +25,10 @@ import {
   updateSettings,
   getSyncStatus,
   getTutorial,
+  getQuestProgress,
+  claimDailyBonus,
+  claimChainBonus,
+  claimCodexBonus,
   setTutorialGuideSection,
   advanceTutorialOnTrigger,
   advanceTutorialStep,
@@ -38,6 +42,13 @@ import { fetchLeaderboard, getPlayerId } from "./api.js";
 import * as audio from "./audio.js";
 import { tensionZone } from "./fish-fight.js";
 import { getRodStats, baitStatsLine } from "./gear-stats.js";
+import {
+  getDailyChallengeStatus,
+  allDailiesComplete,
+  getQuestChainStatus,
+  getCodexMilestoneStatus,
+  getRadioReport,
+} from "./retention.js";
 import {
   GUIDED_STEPS,
   GUIDE_SECTIONS,
@@ -466,11 +477,12 @@ export function initUI(fishing, callbacks) {
             ? `Requires Boat Lvl ${BOAT_USE_LEVEL} skiff`
             : `Requires Boat Lvl ${z.boatRequired}`
           : z.description;
+        const sail = z.id !== "Lake Dock" && canUseBoat(state.boatLevel) && state.zone === "Lake Dock";
         return `
           <button class="panel-btn ${state.zone === z.id ? "active" : ""} ${locked ? "locked" : ""}"
-            data-zone="${z.id}" ${locked ? "disabled" : ""}>
+            data-zone="${z.id}" ${sail ? 'data-boat="1"' : ""} ${locked ? "disabled" : ""}>
             <strong>${z.label}</strong>
-            <span>${lockHint}</span>
+            <span>${lockHint}${sail ? " · sail by boat" : ""}</span>
           </button>
         `;
       })
@@ -478,7 +490,17 @@ export function initUI(fishing, callbacks) {
   }
 
   function renderCodex(state) {
-    return renderCodexHTML(state);
+    const base = renderCodexHTML(state);
+    const trophies = (state.trophies || [])
+      .map((t) => `<div class="trophy-row"><strong>${t.name}</strong><span>${t.weight} lb · ${t.rarity}</span></div>`)
+      .join("") || "<p class='help-tip'>Catch fish to fill your trophy wall.</p>";
+    const milestones = getCodexMilestoneStatus(state)
+      .map((m) => {
+        const done = m.done && !m.claimed;
+        return `<div class="daily-row ${m.claimed ? "done" : ""}"><div><strong>${m.label}</strong><span>${Math.min(m.current, m.target)}/${m.target} · ${m.reward}c</span></div>${done ? `<button data-claim-codex="${m.id}">Claim</button>` : m.claimed ? "<span class='claimed'>Claimed</span>" : ""}</div>`;
+      })
+      .join("");
+    return `${base}<div class="trophy-wall"><h3>Trophy Wall</h3>${trophies}</div><div class="daily-section"><h3>Codex Milestones</h3>${milestones}</div>`;
   }
 
   function renderGear(state) {
@@ -533,31 +555,44 @@ export function initUI(fishing, callbacks) {
   }
 
   function renderQuests(state) {
-    return QUESTS.map((q) => {
-      const p = state.questProgress;
-      const codexCount = Object.keys(state.codex).length;
-      let current = 0;
-      switch (q.id) {
-        case "lakeFish": current = p.lakeFish; break;
-        case "visitCove": current = p.visitedCove ? 1 : 0; break;
-        case "rodUpgraded": current = p.rodUpgraded ? 1 : 0; break;
-        case "rareCatch": current = p.rareCatch || 0; break;
-        case "deepWaterFish": current = p.deepWaterFish || 0; break;
-        case "legendaryCatch": current = p.legendaryCatch || 0; break;
-        case "codexHalf": current = codexCount; break;
-      }
-      const done = current >= q.target;
+    const quests = QUESTS.map((q) => {
+      const { current, target } = getQuestProgress(q);
+      const done = current >= target;
       const claimed = state.claimedQuests?.includes(q.id);
       return `
         <div class="quest-row ${done ? "done" : ""}">
           <div>
             <strong>${q.label}</strong>
-            <span>${Math.min(current, q.target)}/${q.target} · Reward ${q.reward}c</span>
+            <span>${Math.min(current, target)}/${target} · Reward ${q.reward}c</span>
           </div>
           ${done && !claimed ? `<button data-claim="${q.id}">Claim</button>` : claimed ? "<span class='claimed'>Claimed</span>" : ""}
         </div>
       `;
     }).join("");
+    const dailies = getDailyChallengeStatus(state)
+      .map((c) => {
+        const allDone = allDailiesComplete(state);
+        return `<div class="daily-row ${c.done ? "done" : ""}"><div><strong>${c.label}</strong><span>${Math.min(c.current, c.target)}/${c.target}</span></div></div>`;
+      })
+      .join("");
+    const dailyClaim =
+      allDailiesComplete(state) && !state.daily?.claimed
+        ? `<button data-claim-daily>Claim daily bonus (+ streak)</button>`
+        : state.daily?.claimed
+          ? `<span class="claimed">Daily claimed · ${state.daily.streak || 0} day streak</span>`
+          : `<span class="help-tip">Streak: ${state.daily?.streak || 0} days</span>`;
+    const chains = getQuestChainStatus(state)
+      .map((chain) => {
+        const stepLabel = chain.done
+          ? "Complete!"
+          : chain.step
+            ? `${chain.step.label} (${Math.min(chain.current, chain.target)}/${chain.target})`
+            : "Starting…";
+        const canClaim = chain.done && !state.claimedChainRewards?.includes(chain.id);
+        return `<div class="chain-row ${chain.done ? "done" : ""}"><div><strong>${chain.title}</strong><span>${stepLabel} · ${chain.reward}c</span></div>${canClaim ? `<button data-claim-chain="${chain.id}">Claim</button>` : state.claimedChainRewards?.includes(chain.id) ? "<span class='claimed'>Claimed</span>" : ""}</div>`;
+      })
+      .join("");
+    return `<h3>Story Quests</h3>${quests}<div class="daily-section"><h3>Daily Challenges</h3>${dailies}${dailyClaim}</div><div class="chain-section"><h3>Quest Chains</h3>${chains}</div>`;
   }
 
   function renderSettings(state) {
@@ -579,15 +614,39 @@ export function initUI(fishing, callbacks) {
           <input type="checkbox" data-setting="sfx" ${s.sfx !== false ? "checked" : ""} />
           Sound effects
         </label>
+        <label class="settings-toggle">
+          <input type="checkbox" data-setting="spatialAudio" ${s.spatialAudio !== false ? "checked" : ""} />
+          3D spatial splash &amp; bite sounds
+        </label>
+        <label class="settings-toggle">
+          <input type="checkbox" data-setting="reelAssist" ${s.reelAssist ? "checked" : ""} />
+          Reel assist (wider sweet zone)
+        </label>
+      </div>
+      <div class="settings-section">
+        <h3>VR comfort</h3>
+        <label class="settings-toggle">
+          <input type="checkbox" data-setting="vrSnapTurn" ${s.vrSnapTurn !== false ? "checked" : ""} />
+          Snap turn (left stick)
+        </label>
+        <label class="settings-toggle">
+          <input type="checkbox" data-setting="handTracking" ${s.handTracking ? "checked" : ""} />
+          Hand tracking (experimental)
+        </label>
       </div>
       <div class="settings-section">
         <label>Graphics quality</label>
         <select id="quality-select">
-          <option value="high" ${s.quality !== "low" ? "selected" : ""}>High</option>
+          <option value="high" ${s.quality === "high" ? "selected" : ""}>High</option>
           <option value="low" ${s.quality === "low" ? "selected" : ""}>Low (mobile)</option>
+          <option value="quest" ${s.quality === "quest" ? "selected" : ""}>Quest / VR performance</option>
         </select>
       </div>
-      <p class="help-tip">Player ID: ${getPlayerId().slice(0, 8)}…</p>
+      <div class="settings-section radio-panel">
+        <strong>📻 Lake radio</strong>
+        <p>${getRadioReport(state)}</p>
+      </div>
+      <p class="help-tip">Player ID: ${getPlayerId().slice(0, 8)}… · Streak ${state.daily?.streak || 0} days</p>
     `;
   }
 
@@ -598,6 +657,7 @@ export function initUI(fishing, callbacks) {
         <button class="lb-tab ${leaderboardSort === "coins" ? "active" : ""}" data-lb-sort="coins">Coins</button>
         <button class="lb-tab ${leaderboardSort === "weight" ? "active" : ""}" data-lb-sort="weight">Best Catch</button>
         <button class="lb-tab ${leaderboardSort === "codex" ? "active" : ""}" data-lb-sort="codex">Codex</button>
+        <button class="lb-tab ${leaderboardSort === "weekly" ? "active" : ""}" data-lb-sort="weekly">This week</button>
       </div>
       <p class="empty">Loading leaderboard...</p>
     `;
@@ -612,7 +672,7 @@ export function initUI(fishing, callbacks) {
       panelContent.querySelector(".empty").textContent = "No anglers on the board yet. Be the first!";
       return;
     }
-    const sortLabel = { fish: "fish", coins: "coins", weight: "lb best", codex: "species" };
+    const sortLabel = { fish: "fish", coins: "coins", weight: "lb best", codex: "species", weekly: "fish (7d)" };
     panelContent.querySelector(".empty")?.remove();
     const list = document.createElement("div");
     list.innerHTML = rows
@@ -645,9 +705,10 @@ export function initUI(fishing, callbacks) {
         audio.playUIClick();
         const zone = btn.dataset.zone;
         if (canAccessZone(zone)) {
-          setZone(zone);
-          callbacks.onZoneChange?.(zone);
-          showToast(`Moved to ${zone}`);
+          const byBoat = btn.dataset.boat === "1";
+          if (!byBoat) setZone(zone);
+          callbacks.onZoneChange?.(zone, { byBoat });
+          showToast(byBoat ? `Sailing to ${zone}…` : `Moved to ${zone}`);
         }
       });
     });
@@ -677,6 +738,36 @@ export function initUI(fishing, callbacks) {
         if (reward) {
           audio.playQuestComplete();
           showToast(`Quest complete! +${reward} coins`);
+        }
+      });
+    });
+    panelContent?.querySelectorAll("[data-claim-daily]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const reward = claimDailyBonus();
+        if (reward) {
+          audio.playQuestComplete();
+          showToast(`Daily complete! +${reward} coins`);
+          renderPanel(getState());
+        }
+      });
+    });
+    panelContent?.querySelectorAll("[data-claim-chain]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const reward = claimChainBonus(btn.dataset.claimChain);
+        if (reward) {
+          audio.playQuestComplete();
+          showToast(`Quest chain complete! +${reward} coins`);
+          renderPanel(getState());
+        }
+      });
+    });
+    panelContent?.querySelectorAll("[data-claim-codex]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const reward = claimCodexBonus(btn.dataset.claimCodex);
+        if (reward) {
+          audio.playQuestComplete();
+          showToast(`Codex milestone! +${reward} coins`);
+          renderPanel(getState());
         }
       });
     });
@@ -865,6 +956,7 @@ export function initUI(fishing, callbacks) {
           <div class="catch-actions">
             <button id="catch-cast-again" type="button">Cast Again</button>
             <button id="catch-view-codex" type="button">View Codex</button>
+            <button id="catch-share" type="button" class="share-catch-btn">Share</button>
           </div>
         </div>
       `;
@@ -896,6 +988,19 @@ export function initUI(fishing, callbacks) {
           t.classList.toggle("active", t.dataset.panel === "codex")
         );
         openMenu();
+      });
+      document.getElementById("catch-share")?.addEventListener("click", async () => {
+        const text = `I caught a ${catchData.weight} lb ${catchData.name} in Kaden VR Fishing Quest!`;
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: "Kaden VR Fishing Quest", text });
+          } else {
+            await navigator.clipboard.writeText(text);
+            showToast("Catch copied to clipboard!");
+          }
+        } catch {
+          showToast("Share cancelled");
+        }
       });
       catchAutoDismissTimer = setTimeout(() => {
         if (catchOverlay.classList.contains("show")) dismiss();

@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 const SAMPLE_URLS = {
   ambient: "./assets/audio/ambient/fishing-port.ogg",
   ambientGulls: "./assets/audio/ambient/gulls-harbor.ogg",
@@ -20,10 +22,27 @@ let sfxEnabled = true;
 let musicEnabled = true;
 let ambientLayers = null;
 let reelNodes = null;
+let fireplaceNodes = null;
+const _camDir = new THREE.Vector3();
 
 function getCtx() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
   return ctx;
+}
+
+export function updateAudioListener(camera) {
+  if (!camera || !ctx) return;
+  const l = ctx.listener;
+  if (!l?.positionX) return;
+  l.positionX.value = camera.position.x;
+  l.positionY.value = camera.position.y;
+  l.positionZ.value = camera.position.z;
+  camera.getWorldDirection(_camDir);
+  if (l.forwardX) {
+    l.forwardX.value = _camDir.x;
+    l.forwardY.value = _camDir.y;
+    l.forwardZ.value = _camDir.z;
+  }
 }
 
 export async function loadAudioAssets() {
@@ -89,6 +108,40 @@ function playSample(key, { gain = 0.35, rate = 1, loop = false } = {}) {
   return { src, g };
 }
 
+function playSpatialSample(key, position, camera, { gain = 0.35, rate = 1 } = {}) {
+  if (!sfxEnabled) return false;
+  const buffer = buffers[key];
+  if (!buffer) return playSample(key, { gain, rate });
+  if (!camera || !position) return playSample(key, { gain, rate });
+  updateAudioListener(camera);
+  const ac = getCtx();
+  const src = ac.createBufferSource();
+  const panner = ac.createPanner();
+  panner.panningModel = "HRTF";
+  panner.distanceModel = "inverse";
+  panner.refDistance = 1.2;
+  panner.maxDistance = 45;
+  const g = ac.createGain();
+  g.gain.value = gain;
+  src.buffer = buffer;
+  src.playbackRate.value = rate;
+  src.connect(panner);
+  panner.connect(g);
+  g.connect(ac.destination);
+  panner.positionX.value = position.x;
+  panner.positionY.value = position.y;
+  panner.positionZ.value = position.z;
+  src.start();
+  return true;
+}
+
+export function playSpatialAt(key, position, camera, opts = {}) {
+  if (!playSpatialSample(key, position, camera, opts)) {
+    if (key === "splash") playSplash(opts.gain ?? 0.2);
+    else if (key === "bite") playBite();
+  }
+}
+
 export function startAmbient() {
   if (!musicEnabled || ambientLayers) return;
   const port = playSample("ambient", { gain: 0.11, loop: true });
@@ -133,6 +186,20 @@ export function stopAmbient() {
   ambientLayers = null;
 }
 
+export function setFireplaceActive(active, position, camera) {
+  if (!musicEnabled && !sfxEnabled) return;
+  if (active && !fireplaceNodes) {
+    fireplaceNodes = playSample("ambient", { gain: 0.06, loop: true, rate: 0.65 }) || { procedural: true };
+  } else if (!active && fireplaceNodes) {
+    try {
+      if (fireplaceNodes.procedural) return;
+      fireplaceNodes.src?.stop();
+    } catch { /* */ }
+    fireplaceNodes = null;
+  }
+  if (active && position && camera) updateAudioListener(camera);
+}
+
 export function playCast() {
   if (!playSample("cast", { gain: 0.4 })) {
     tone(180, 0.1, "triangle", 0.06, 0.2);
@@ -166,11 +233,19 @@ export function playSplashSoft(gain = 0.16) {
   playSplash(gain);
 }
 
+export function playSplashAt(position, camera, gain = 0.22) {
+  playSpatialAt("splash", position, camera, { gain });
+}
+
 export function playBite() {
   if (!playSample("bite", { gain: 0.35 })) {
     tone(520, 0.05, "square", 0.05, 0.08);
     setTimeout(() => tone(680, 0.05, "square", 0.06, 0.1), 80);
   }
+}
+
+export function playBiteAt(position, camera) {
+  playSpatialAt("bite", position, camera, { gain: 0.32 });
 }
 
 export function playNibble() {
@@ -195,6 +270,10 @@ export function playTensionWarning() {
   tone(180, 0.06, "sawtooth", 0.05, 0.1);
 }
 
+export function playSweetZonePulse() {
+  tone(520, 0.04, "sine", 0.04, 0.08);
+}
+
 export function startReelLoop() {
   if (!sfxEnabled || reelNodes) return;
   const played = playSample("reel", { gain: 0.12, loop: true, rate: 0.85 });
@@ -214,13 +293,14 @@ export function startReelLoop() {
   reelNodes = { osc, g, procedural: true };
 }
 
-export function updateReelLoop(tension = 0.5) {
+export function updateReelLoop(tension = 0.5, phase = "") {
   if (!reelNodes) return;
+  const phaseBoost = phase === "run" || phase === "thrash" ? 1.25 : phase === "tired" ? 0.85 : 1;
   if (reelNodes.procedural) {
-    reelNodes.osc.frequency.value = 70 + tension * 60;
+    reelNodes.osc.frequency.value = (70 + tension * 60) * phaseBoost;
     reelNodes.g.gain.value = 0.02 + tension * 0.02;
   } else {
-    reelNodes.src.playbackRate.value = 0.7 + tension * 0.5;
+    reelNodes.src.playbackRate.value = (0.7 + tension * 0.5) * phaseBoost;
     reelNodes.g.gain.value = 0.08 + tension * 0.06;
   }
 }

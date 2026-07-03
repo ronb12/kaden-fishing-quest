@@ -46,6 +46,13 @@ export default async function handler(req, res) {
         FROM saves s LEFT JOIN players p ON p.id = s.player_id
         ORDER BY codex_count DESC, s.fish_count DESC LIMIT 20
       `;
+    } else if (sort === "weekly") {
+      rows = await sql`
+        SELECT s.player_id, s.fish_count, s.coins, s.best_catch, s.updated_at, p.display_name
+        FROM saves s LEFT JOIN players p ON p.id = s.player_id
+        WHERE s.updated_at >= NOW() - INTERVAL '7 days'
+        ORDER BY s.fish_count DESC, s.coins DESC LIMIT 20
+      `;
     } else {
       rows = await sql`
         SELECT s.player_id, s.fish_count, s.coins, s.best_catch, s.updated_at, p.display_name

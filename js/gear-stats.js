@@ -100,11 +100,12 @@ export function getSnapThreshold(rodLevel) {
   return Math.min(0.98, 0.9 + (strength - 0.88) * 0.35);
 }
 
-export function getSweetZone(rodLevel) {
+export function getSweetZone(rodLevel, options = {}) {
   const bonus = getRodStats(rodLevel).sweetZoneBonus;
+  const assist = options.reelAssist ? 0.1 : 0;
   return {
-    low: 0.28 - bonus * 0.15,
-    high: 0.7 + bonus * 0.12,
+    low: Math.max(0.14, 0.28 - bonus * 0.15 - assist),
+    high: Math.min(0.88, 0.7 + bonus * 0.12 + assist),
   };
 }
 

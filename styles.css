@@ -1627,3 +1627,152 @@ body.touch-mode .hud-stats {
   .hud-stats { gap: 8px; font-size: 0.8rem; }
   .loading-hint:not(.touch-mode) { display: none; }
 }
+
+/* VR in-headset HUD */
+.vr-hud {
+  position: fixed;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  width: min(520px, 88vw);
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(12, 31, 47, 0.78);
+  border: 1px solid rgba(126, 232, 255, 0.25);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
+  text-align: center;
+}
+.vr-hud.visible { opacity: 1; }
+.vr-hud-hint { font-size: 0.75rem; opacity: 0.65; margin-bottom: 6px; }
+.vr-hud-status { font-weight: 800; font-size: 1rem; }
+.vr-hud-status.urgent { color: var(--sun); }
+.vr-hud-status.strike { color: #ff8a8a; }
+.vr-tension {
+  margin-top: 10px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.vr-tension.visible { opacity: 1; }
+.vr-tension-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--safe), var(--sun));
+  transition: width 0.08s linear;
+}
+.vr-tension-fill[data-zone="warning"],
+.vr-tension-fill[data-zone="snap"] { background: linear-gradient(90deg, #ffb347, var(--danger)); }
+.vr-reel-fill {
+  height: 3px;
+  width: 0%;
+  background: var(--lake);
+  margin-top: 4px;
+  border-radius: 999px;
+}
+
+.fight-coach {
+  position: fixed;
+  bottom: 22%;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 14;
+  padding: 16px 22px;
+  border-radius: 14px;
+  background: rgba(12, 31, 47, 0.9);
+  border: 2px solid var(--safe);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+  max-width: min(420px, 90vw);
+  text-align: center;
+}
+.fight-coach.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.fight-coach-title { font-family: "Archivo Black", sans-serif; color: var(--safe); margin-bottom: 6px; }
+.fight-coach-body { font-size: 0.9rem; opacity: 0.9; }
+
+.travel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 16, 24, 0.72);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.travel-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.name-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 16, 24, 0.85);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.name-prompt.visible { opacity: 1; pointer-events: auto; }
+.name-prompt-card {
+  width: min(360px, 90vw);
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--panel);
+  text-align: center;
+}
+.name-prompt-card input {
+  width: 100%;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.25);
+  color: white;
+  font: inherit;
+}
+.name-prompt-card button {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--lake);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.daily-section, .chain-section, .trophy-wall { margin-top: 16px; }
+.daily-row, .chain-row, .trophy-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  gap: 10px;
+}
+.daily-row.done, .chain-row.done { opacity: 0.85; }
+.trophy-row strong { color: var(--sun); }
+.radio-panel {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.25);
+  white-space: pre-line;
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+.settings-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.settings-row input { flex: 1; min-width: 120px; }
+.share-catch-btn { margin-top: 8px; }
+body.vr-active .hud { opacity: 0.35; }
+body.vr-active .menu-toggle { opacity: 0.6; }

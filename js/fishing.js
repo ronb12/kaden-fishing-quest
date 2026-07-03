@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
-import { getState, recordCatch, getSelectedBait } from "./state.js";
+import { getState, recordCatch, getSelectedBait, recordSweetZoneReel } from "./state.js";
+import { isLegendaryHuntActive } from "./retention.js";
 import * as audio from "./audio.js";
 import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, updateFishingLineMesh, linePointsWithSag, buildDetailedFish, buildFishSilhouette, applySubmergedFishLook, updateBaitAnimation, attachReelMechanism } from "./rod-model.js";
 import {
@@ -85,6 +86,8 @@ export class FishingSystem {
     this.bobberRippleTimer = 1.8;
     this.prospectEmissivePulse = 0;
     this.lineSnapFlash = 0;
+    this.audioCamera = null;
+    this.lastSweetPulse = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
     this.reelMechanism = null;
@@ -262,6 +265,10 @@ export class FishingSystem {
     }
   }
 
+  getTensionOptions() {
+    return { reelAssist: Boolean(getState().settings?.reelAssist) };
+  }
+
   updateLine() {
     const active =
       this.state !== FishingState.IDLE &&
@@ -312,7 +319,7 @@ export class FishingSystem {
       });
     } else {
       const rod = getRodStats(getState().rodLevel);
-      const zone = tensionZone(this.tension, rod);
+      const zone = tensionZone(this.tension, rod, this.getTensionOptions());
       if (zone === "snap" || zone === "warning") {
         this.setLineAppearance({
           coreColor: 0xff8866,
@@ -690,15 +697,22 @@ export class FishingSystem {
   triggerBite() {
     const s = getState();
     this.clearProspectFish();
-    this.legendaryEvent = Math.random() < 0.04 && s.zone === "Deep Water";
+    this.legendaryEvent =
+      (Math.random() < 0.04 && (s.zone === "Deep Water" || s.zone === "Moonlit Cove")) ||
+      isLegendaryHuntActive(getState());
     this.pendingFish = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, this.legendaryEvent);
     this.state = FishingState.BITING;
     this.biteWindow = 2.5 + s.rodLevel * 0.2 + getRodStats(s.rodLevel).hookBonus;
     this.biteWindowMax = this.biteWindow;
     this.spawnBiteFish();
     const rig = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
+    const splashPos = rig.clone();
     this.spawnSplashAt(rig.x, this.surfaceY(rig.x, rig.z, 0), rig.z, { splashGain: 0.24, playSound: false });
-    audio.playBite();
+    if (getState().settings?.spatialAudio !== false && this.audioCamera) {
+      audio.playBiteAt(splashPos, this.audioCamera);
+    } else {
+      audio.playBite();
+    }
     this.onEvent?.("bite", { species: this.pendingFish, legendary: this.legendaryEvent });
   }
 
@@ -783,7 +797,12 @@ export class FishingSystem {
     this.spawnSplash(opts);
     this.bobber.position.copy(prev);
     if (opts.playSound !== false && this.splashAudioCooldown <= 0) {
-      audio.playSplashSoft(opts.splashGain ?? 0.18);
+      const pos = new THREE.Vector3(x, surfaceY, z);
+      if (getState().settings?.spatialAudio !== false && this.audioCamera) {
+        audio.playSplashAt(pos, this.audioCamera, opts.splashGain ?? 0.18);
+      } else {
+        audio.playSplashSoft(opts.splashGain ?? 0.18);
+      }
       this.splashAudioCooldown = 0.14;
     }
   }
@@ -858,7 +877,7 @@ export class FishingSystem {
   applyReelProgress(dt, intensity, reelMult = 1) {
     const s = getState();
     const rod = getRodStats(s.rodLevel);
-    const zone = tensionZone(this.tension, rod);
+    const zone = tensionZone(this.tension, rod, this.getTensionOptions());
     let rate = (0.09 + s.rodLevel * 0.022) * rod.reelMult;
 
     if (zone === "sweet") rate *= 1.35 * reelMult;
@@ -880,6 +899,7 @@ export class FishingSystem {
     if (this.state !== FishingState.REELING) return;
     audio.stopReelLoop();
     const fight = this.applyFightStep(dt, false, 0);
+    audio.updateReelLoop(this.tension, fight.phase);
     this.escapeTimer += dt;
     const escapeLimit = this.pendingFish?.rarity === "legendary" ? 3.5 : 5;
     if (this.escapeTimer >= escapeLimit) {
@@ -903,13 +923,21 @@ export class FishingSystem {
 
   reel(dt, intensity = 1) {
     if (this.state !== FishingState.REELING) return;
-    audio.startReelLoop();
-    audio.updateReelLoop(this.tension);
     this.escapeTimer = 0;
     const fight = this.applyFightStep(dt, true, intensity);
+    audio.startReelLoop();
+    audio.updateReelLoop(this.tension, fight.phase);
+    const rod = getRodStats(getState().rodLevel);
+    const zone = tensionZone(this.tension, rod, this.getTensionOptions());
+    if (zone === "sweet" && intensity > 0.2) {
+      recordSweetZoneReel();
+      if (performance.now() - this.lastSweetPulse > 900) {
+        this.lastSweetPulse = performance.now();
+        audio.playSweetZonePulse();
+      }
+    }
 
     if (this.tension > TENSION.WARNING && intensity > 0.15) {
-      const rod = getRodStats(getState().rodLevel);
       this.tension += dt * (1.8 + intensity * 2.2) * (1.1 - rod.lineStrength * 0.15);
     }
 

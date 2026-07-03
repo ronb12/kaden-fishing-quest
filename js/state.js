@@ -12,6 +12,16 @@ import {
 } from "./data.js";
 import { loadCloudSave, saveCloudSave, scheduleCloudSave } from "./api.js";
 import { GUIDED_STEPS, stepForTrigger } from "./tutorial.js";
+import {
+  ensureRetentionState,
+  refreshDailyChallenges,
+  bumpDailyProgress,
+  addTrophy,
+  advanceQuestChains,
+  claimDailyReward,
+  claimQuestChainReward,
+  claimCodexMilestone,
+} from "./retention.js";
 
 let state = loadLocal();
 const listeners = new Set();
@@ -22,9 +32,16 @@ function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = { ...DEFAULT_STATE, ...JSON.parse(raw) };
-      if (!parsed.tutorial) parsed.tutorial = { ...DEFAULT_STATE.tutorial };
-      return parsed;
+      const parsed = JSON.parse(raw);
+      const merged = {
+        ...DEFAULT_STATE,
+        ...parsed,
+        settings: { ...DEFAULT_STATE.settings, ...parsed.settings },
+        questProgress: { ...DEFAULT_STATE.questProgress, ...parsed.questProgress },
+        tutorial: { ...DEFAULT_STATE.tutorial, ...(parsed.tutorial || {}) },
+      };
+      ensureRetentionState(merged);
+      return merged;
     }
   } catch {
     /* ignore */
@@ -39,15 +56,19 @@ export async function initState() {
     const localTime = local.lastSaved || 0;
     const cloudTime = cloud.lastSaved || 0;
     state = cloudTime >= localTime ? { ...DEFAULT_STATE, ...cloud } : { ...DEFAULT_STATE, ...local };
+    state.settings = { ...DEFAULT_STATE.settings, ...state.settings };
+    state.questProgress = { ...DEFAULT_STATE.questProgress, ...state.questProgress };
     if (!state.selectedBait) state.selectedBait = "worm";
-    if (!state.questProgress) state.questProgress = { ...DEFAULT_STATE.questProgress };
-    if (!state.settings) state.settings = { ...DEFAULT_STATE.settings };
     if (!state.tutorial) state.tutorial = { ...DEFAULT_STATE.tutorial };
+    ensureRetentionState(state);
+    refreshDailyChallenges(state);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     listeners.forEach((fn) => fn(state));
     syncStatus = "synced";
   }
   cloudReady = true;
+  ensureRetentionState(state);
+  refreshDailyChallenges(state);
   return state;
 }
 
@@ -94,6 +115,14 @@ export function updateSettings(partial) {
 export function setZone(zone) {
   state.zone = zone;
   if (zone === "North Cove") state.questProgress.visitedCove = true;
+  if (zone === "Moonlit Cove") state.questProgress.visitedMoonlit = true;
+  ensureRetentionState(state);
+  refreshDailyChallenges(state);
+  if (!state.daily.zonesToday) state.daily.zonesToday = [];
+  if (!state.daily.zonesToday.includes(zone)) {
+    state.daily.zonesToday.push(zone);
+    bumpDailyProgress(state, "visitZone", 1);
+  }
   notify();
 }
 
@@ -112,10 +141,13 @@ export function getSelectedBait() {
 }
 
 export function recordCatch(catchData) {
+  ensureRetentionState(state);
+  refreshDailyChallenges(state);
   const wasNew = !state.codex[catchData.speciesId];
   state.fish += 1;
   state.coins += catchData.value;
   state.totalWeight += catchData.weight;
+  state.fightsWon = (state.fightsWon || 0) + 1;
   if (!state.bestCatch || catchData.weight > state.bestCatch.weight) {
     state.bestCatch = catchData;
   }
@@ -133,16 +165,46 @@ export function recordCatch(catchData) {
     };
   }
   catchData.isNewSpecies = wasNew;
+  addTrophy(state, catchData);
+  bumpDailyProgress(state, "catch3", 1);
   if (catchData.zone === "Lake Dock") state.questProgress.lakeFish += 1;
   if (catchData.zone === "Deep Water") state.questProgress.deepWaterFish += 1;
+  if (catchData.zone === "Moonlit Cove") state.questProgress.moonlitFish = (state.questProgress.moonlitFish || 0) + 1;
   if (catchData.rarity === "rare" || catchData.rarity === "legendary") {
     state.questProgress.rareCatch = (state.questProgress.rareCatch || 0) + 1;
   }
   if (catchData.rarity === "legendary") {
     state.questProgress.legendaryCatch = (state.questProgress.legendaryCatch || 0) + 1;
   }
+  advanceQuestChains(state);
   notify();
   return catchData;
+}
+
+export function recordSweetZoneReel() {
+  ensureRetentionState(state);
+  refreshDailyChallenges(state);
+  state.questProgress.sweetZoneReels = (state.questProgress.sweetZoneReels || 0) + 1;
+  bumpDailyProgress(state, "sweetReel", 1);
+  notify();
+}
+
+export function claimDailyBonus() {
+  const reward = claimDailyReward(state);
+  if (reward) notify();
+  return reward;
+}
+
+export function claimChainBonus(chainId) {
+  const reward = claimQuestChainReward(state, chainId);
+  if (reward) notify();
+  return reward;
+}
+
+export function claimCodexBonus(id) {
+  const reward = claimCodexMilestone(state, id);
+  if (reward) notify();
+  return reward;
 }
 
 export function upgradeGear(type) {
@@ -188,9 +250,15 @@ export function getQuestProgress(quest) {
       return { current: p.rareCatch || 0, target: 1 };
     case "deepWaterFish":
       return { current: p.deepWaterFish || 0, target: quest.target };
+    case "moonlitFish":
+      return { current: p.moonlitFish || 0, target: quest.target };
+    case "visitMoonlit":
+      return { current: p.visitedMoonlit ? 1 : 0, target: 1 };
     case "legendaryCatch":
       return { current: p.legendaryCatch || 0, target: 1 };
     case "codexHalf":
+      return { current: codexCount, target: quest.target };
+    case "codexTen":
       return { current: codexCount, target: quest.target };
     default:
       return { current: 0, target: quest.target };

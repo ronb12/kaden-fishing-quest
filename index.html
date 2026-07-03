@@ -138,12 +138,39 @@
       </div>
     </div>
 
+    <div id="fight-coach" class="fight-coach" aria-hidden="true">
+      <p class="fight-coach-title">Reel in the green zone</p>
+      <p class="fight-coach-body">Ease off when tension turns red — crank hard when the fish tires.</p>
+    </div>
+
+    <div id="vr-hud" class="vr-hud" aria-hidden="true">
+      <p class="vr-hud-hint">Right hand: rod · Left hand: crank reel</p>
+      <p class="vr-hud-status">Ready to cast</p>
+      <div id="vr-tension" class="vr-tension">
+        <div class="vr-tension-fill" id="vr-tension-fill"></div>
+        <div class="vr-reel-fill" id="vr-reel-fill"></div>
+      </div>
+    </div>
+
+    <div id="travel-overlay" class="travel-overlay" aria-hidden="true">
+      <p>⛵ Sailing to fishing grounds…</p>
+    </div>
+
+    <div id="name-prompt" class="name-prompt" aria-hidden="true">
+      <div class="name-prompt-card">
+        <h2>Welcome, angler!</h2>
+        <p>Choose a display name for the leaderboard.</p>
+        <input id="name-prompt-input" type="text" maxlength="20" placeholder="Your name" />
+        <button id="name-prompt-save" type="button">Save &amp; fish</button>
+      </div>
+    </div>
+
     <div class="loading-hint" id="loading-hint">
       <p>WebXR VR supported on Quest, Vision Pro, and desktop VR headsets.</p>
       <p class="desktop-hint">Desktop: click to look · hold Space to cast · hold R to reel · M menu · H guide</p>
       <p class="touch-hint">Touch: drag right to look · joystick to move · Cast / Hold Reel buttons</p>
     </div>
 
-    <script type="module" src="./js/main.js?v=asset-polish-2026.07.03"></script>
+    <script type="module" src="./js/main.js?v=recommendations-2026.07.03"></script>
   </body>
 </html>
