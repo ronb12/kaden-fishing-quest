@@ -160,7 +160,7 @@ export class Campground {
     cabin.add(porch);
 
     const porchRoof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.08, 2.4), woodMat(0x6a4a28));
-    porchRoof.position.set(0, height + 0.1, -halfD - 1.0);
+    porchRoof.position.set(0, height + 0.12, -halfD - 1.0);
     cabin.add(porchRoof);
 
     const porchLeft = this.wallSegment(halfW - 0.3, height, wall);
@@ -197,23 +197,13 @@ export class Campground {
     lintel.position.set(0, height * 0.84, -halfD + wall / 2);
     cabin.add(lintel);
 
-    const roofLeft = new THREE.Mesh(
-      new THREE.BoxGeometry(width + 0.8, 0.12, depth / 2 + 0.6),
-      woodMat(0x5a3a20)
-    );
-    roofLeft.position.set(0, height + 0.4, 0.45);
-    roofLeft.rotation.x = -0.42;
-    cabin.add(roofLeft);
-    const roofRight = roofLeft.clone();
-    roofRight.position.z = -0.45;
-    roofRight.rotation.x = 0.42;
-    cabin.add(roofRight);
+    this.buildCabinRoof(cabin, width, height, halfD);
 
     const chimney = new THREE.Mesh(
       new THREE.BoxGeometry(0.55, 1.4, 0.55),
       new THREE.MeshStandardMaterial({ color: 0x6a6a6a, roughness: 0.9 })
     );
-    chimney.position.set(2.4, height + 0.55, 2.0);
+    chimney.position.set(2.4, height + halfD * Math.tan(0.4) + 0.35, 1.8);
     cabin.add(chimney);
 
     this.buildInteriorFurnishing(cabin, halfW, halfD, height);
@@ -227,6 +217,63 @@ export class Campground {
     this.group.add(cabin);
     this.cabinGroup = cabin;
     this.collectInteractables();
+  }
+
+  buildCabinRoof(cabin, width, height, halfD) {
+    const pitch = 0.4;
+    const overhang = 0.75;
+    const roofW = width + overhang * 2;
+    const rise = halfD * Math.tan(pitch);
+    const slopeLen = halfD / Math.cos(pitch) + 0.65;
+    const yMid = height + rise * 0.5;
+    const mat = woodMat(0x5a3a20);
+    const matDark = woodMat(0x4a3018);
+
+    const roofRear = new THREE.Mesh(new THREE.BoxGeometry(roofW, 0.15, slopeLen), mat);
+    roofRear.position.set(0, yMid, halfD * 0.48);
+    roofRear.rotation.x = -pitch;
+    roofRear.castShadow = true;
+    cabin.add(roofRear);
+
+    const roofFront = new THREE.Mesh(new THREE.BoxGeometry(roofW, 0.15, slopeLen), mat);
+    roofFront.position.set(0, yMid, -halfD * 0.48);
+    roofFront.rotation.x = pitch;
+    roofFront.castShadow = true;
+    cabin.add(roofFront);
+
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(roofW, 0.18, 0.28), matDark);
+    ridge.position.set(0, height + rise + 0.08, 0);
+    ridge.castShadow = true;
+    cabin.add(ridge);
+
+    const gableShape = new THREE.Shape();
+    gableShape.moveTo(-roofW / 2, 0);
+    gableShape.lineTo(roofW / 2, 0);
+    gableShape.lineTo(0, rise + 0.15);
+    gableShape.closePath();
+    const gableGeo = new THREE.ExtrudeGeometry(gableShape, { depth: 0.16, bevelEnabled: false });
+    const gableBack = new THREE.Mesh(gableGeo, mat);
+    gableBack.position.set(0, height - 0.02, halfD + 0.1);
+    gableBack.castShadow = true;
+    cabin.add(gableBack);
+
+    const gableFront = gableBack.clone();
+    gableFront.position.z = -halfD - 0.1;
+    gableFront.rotation.y = Math.PI;
+    cabin.add(gableFront);
+
+    const eaveRear = new THREE.Mesh(new THREE.BoxGeometry(roofW, 0.1, 0.22), matDark);
+    eaveRear.position.set(0, height - 0.02, halfD + 0.22);
+    cabin.add(eaveRear);
+
+    const eaveFront = eaveRear.clone();
+    eaveFront.position.z = -halfD - 0.22;
+    cabin.add(eaveFront);
+
+    const porchAwning = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.1, 2.6), mat);
+    porchAwning.position.set(0, height + 0.05, -halfD - 1.05);
+    porchAwning.rotation.x = pitch * 0.35;
+    cabin.add(porchAwning);
   }
 
   wallSegment(length, height, thickness) {

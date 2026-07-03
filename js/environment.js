@@ -383,7 +383,7 @@ export class LakeEnvironment {
       [-4, 11], [5, 10], [-10, 5], [12, 4], [-18, 2], [15, -1], [0, 12], [-8, 6],
     ];
     scatter.forEach(([x, z], i) => {
-      if (!isClearOfCampground(x, z)) return;
+      if (!isClearOfCampground(x, z, 2.5)) return;
       const gltf = i % 2 === 0 ? grassGltf : bushGltf;
       if (!gltf) return;
       const prop = cloneModel(gltf, { scale: 2.0 + Math.random() * 0.8, rotationY: Math.random() * Math.PI });
