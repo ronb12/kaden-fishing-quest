@@ -5,15 +5,25 @@ const BASE = "./assets/models";
 
 const MANIFEST = {
   fish: [
-    "Goldfish", "Sunfish", "RedSnapper", "Koi", "ArmoredCatfish",
-    "Swordfish", "Shark", "Clownfish", "Betta", "Tuna",
+    "Anglerfish", "ArmoredCatfish", "Betta", "BlackLionFish", "Blobfish",
+    "BlueGoldfish", "BlueTang", "ButterflyFish", "CardinalFish", "Clownfish",
+    "CoralGrouper", "Cowfish", "Flatfish", "FlowerHorn", "GoblinShark",
+    "Goldfish", "Humphead", "Koi", "Lionfish", "MandarinFish",
+    "MoorishIdol", "ParrotFish", "Piranha", "Puffer", "RedSnapper",
+    "RoyalGramma", "Shark", "Sunfish", "Swordfish", "Tang",
+    "Tetra", "Tuna", "Turbot", "YellowTang", "ZebraClownFish",
   ],
   rod: ["FishingRod_Lvl1", "FishingRod_Lvl2", "FishingRod_Lvl3", "FishingRod_Lvl4", "FishingRod_Lvl5"],
   bait: ["Worm", "Lure_1", "Lure_2", "Lure_3", "Lure_4", "Lure_5", "Lure_6"],
   env: [
-    "Dock_Wide", "Dock_Long", "Boat",
+    "Dock_Wide", "Dock_Long", "Dock_Long_NoRope", "Dock_Stairs", "Boat",
     "BirchTree_1", "BirchTree_2", "BirchTree_3",
     "Rock_1", "Rock_2", "Rock_3",
+  ],
+  kenney: [
+    "tree_default", "tree_detailed", "tree_fat", "tree_cone", "tree_thin",
+    "rock_largeA", "rock_largeB", "rock_smallA", "rock_smallB", "rock_tallA",
+    "plant_bushSmall", "plant_bushLarge", "grass", "lily_small", "log",
   ],
 };
 
@@ -25,7 +35,7 @@ export function getAssets() {
 
 export async function loadGameAssets(onProgress) {
   const loader = new GLTFLoader();
-  const cache = { fish: {}, rod: {}, bait: {}, env: {} };
+  const cache = { fish: {}, rod: {}, bait: {}, env: {}, kenney: {} };
   const entries = [];
   for (const [category, names] of Object.entries(MANIFEST)) {
     for (const name of names) {

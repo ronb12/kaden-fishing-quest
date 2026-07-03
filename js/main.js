@@ -45,6 +45,7 @@ await loadGameAssets((progress, name) => {
   if (loadingFill) loadingFill.style.width = `${Math.round(progress * 100)}%`;
   if (loadingLabel) loadingLabel.textContent = name ? `Loading ${name.replace(/_/g, " ")}…` : "Loading assets…";
 });
+await audio.loadAudioAssets();
 loadingEl?.classList.add("hidden");
 
 env = new LakeEnvironment(scene);

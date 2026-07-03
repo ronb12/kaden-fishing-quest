@@ -107,12 +107,27 @@ export class LakeEnvironment {
   buildDockZoneExtras() {
     const group = new THREE.Group();
     group.name = "Lake Dock";
+    const assets = getAssets();
     const padMat = new THREE.MeshStandardMaterial({ color: 0x3d8a4a, roughness: 0.9 });
     for (let i = 0; i < 8; i++) {
       const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.03, 8), padMat);
       pad.position.set(-4 + (i % 4) * 2.5, 0.02, -4 - Math.floor(i / 4) * 2);
       pad.rotation.x = Math.PI / 2;
       group.add(pad);
+    }
+    const lilyGltf = assets?.kenney?.lily_small;
+    if (lilyGltf) {
+      for (let i = 0; i < 6; i++) {
+        const lily = cloneModel(lilyGltf, { scale: 0.5, rotationY: Math.random() * Math.PI });
+        lily.position.set(-6 + i * 2.2, 0.02, -8 - (i % 2) * 1.5);
+        group.add(lily);
+      }
+    }
+    const stairsGltf = assets?.env?.Dock_Stairs;
+    if (stairsGltf) {
+      const stairs = cloneModel(stairsGltf, { scale: 0.35, rotationY: Math.PI });
+      stairs.position.set(2.5, 0, 4);
+      group.add(stairs);
     }
     const sign = new THREE.Mesh(
       new THREE.BoxGeometry(1.2, 0.6, 0.08),
@@ -129,15 +144,15 @@ export class LakeEnvironment {
     const group = new THREE.Group();
     group.name = "North Cove";
     const assets = getAssets();
-    const rockKeys = ["Rock_1", "Rock_2", "Rock_3"];
+    const rockKeys = ["rock_largeA", "rock_largeB", "rock_tallA", "rock_smallA", "rock_smallB"];
     const rockPositions = [
       [-22, -8], [-14, -12], [-24, -16], [-12, -18], [-20, -22],
     ];
     rockPositions.forEach(([x, z], i) => {
       const key = rockKeys[i % rockKeys.length];
-      const gltf = assets?.env?.[key];
+      const gltf = assets?.kenney?.[key] || assets?.env?.[`Rock_${(i % 3) + 1}`];
       if (gltf) {
-        const rock = cloneModel(gltf, { scale: 1.8 + Math.random() * 0.8, rotationY: Math.random() * Math.PI });
+        const rock = cloneModel(gltf, { scale: 1.2 + Math.random() * 0.5, rotationY: Math.random() * Math.PI });
         rock.position.set(x, 0, z);
         group.add(rock);
       } else {
@@ -149,7 +164,15 @@ export class LakeEnvironment {
         group.add(rock);
       }
     });
-    const pierGltf = assets?.env?.Dock_Long;
+    const bushGltf = assets?.kenney?.plant_bushLarge;
+    if (bushGltf) {
+      [-16, -20].forEach((x, i) => {
+        const bush = cloneModel(bushGltf, { scale: 0.8, rotationY: i });
+        bush.position.set(x, 0, -6 - i * 2);
+        group.add(bush);
+      });
+    }
+    const pierGltf = assets?.env?.Dock_Long_NoRope || assets?.env?.Dock_Long;
     if (pierGltf) {
       const pier = cloneModel(pierGltf, { scale: 0.35, rotationY: Math.PI / 2 });
       pier.position.set(-18, 0, -4);
@@ -239,17 +262,21 @@ export class LakeEnvironment {
 
   buildTrees() {
     const assets = getAssets();
-    const treeKeys = ["BirchTree_1", "BirchTree_2", "BirchTree_3"];
+    const treeSources = [
+      { cat: "kenney", keys: ["tree_default", "tree_detailed", "tree_fat", "tree_cone", "tree_thin"] },
+      { cat: "env", keys: ["BirchTree_1", "BirchTree_2", "BirchTree_3"] },
+    ];
     const positions = [
       [-12, 8], [-8, 14], [10, 12], [14, 6], [-16, -4], [18, -2],
       [-6, 18], [8, 18], [-20, 10], [20, 8], [-14, 16], [16, 14],
     ];
 
     positions.forEach(([x, z], i) => {
-      const key = treeKeys[i % treeKeys.length];
-      const gltf = assets?.env?.[key];
+      const source = treeSources[i % 2];
+      const key = source.keys[i % source.keys.length];
+      const gltf = assets?.[source.cat]?.[key];
       if (gltf) {
-        const tree = cloneModel(gltf, { scale: 0.55 + Math.random() * 0.2, rotationY: Math.random() * Math.PI * 2 });
+        const tree = cloneModel(gltf, { scale: 0.55 + Math.random() * 0.25, rotationY: Math.random() * Math.PI * 2 });
         tree.position.set(x, 0, z);
         this.scene.add(tree);
       } else {
@@ -264,6 +291,19 @@ export class LakeEnvironment {
         tree.position.set(x, 0, z);
         this.scene.add(tree);
       }
+    });
+
+    const grassGltf = assets?.kenney?.grass;
+    const bushGltf = assets?.kenney?.plant_bushSmall;
+    const scatter = [
+      [-4, 11], [5, 10], [-10, 5], [12, 4], [-18, 2], [15, -1],
+    ];
+    scatter.forEach(([x, z], i) => {
+      const gltf = i % 2 === 0 ? grassGltf : bushGltf;
+      if (!gltf) return;
+      const prop = cloneModel(gltf, { scale: 0.6 + Math.random() * 0.3, rotationY: Math.random() * Math.PI });
+      prop.position.set(x, 0, z);
+      this.scene.add(prop);
     });
   }
 
@@ -312,6 +352,7 @@ export class LakeEnvironment {
   }
 
   buildCamp() {
+    const assets = getAssets();
     const tentMat = new THREE.MeshStandardMaterial({ color: 0xe85a4f, roughness: 0.7 });
     const tent = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.2, 4), tentMat);
     tent.position.set(-3, 1.1, 10);
@@ -320,12 +361,21 @@ export class LakeEnvironment {
     this.scene.add(tent);
 
     const fireGroup = new THREE.Group();
-    const logMat = new THREE.MeshStandardMaterial({ color: 0x4a3020 });
-    for (let i = 0; i < 4; i++) {
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.8), logMat);
-      log.rotation.z = Math.PI / 2;
-      log.rotation.y = (i / 4) * Math.PI * 2;
-      fireGroup.add(log);
+    const logGltf = assets?.kenney?.log;
+    if (logGltf) {
+      for (let i = 0; i < 4; i++) {
+        const log = cloneModel(logGltf, { scale: 0.35, rotationY: (i / 4) * Math.PI * 2 });
+        log.rotation.z = Math.PI / 2;
+        fireGroup.add(log);
+      }
+    } else {
+      const logMat = new THREE.MeshStandardMaterial({ color: 0x4a3020 });
+      for (let i = 0; i < 4; i++) {
+        const log = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.8), logMat);
+        log.rotation.z = Math.PI / 2;
+        log.rotation.y = (i / 4) * Math.PI * 2;
+        fireGroup.add(log);
+      }
     }
     const flame = new THREE.Mesh(
       new THREE.ConeGeometry(0.2, 0.5, 6),
@@ -340,7 +390,10 @@ export class LakeEnvironment {
 
   spawnAmbientFish() {
     const assets = getAssets();
-    const fishKeys = ["Clownfish", "Goldfish", "Betta", "Tuna"];
+    const fishKeys = [
+      "Clownfish", "Goldfish", "Betta", "Tuna", "ButterflyFish", "CardinalFish",
+      "BlueTang", "Tetra", "MoorishIdol", "RoyalGramma", "YellowTang", "ZebraClownFish",
+    ];
     for (let i = 0; i < 16; i++) {
       const key = fishKeys[i % fishKeys.length];
       const gltf = assets?.fish?.[key];

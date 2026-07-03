@@ -56,14 +56,14 @@ export const ZONES = {
 };
 
 export const FISH_SPECIES = [
-  { id: "bluegill", name: "Bluegill", weight: [0.8, 2.2], rarity: "common", zones: ["Lake Dock"], color: 0x4a90c4, value: 8, modelKey: "Goldfish" },
-  { id: "bass", name: "Bass", weight: [1.5, 4.5], rarity: "common", zones: ["Lake Dock", "North Cove", "Deep Water"], color: 0x3d6b4f, value: 12, modelKey: "RedSnapper" },
+  { id: "bluegill", name: "Bluegill", weight: [0.8, 2.2], rarity: "common", zones: ["Lake Dock"], color: 0x4a90c4, value: 8, modelKey: "BlueGoldfish" },
+  { id: "bass", name: "Bass", weight: [1.5, 4.5], rarity: "common", zones: ["Lake Dock", "North Cove", "Deep Water"], color: 0x3d6b4f, value: 12, modelKey: "CoralGrouper" },
   { id: "sunfish", name: "Sunfish", weight: [0.6, 1.8], rarity: "common", zones: ["Lake Dock"], color: 0xe8a030, value: 7, modelKey: "Sunfish" },
-  { id: "trout", name: "Trout", weight: [1.8, 3.8], rarity: "uncommon", zones: ["North Cove"], color: 0xc47a5a, value: 18, modelKey: "Koi" },
-  { id: "golden-carp", name: "Golden Carp", weight: [3.0, 5.5], rarity: "rare", zones: ["North Cove"], color: 0xffc832, value: 45, modelKey: "Koi" },
+  { id: "trout", name: "Trout", weight: [1.8, 3.8], rarity: "uncommon", zones: ["North Cove"], color: 0xc47a5a, value: 18, modelKey: "ParrotFish" },
+  { id: "golden-carp", name: "Golden Carp", weight: [3.0, 5.5], rarity: "rare", zones: ["North Cove"], color: 0xffc832, value: 45, modelKey: "FlowerHorn" },
   { id: "catfish", name: "Catfish", weight: [3.5, 7.0], rarity: "uncommon", zones: ["Deep Water"], color: 0x5a4a3a, value: 22, modelKey: "ArmoredCatfish" },
-  { id: "night-pike", name: "Night Pike", weight: [4.0, 8.5], rarity: "rare", zones: ["Deep Water"], color: 0x2a4a3a, value: 55, modelKey: "Swordfish" },
-  { id: "lunker-bass", name: "Lunker Bass", weight: [5.0, 9.0], rarity: "legendary", zones: ["Deep Water"], color: 0x1a3a2a, value: 90, modelKey: "Shark" },
+  { id: "night-pike", name: "Night Pike", weight: [4.0, 8.5], rarity: "rare", zones: ["Deep Water"], color: 0x2a4a3a, value: 55, modelKey: "Piranha" },
+  { id: "lunker-bass", name: "Lunker Bass", weight: [5.0, 9.0], rarity: "legendary", zones: ["Deep Water"], color: 0x1a3a2a, value: 90, modelKey: "GoblinShark" },
 ];
 
 export const BAITS = [

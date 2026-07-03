@@ -1,4 +1,20 @@
+const SAMPLE_URLS = {
+  ambient: "./assets/audio/ambient/fishing-port.ogg",
+  cast: "./assets/audio/kenney/impactWood_light_001.ogg",
+  splash: "./assets/audio/kenney/impactSoft_heavy_002.ogg",
+  bite: "./assets/audio/kenney/pepSound3.ogg",
+  catch: "./assets/audio/kenney/powerUp1.ogg",
+  legendaryCatch: "./assets/audio/kenney/powerUp10.ogg",
+  reel: "./assets/audio/kenney/impactPlank_medium_001.ogg",
+  snap: "./assets/audio/kenney/impactBell_heavy_001.ogg",
+  escape: "./assets/audio/kenney/impactTin_medium_002.ogg",
+  upgrade: "./assets/audio/kenney/phaserUp1.ogg",
+  questComplete: "./assets/audio/kenney/threeTone1.ogg",
+  uiClick: "./assets/audio/kenney/highUp.ogg",
+};
+
 let ctx = null;
+let buffers = {};
 let sfxEnabled = true;
 let musicEnabled = true;
 let ambientNodes = null;
@@ -7,6 +23,21 @@ let reelNodes = null;
 function getCtx() {
   if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
   return ctx;
+}
+
+export async function loadAudioAssets() {
+  const ac = getCtx();
+  await Promise.all(
+    Object.entries(SAMPLE_URLS).map(async ([key, url]) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        buffers[key] = await ac.decodeAudioData(await res.arrayBuffer());
+      } catch (err) {
+        console.warn(`Failed to load audio ${url}`, err);
+      }
+    })
+  );
 }
 
 export function setSfxEnabled(on) {
@@ -40,8 +71,30 @@ function tone(freq, duration, type = "sine", gain = 0.08, decay = 0.15) {
   osc.stop(ac.currentTime + decay);
 }
 
+function playSample(key, { gain = 0.35, rate = 1, loop = false } = {}) {
+  if (!sfxEnabled && key !== "ambient") return false;
+  const buffer = buffers[key];
+  if (!buffer) return false;
+  const ac = getCtx();
+  const src = ac.createBufferSource();
+  const g = ac.createGain();
+  src.buffer = buffer;
+  src.playbackRate.value = rate;
+  src.loop = loop;
+  g.gain.value = gain;
+  src.connect(g);
+  g.connect(ac.destination);
+  src.start();
+  return { src, g };
+}
+
 export function startAmbient() {
   if (!musicEnabled || ambientNodes) return;
+  const played = playSample("ambient", { gain: 0.14, loop: true });
+  if (played) {
+    ambientNodes = played;
+    return;
+  }
   const ac = getCtx();
   const osc1 = ac.createOscillator();
   const osc2 = ac.createOscillator();
@@ -60,14 +113,18 @@ export function startAmbient() {
   g.connect(ac.destination);
   osc1.start();
   osc2.start();
-  ambientNodes = { osc1, osc2, g };
+  ambientNodes = { osc1, osc2, g, procedural: true };
 }
 
 export function stopAmbient() {
   if (!ambientNodes) return;
   try {
-    ambientNodes.osc1.stop();
-    ambientNodes.osc2.stop();
+    if (ambientNodes.procedural) {
+      ambientNodes.osc1.stop();
+      ambientNodes.osc2.stop();
+    } else {
+      ambientNodes.src.stop();
+    }
   } catch {
     /* already stopped */
   }
@@ -75,37 +132,48 @@ export function stopAmbient() {
 }
 
 export function playCast() {
-  tone(180, 0.1, "triangle", 0.06, 0.2);
-  setTimeout(() => tone(320, 0.08, "sine", 0.04, 0.15), 60);
+  if (!playSample("cast", { gain: 0.4 })) {
+    tone(180, 0.1, "triangle", 0.06, 0.2);
+    setTimeout(() => tone(320, 0.08, "sine", 0.04, 0.15), 60);
+  }
 }
 
 export function playSplash() {
-  if (!sfxEnabled) return;
-  const ac = getCtx();
-  const bufferSize = ac.sampleRate * 0.15;
-  const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
-  const src = ac.createBufferSource();
-  const g = ac.createGain();
-  const filter = ac.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 800;
-  g.gain.value = 0.12;
-  src.buffer = buffer;
-  src.connect(filter);
-  filter.connect(g);
-  g.connect(ac.destination);
-  src.start();
+  if (!playSample("splash", { gain: 0.45 })) {
+    if (!sfxEnabled) return;
+    const ac = getCtx();
+    const bufferSize = ac.sampleRate * 0.15;
+    const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    const src = ac.createBufferSource();
+    const g = ac.createGain();
+    const filter = ac.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 800;
+    g.gain.value = 0.12;
+    src.buffer = buffer;
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(ac.destination);
+    src.start();
+  }
 }
 
 export function playBite() {
-  tone(520, 0.05, "square", 0.05, 0.08);
-  setTimeout(() => tone(680, 0.05, "square", 0.06, 0.1), 80);
+  if (!playSample("bite", { gain: 0.35 })) {
+    tone(520, 0.05, "square", 0.05, 0.08);
+    setTimeout(() => tone(680, 0.05, "square", 0.06, 0.1), 80);
+  }
 }
 
 export function startReelLoop() {
   if (!sfxEnabled || reelNodes) return;
+  const played = playSample("reel", { gain: 0.12, loop: true, rate: 0.85 });
+  if (played) {
+    reelNodes = played;
+    return;
+  }
   const ac = getCtx();
   const osc = ac.createOscillator();
   const g = ac.createGain();
@@ -115,19 +183,25 @@ export function startReelLoop() {
   osc.connect(g);
   g.connect(ac.destination);
   osc.start();
-  reelNodes = { osc, g };
+  reelNodes = { osc, g, procedural: true };
 }
 
 export function updateReelLoop(tension = 0.5) {
   if (!reelNodes) return;
-  reelNodes.osc.frequency.value = 70 + tension * 60;
-  reelNodes.g.gain.value = 0.02 + tension * 0.02;
+  if (reelNodes.procedural) {
+    reelNodes.osc.frequency.value = 70 + tension * 60;
+    reelNodes.g.gain.value = 0.02 + tension * 0.02;
+  } else {
+    reelNodes.src.playbackRate.value = 0.7 + tension * 0.5;
+    reelNodes.g.gain.value = 0.08 + tension * 0.06;
+  }
 }
 
 export function stopReelLoop() {
   if (!reelNodes) return;
   try {
-    reelNodes.osc.stop();
+    if (reelNodes.procedural) reelNodes.osc.stop();
+    else reelNodes.src.stop();
   } catch {
     /* already stopped */
   }
@@ -136,39 +210,49 @@ export function stopReelLoop() {
 
 export function playCatch() {
   stopReelLoop();
-  tone(440, 0.1, "sine", 0.08, 0.3);
-  setTimeout(() => tone(660, 0.1, "sine", 0.07, 0.35), 100);
-  setTimeout(() => tone(880, 0.15, "triangle", 0.06, 0.4), 200);
+  if (!playSample("catch", { gain: 0.4 })) {
+    tone(440, 0.1, "sine", 0.08, 0.3);
+    setTimeout(() => tone(660, 0.1, "sine", 0.07, 0.35), 100);
+    setTimeout(() => tone(880, 0.15, "triangle", 0.06, 0.4), 200);
+  }
 }
 
 export function playLegendaryCatch() {
   stopReelLoop();
-  tone(330, 0.12, "sine", 0.09, 0.35);
-  setTimeout(() => tone(440, 0.12, "sine", 0.08, 0.4), 120);
-  setTimeout(() => tone(554, 0.12, "triangle", 0.08, 0.45), 240);
-  setTimeout(() => tone(880, 0.2, "triangle", 0.07, 0.55), 380);
+  if (!playSample("legendaryCatch", { gain: 0.45 })) {
+    tone(330, 0.12, "sine", 0.09, 0.35);
+    setTimeout(() => tone(440, 0.12, "sine", 0.08, 0.4), 120);
+    setTimeout(() => tone(554, 0.12, "triangle", 0.08, 0.45), 240);
+    setTimeout(() => tone(880, 0.2, "triangle", 0.07, 0.55), 380);
+  }
 }
 
 export function playFail(reason = "default") {
   stopReelLoop();
-  if (reason === "snap") tone(150, 0.2, "sawtooth", 0.08, 0.3);
-  else if (reason === "escape") tone(240, 0.15, "triangle", 0.05, 0.25);
-  else tone(200, 0.15, "sawtooth", 0.06, 0.25);
+  if (reason === "snap" && playSample("snap", { gain: 0.4 })) return;
+  if (reason === "escape" && playSample("escape", { gain: 0.35 })) return;
+  tone(200, 0.15, "sawtooth", 0.06, 0.25);
 }
 
 export function playUpgrade() {
-  tone(523, 0.08, "sine", 0.06, 0.2);
-  setTimeout(() => tone(659, 0.1, "sine", 0.07, 0.25), 80);
+  if (!playSample("upgrade", { gain: 0.35 })) {
+    tone(523, 0.08, "sine", 0.06, 0.2);
+    setTimeout(() => tone(659, 0.1, "sine", 0.07, 0.25), 80);
+  }
 }
 
 export function playQuestComplete() {
-  tone(392, 0.1, "triangle", 0.07, 0.25);
-  setTimeout(() => tone(523, 0.1, "triangle", 0.07, 0.3), 100);
-  setTimeout(() => tone(659, 0.15, "sine", 0.06, 0.35), 200);
+  if (!playSample("questComplete", { gain: 0.38 })) {
+    tone(392, 0.1, "triangle", 0.07, 0.25);
+    setTimeout(() => tone(523, 0.1, "triangle", 0.07, 0.3), 100);
+    setTimeout(() => tone(659, 0.15, "sine", 0.06, 0.35), 200);
+  }
 }
 
 export function playUIClick() {
-  tone(600, 0.03, "sine", 0.03, 0.06);
+  if (!playSample("uiClick", { gain: 0.25 })) {
+    tone(600, 0.03, "sine", 0.03, 0.06);
+  }
 }
 
 export function resumeAudio() {
