@@ -22,7 +22,9 @@ function mat(color, opts = {}) {
 function enhanceRodMaterials(rod, level = 1) {
   const cfg = ROD_LEVEL_CONFIG[level] || ROD_LEVEL_CONFIG[1];
   rod.traverse((child) => {
-    if (!child.isMesh?.material) return;
+    if (!child.isMesh) return;
+    child.frustumCulled = false;
+    if (!child.material) return;
     const apply = (m) => {
       const next = m.clone();
       const name = (next.name || "").toLowerCase();
@@ -46,7 +48,7 @@ function enhanceRodMaterials(rod, level = 1) {
 }
 
 function orientRodModel(rod) {
-  rod.rotation.set(0.12, -Math.PI / 2, 0.04);
+  rod.rotation.set(-0.12, Math.PI, 0.02);
 }
 
 function buildProceduralRod(rodLevel = 1) {

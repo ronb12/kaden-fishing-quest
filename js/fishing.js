@@ -44,7 +44,7 @@ export class FishingSystem {
     this.escapeTimer = 0;
     this.legendaryEvent = false;
     this.failReason = "default";
-    this.baseRodRotation = { x: -0.42, y: 0.22, z: -0.1 };
+    this.baseRodRotation = { x: -0.55, y: 0.18, z: -0.08 };
     this.rodBend = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
@@ -54,12 +54,9 @@ export class FishingSystem {
     while (this.rodGroup.children.length) {
       this.rodGroup.remove(this.rodGroup.children[0]);
     }
-    const { rod } = buildRealisticRod(getState().rodLevel);
-    while (rod.children.length) {
-      this.rodGroup.add(rod.children[0]);
-    }
-    this.rodTip = this.rodGroup.getObjectByName("rodTip");
-    this.rodGroup.scale.setScalar(1);
+    const { rod, tip } = buildRealisticRod(getState().rodLevel);
+    this.rodGroup.add(rod);
+    this.rodTip = tip || rod.getObjectByName("rodTip");
 
     if (!this.line) {
       this.line = buildFishingLine();
