@@ -214,7 +214,10 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "KeyM") ui?.toggleMenu();
   if (e.code === "KeyB") ui?.openPanel?.("bait");
   if (e.code === "KeyE") tryCabinInteract();
-  const baitKeyMap = { Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5 };
+  const baitKeyMap = {
+    Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5, Digit0: 6,
+    Minus: 7, Equal: 8, Backquote: 9,
+  };
   if (baitKeyMap[e.code] !== undefined) {
     const bait = BAITS[baitKeyMap[e.code]];
     if (bait) {
@@ -583,6 +586,11 @@ function updateDesktopMovement(dt) {
     if (env?.collisions) {
       camera.position.copy(env.collisions.resolve(camera.position));
     }
+    if (fishing.state === FishingState.WAITING) {
+      fishing.addLureMotion(dt * 0.35);
+    }
+  } else if (fishing.state === FishingState.WAITING && (Math.abs(mouseX) > 0.01 || Math.abs(mouseY) > 0.01)) {
+    fishing.addLureMotion(dt * 0.12);
   }
 
   const rodOffset = new THREE.Vector3(0.45, -0.24, -0.55).applyQuaternion(camera.quaternion);
@@ -629,6 +637,10 @@ function updateVrFishing(dt) {
   }
 
   fishing.updateRodTransform(controllers[1], motion);
+
+  if (fishing.state === FishingState.WAITING && motion.lureMotion > 0.02) {
+    fishing.addLureMotion(motion.lureMotion * dt * 2.5);
+  }
 }
 
 function checkZoneTeleports() {

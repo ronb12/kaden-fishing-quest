@@ -536,6 +536,23 @@ body > button {
   line-height: 1.4;
 }
 
+.bait-card .bait-stats {
+  grid-column: 2;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sun);
+  opacity: 0.9;
+}
+
+.gear-tagline {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin: 2px 0 4px;
+}
+
 .bait-card.active {
   border-color: var(--sun);
   background: rgba(255,211,122,0.12);

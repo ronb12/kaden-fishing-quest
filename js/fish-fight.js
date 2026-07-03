@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { nibbleStyleForBait, getSweetZone, getSnapThreshold } from "./gear-stats.js";
 
 export const FightPhase = {
   TIRED: "tired",
@@ -124,8 +125,10 @@ export class FishFightAI {
 
 /** How many nibbles before a bite based on bait style. */
 export function nibbleCountForBait(bait) {
-  const lure = bait?.meshType === "spinner" || bait?.meshType === "jig";
-  if (lure) return 1 + Math.floor(Math.random() * 2);
+  const style = nibbleStyleForBait(bait);
+  if (style === "strike") return 0;
+  if (style === "slow") return 1 + Math.floor(Math.random() * 2);
+  if (style === "normal") return 2 + Math.floor(Math.random() * 2);
   return 2 + Math.floor(Math.random() * 3);
 }
 
@@ -138,10 +141,12 @@ export const TENSION = {
   LOOSE: 0.1,
 };
 
-export function tensionZone(tension) {
-  if (tension >= TENSION.SNAP) return "snap";
+export function tensionZone(tension, rod = null) {
+  const sweet = rod ? getSweetZone(rod.level) : { low: TENSION.SWEET_LOW, high: TENSION.SWEET_HIGH };
+  const snap = rod ? getSnapThreshold(rod.level) : TENSION.SNAP;
+  if (tension >= snap) return "snap";
   if (tension >= TENSION.WARNING) return "warning";
-  if (tension >= TENSION.SWEET_LOW && tension <= TENSION.SWEET_HIGH) return "sweet";
+  if (tension >= sweet.low && tension <= sweet.high) return "sweet";
   if (tension < TENSION.LOOSE) return "loose";
   return "high";
 }
