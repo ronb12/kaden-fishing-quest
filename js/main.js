@@ -322,7 +322,7 @@ function updateDesktopMovement(dt) {
     camera.position.y = 1.6;
   }
 
-  const rodOffset = new THREE.Vector3(0.25, -0.15, -0.4).applyQuaternion(camera.quaternion);
+  const rodOffset = new THREE.Vector3(0.38, -0.22, -0.32).applyQuaternion(camera.quaternion);
   fishing.updateRodTransform({
     position: camera.position.clone().add(rodOffset),
     quaternion: camera.quaternion,

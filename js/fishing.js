@@ -37,6 +37,8 @@ export class FishingSystem {
     this.biteFish = null;
     this.splashRings = [];
     this.biteLunge = 0;
+    this.catchAnim = 0;
+    this.resetTimer = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
   }
@@ -50,6 +52,7 @@ export class FishingSystem {
       this.rodGroup.add(rod.children[0]);
     }
     this.rodTip = this.rodGroup.getObjectByName("rodTip");
+    this.rodGroup.scale.setScalar(1.1);
 
     if (!this.line) {
       const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
@@ -104,8 +107,13 @@ export class FishingSystem {
     if (!controller) return;
     this.rodGroup.position.copy(controller.position);
     this.rodGroup.quaternion.copy(controller.quaternion);
-    this.rodGroup.rotateX(-Math.PI / 4, true);
-    this.rodGroup.rotateY(0.08, true);
+    this.rodGroup.rotateX(-Math.PI / 3.2, true);
+    this.rodGroup.rotateY(0.14, true);
+    this.rodGroup.rotateZ(-0.06, true);
+  }
+
+  surfaceY(x, z, time) {
+    return 0.06 + this.env.getWaterHeight(x, z, time);
   }
 
   updateLine() {
@@ -181,20 +189,29 @@ export class FishingSystem {
     this.showRigAtTip();
     this.updateLine();
 
-    if (this.bobber.visible && this.state !== FishingState.IDLE) {
-      const w = this.env.getWaterHeight(this.bobber.position.x, this.bobber.position.z, time);
-      this.bobber.position.y = 0.06 + w + Math.sin(time * 3) * 0.01;
+    if (this.bobber.visible && this.state !== FishingState.IDLE && this.state !== FishingState.CAUGHT) {
+      const waterY = this.surfaceY(this.bobber.position.x, this.bobber.position.z, time);
+      this.bobber.position.y = waterY + Math.sin(time * 3) * 0.015;
       this.hookGroup.position.copy(this.bobber.position);
       this.hookGroup.position.y -= 0.05;
       if (this.state === FishingState.BITING) {
-        this.bobber.position.y += Math.sin(time * 12) * 0.04;
-        this.bobber.rotation.z = Math.sin(time * 14) * 0.15;
+        this.bobber.position.y += Math.sin(time * 12) * 0.05;
+        this.bobber.rotation.z = Math.sin(time * 14) * 0.18;
         this.updateBiteFish(dt, time);
       }
 
       if (this.state === FishingState.REELING) {
         this.updateFightFish(dt, time);
       }
+    }
+
+    if (this.state === FishingState.CAUGHT) {
+      this.updateCatchAnim(dt, time);
+    }
+
+    if (this.state === FishingState.FAILED) {
+      this.resetTimer -= dt;
+      if (this.resetTimer <= 0) this.reset();
     }
 
     this.updateSplashRings(dt);
@@ -237,33 +254,63 @@ export class FishingSystem {
     this.clearBiteFish();
     this.biteFish = buildBiteFish(this.pendingFish);
     const pos = this.bobber.position;
-    this.biteFish.position.set(pos.x + 0.6, -0.25, pos.z + 0.4);
-    this.biteFish.lookAt(pos.x, -0.1, pos.z);
+    const surface = this.surfaceY(pos.x, pos.z, 0);
+    this.biteFish.position.set(pos.x + 0.55, surface - 0.06, pos.z + 0.35);
+    this.biteFish.lookAt(pos.x, surface + 0.02, pos.z);
     this.biteLunge = 0;
     this.scene.add(this.biteFish);
   }
 
-  updateBiteFish(dt) {
+  updateBiteFish(dt, time) {
     if (!this.biteFish) return;
-    const target = this.bobber.position.clone();
-    target.y = -0.12;
-    this.biteLunge = Math.min(1, this.biteLunge + dt * 1.8);
-    const start = new THREE.Vector3(
-      this.bobber.position.x + 0.6,
-      -0.25,
-      this.bobber.position.z + 0.4
-    );
+    const bx = this.bobber.position.x;
+    const bz = this.bobber.position.z;
+    const surface = this.surfaceY(bx, bz, time);
+    const target = new THREE.Vector3(bx + 0.08, surface - 0.02, bz + 0.05);
+    this.biteLunge = Math.min(1, this.biteLunge + dt * 2.2);
+    const start = new THREE.Vector3(bx + 0.55, surface - 0.06, bz + 0.35);
     this.biteFish.position.lerpVectors(start, target, this.biteLunge);
-    this.biteFish.lookAt(this.bobber.position.x, this.bobber.position.y - 0.08, this.bobber.position.z);
-    this.biteFish.rotation.z = Math.sin(this.biteLunge * 20) * 0.12;
+    this.biteFish.lookAt(bx, this.bobber.position.y, bz);
+    this.biteFish.rotation.z = Math.sin(this.biteLunge * 22) * 0.18;
+    if (this.biteLunge > 0.55 && Math.random() < dt * 2) this.spawnSplash();
   }
 
   updateFightFish(dt, time) {
     if (!this.biteFish) return;
-    const pull = this.bobber.position.clone();
-    pull.y = -0.05 - Math.sin(time * 8) * 0.08;
-    this.biteFish.position.lerp(pull, dt * 3);
-    this.biteFish.rotation.z = Math.sin(time * 10) * 0.25;
+    const bx = this.bobber.position.x;
+    const bz = this.bobber.position.z;
+    const surface = this.surfaceY(bx, bz, time);
+    const pull = new THREE.Vector3(
+      bx - 0.12,
+      surface - 0.08 + this.reelProgress * 0.55 + Math.sin(time * 9) * 0.14,
+      bz - 0.08
+    );
+    this.biteFish.position.lerp(pull, dt * 4);
+    this.biteFish.lookAt(bx, this.bobber.position.y, bz);
+    this.biteFish.rotation.z = Math.sin(time * 11) * 0.35;
+    if (this.biteFish.position.y > surface - 0.02 && Math.random() < dt * 3) {
+      this.spawnSplash();
+    }
+  }
+
+  updateCatchAnim(dt, time) {
+    if (!this.biteFish) {
+      this.biteFish = buildBiteFish(this.pendingFish);
+      this.biteFish.position.copy(this.bobber.position);
+      this.scene.add(this.biteFish);
+    }
+    this.catchAnim += dt;
+    const t = this.catchAnim;
+    const bx = this.bobber.position.x;
+    const bz = this.bobber.position.z;
+    const surface = this.surfaceY(bx, bz, time);
+    const jump = Math.sin(Math.min(1, t * 0.9) * Math.PI) * 1.4;
+    const sway = Math.sin(t * 4) * 0.2;
+    this.biteFish.position.set(bx + sway, surface + 0.15 + jump, bz + Math.cos(t * 3) * 0.15);
+    this.biteFish.rotation.y += dt * 3.5;
+    this.biteFish.rotation.z = Math.sin(t * 10) * 0.45;
+    if (t > 0.15 && t < 0.35) this.spawnSplash();
+    if (t >= 2.8) this.reset();
   }
 
   spawnSplash() {
@@ -336,7 +383,7 @@ export class FishingSystem {
   }
 
   completeCatch() {
-    if (!this.pendingFish) return;
+    if (!this.pendingFish || this.state === FishingState.CAUGHT) return;
     const s = getState();
     const bait = getSelectedBait();
     const weight = rollWeight(this.pendingFish);
@@ -345,15 +392,19 @@ export class FishingSystem {
     recordCatch(catchData);
     audio.playCatch();
     this.state = FishingState.CAUGHT;
+    this.catchAnim = 0;
+    this.bobber.visible = false;
+    this.spawnSplash();
+    this.spawnSplash();
     this.onEvent?.("caught", catchData);
-    setTimeout(() => this.reset(), 2500);
   }
 
   failCatch(message) {
+    if (this.state === FishingState.FAILED || this.state === FishingState.CAUGHT) return;
     audio.playFail();
     this.state = FishingState.FAILED;
+    this.resetTimer = 2;
     this.onEvent?.("failed", { message });
-    setTimeout(() => this.reset(), 2000);
   }
 
   reset() {
@@ -364,6 +415,8 @@ export class FishingSystem {
     this.tension = 0;
     this.reelProgress = 0;
     this.biteTimer = 0;
+    this.catchAnim = 0;
+    this.resetTimer = 0;
     this.bobber.rotation.z = 0;
     this.clearBiteFish();
     this.splashRings.forEach((ring) => {

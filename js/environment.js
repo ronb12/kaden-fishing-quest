@@ -2,13 +2,26 @@ import * as THREE from "three";
 import { ZONES } from "./data.js";
 
 const WATER_VERT = `
+  uniform float uTime;
   varying vec2 vUv;
   varying vec3 vWorldPos;
+  varying float vWave;
+
   void main() {
     vUv = uv;
-    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vec3 pos = position;
+    float wx = pos.x * 0.12;
+    float wz = pos.z * 0.1;
+    float wave = sin(wx + uTime * 2.2) * 0.22
+               + sin(wz * 1.3 - uTime * 1.7) * 0.16
+               + sin((wx + wz) * 0.85 + uTime * 1.1) * 0.1
+               + sin(wx * 2.8 - uTime * 3.0) * 0.05
+               + sin(wz * 3.2 + uTime * 2.4) * 0.04;
+    pos.y += wave;
+    vWave = wave;
+    vec4 wp = modelMatrix * vec4(pos, 1.0);
     vWorldPos = wp.xyz;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
   }
 `;
 
@@ -19,21 +32,20 @@ const WATER_FRAG = `
   uniform vec3 uSunDir;
   varying vec2 vUv;
   varying vec3 vWorldPos;
-
-  float wave(vec2 p) {
-    return sin(p.x * 0.4 + uTime * 1.2) * 0.5
-         + sin(p.y * 0.35 - uTime * 0.9) * 0.4
-         + sin((p.x + p.y) * 0.25 + uTime * 0.7) * 0.3;
-  }
+  varying float vWave;
 
   void main() {
-    vec2 p = vWorldPos.xz * 0.15;
-    float w = wave(p);
-    float fresnel = pow(1.0 - max(dot(normalize(vec3(0.0, 1.0, 0.0)), vec3(0.0, 1.0, 0.3)), 0.0), 2.0);
-    vec3 col = mix(uShallowColor, uDeepColor, fresnel * 0.6 + 0.2);
-    col += vec3(0.15, 0.22, 0.28) * w * 0.08;
-    col += vec3(1.0) * pow(max(dot(reflect(uSunDir, vec3(0.0,1.0,0.0)), vec3(0.0,1.0,0.0)), 0.0), 32.0) * 0.35;
-    gl_FragColor = vec4(col, 0.88);
+    vec2 p = vWorldPos.xz * 0.12;
+    float w = sin(p.x * 0.6 + uTime * 2.0) * 0.5
+            + sin(p.y * 0.5 - uTime * 1.6) * 0.45
+            + sin((p.x + p.y) * 0.35 + uTime * 1.3) * 0.3;
+    float fresnel = pow(1.0 - max(dot(normalize(vec3(0.0, 1.0, vWave * 2.0)), vec3(0.0, 1.0, 0.3)), 0.0), 2.5);
+    vec3 col = mix(uShallowColor, uDeepColor, fresnel * 0.55 + 0.25);
+    col += vec3(0.2, 0.28, 0.35) * w * 0.12;
+    col += vec3(0.85, 0.92, 1.0) * pow(max(dot(reflect(uSunDir, normalize(vec3(0.0,1.0,vWave))), vec3(0.0,1.0,0.0)), 0.0), 48.0) * 0.45;
+    float foam = smoothstep(0.08, 0.14, vWave) * 0.15;
+    col += vec3(foam);
+    gl_FragColor = vec4(col, 0.92);
   }
 `;
 
@@ -94,12 +106,13 @@ export class LakeEnvironment {
   }
 
   buildWater() {
-    const geo = new THREE.PlaneGeometry(120, 120, 64, 64);
+    const geo = new THREE.PlaneGeometry(120, 120, 128, 128);
     const mat = new THREE.ShaderMaterial({
       uniforms: this.waterUniforms,
       vertexShader: WATER_VERT,
       fragmentShader: WATER_FRAG,
       transparent: true,
+      depthWrite: false,
       side: THREE.DoubleSide,
     });
     this.waterMesh = new THREE.Mesh(geo, mat);
@@ -298,9 +311,13 @@ export class LakeEnvironment {
   }
 
   getWaterHeight(x, z, time) {
+    const wx = x * 0.12;
+    const wz = z * 0.1;
     return (
-      Math.sin(x * 0.06 + time * 1.2) * 0.04 +
-      Math.sin(z * 0.05 - time * 0.9) * 0.03
+      Math.sin(wx + time * 2.2) * 0.22 +
+      Math.sin(wz * 1.3 - time * 1.7) * 0.16 +
+      Math.sin((wx + wz) * 0.85 + time * 1.1) * 0.1 +
+      Math.sin(wx * 2.8 - time * 3.0) * 0.05
     );
   }
 }
