@@ -133,6 +133,12 @@ export const GUIDE_SECTIONS = [
     `,
   },
   {
+    id: "fish-guide",
+    title: "Fish Field Guide",
+    icon: "🐟",
+    content: null, // rendered dynamically in ui.js
+  },
+  {
     id: "zones",
     title: "Zones & Fish",
     icon: "📍",
@@ -142,6 +148,7 @@ export const GUIDE_SECTIONS = [
         <li><strong>North Cove</strong> — Trout, Golden Carp, Bass (boat lvl 1)</li>
         <li><strong>Deep Water</strong> — Catfish, Night Pike, Lunker Bass legendary (boat lvl 2)</li>
       </ul>
+      <p>Open the <strong>Fish Field Guide</strong> tab above for habitat, behavior, bait tips, and fight styles for every species.</p>
       <p>Visit the cabin campground via the boardwalk path. Inside, press <strong>E</strong> to interact with tackle, maps, and gear.</p>
     `,
   },
@@ -203,7 +210,8 @@ export const GUIDE_SECTIONS = [
         <li>During lure fishing, move the rod or look around while waiting</li>
         <li>If line snaps, you reeled too hard in yellow/red tension</li>
         <li>If fish escapes on loose tension, wait for the "tired" phase</li>
-        <li>Check the codex after each new species for rarity and records</li>
+        <li>Check the codex after each new species — expand entries for habitat and bait tips</li>
+        <li>Use the Fish Field Guide (Guide menu) to plan which bait to bring to each zone</li>
       </ul>
     `,
   },
@@ -258,7 +266,7 @@ export const CONTEXTUAL_TIPS = {
   caught: {
     id: "caught",
     title: "Nice catch!",
-    text: "Coins added. New species appear in your codex. Cast again or check quests.",
+    text: "Coins added. New species unlock field-guide details in your codex. Cast again or check quests.",
   },
   failed_snap: {
     id: "failed_snap",

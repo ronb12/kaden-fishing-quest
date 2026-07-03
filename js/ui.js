@@ -42,6 +42,7 @@ import {
   CONTEXTUAL_TIPS,
   getGuidedStepBody,
 } from "./tutorial.js";
+import { renderCodexHTML, bindFishCardEvents, getSpeciesCatchTip, renderFishFieldGuideHTML } from "./fish-guide.js";
 
 let activePanel = "guide";
 let guideView = "walkthrough";
@@ -196,12 +197,16 @@ export function initUI(fishing, callbacks) {
       </div>
     `;
 
+    const sectionContent = section.id === "fish-guide"
+      ? renderFishFieldGuideHTML()
+      : section.content;
+
     return `
       <div class="guide-nav">${sectionNav}</div>
       ${walkthroughPanel}
       <div class="guide-section-content">
         <h3>${section.icon} ${section.title}</h3>
-        ${section.content}
+        ${sectionContent}
       </div>
     `;
   }
@@ -215,6 +220,17 @@ export function initUI(fishing, callbacks) {
     tipBanner?.classList.add("show");
     clearTimeout(tipBannerTimer);
     tipBannerTimer = setTimeout(() => tipBanner?.classList.remove("show"), 6500);
+  }
+
+  function showSpeciesCatchTip(speciesId) {
+    const tip = getSpeciesCatchTip(speciesId);
+    if (!tip || !shouldShowTip(tip.id)) return;
+    markTipSeen(tip.id);
+    if (tipBannerTitle) tipBannerTitle.textContent = tip.title;
+    if (tipBannerText) tipBannerText.textContent = tip.text;
+    tipBanner?.classList.add("show");
+    clearTimeout(tipBannerTimer);
+    tipBannerTimer = setTimeout(() => tipBanner?.classList.remove("show"), 8000);
   }
 
   function refreshTutorialOverlay() {
@@ -320,18 +336,7 @@ export function initUI(fishing, callbacks) {
   }
 
   function renderCodex(state) {
-    const entries = Object.entries(state.codex);
-    if (!entries.length) {
-      return `<p class="empty">No fish logged yet. Cast a line to start your codex!</p>`;
-    }
-    return entries
-      .map(([id, e]) => `
-          <div class="codex-entry rarity-${e.rarity}">
-            <strong>${e.name}</strong>
-            <span>${e.count} caught · Best ${e.bestWeight} lb · ${e.rarity}</span>
-          </div>
-        `)
-      .join("");
+    return renderCodexHTML(state);
   }
 
   function renderGear(state) {
@@ -574,6 +579,7 @@ export function initUI(fishing, callbacks) {
       refreshTutorialOverlay();
       showToast("Walkthrough skipped.");
     });
+    bindFishCardEvents(panelContent);
   }
 
   document.querySelectorAll("[data-panel]").forEach((tab) => {
@@ -616,6 +622,7 @@ export function initUI(fishing, callbacks) {
     refreshTutorialOverlay,
     onTutorialTrigger,
     showContextualTip,
+    showSpeciesCatchTip,
     checkTensionTip,
     setStatus(text) {
       if (statusText) statusText.textContent = text;

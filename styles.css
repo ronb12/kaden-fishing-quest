@@ -697,6 +697,230 @@ body > button {
 .codex-entry strong, .gear-row strong, .quest-row strong { display: block; }
 .codex-entry span, .gear-row span, .quest-row span { font-size: 0.82rem; opacity: 0.75; }
 
+/* Fish codex & field guide cards */
+.codex-header {
+  margin-bottom: 14px;
+}
+
+.codex-progress {
+  font-size: 1rem;
+  margin: 0 0 6px;
+}
+
+.fish-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fish-card-list.compact .fish-card {
+  margin-bottom: 0;
+}
+
+.fish-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border-left: 3px solid var(--lake);
+}
+
+.fish-card.rarity-uncommon { border-left-color: #6bc4e8; }
+.fish-card.rarity-rare { border-left-color: #ffc832; }
+.fish-card.rarity-legendary { border-left-color: #ff6b35; }
+
+.fish-card.locked {
+  opacity: 0.82;
+}
+
+.fish-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.fish-swatch {
+  position: relative;
+  width: 44px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.fish-swatch-body {
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  width: 26px;
+  height: 14px;
+  border-radius: 50% 45% 45% 50%;
+  background: var(--fish-color, #4a90c4);
+  box-shadow: inset -2px -2px 4px rgba(0,0,0,0.25);
+}
+
+.fish-swatch-tail {
+  position: absolute;
+  right: 4px;
+  top: 7px;
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 10px solid var(--fish-color, #4a90c4);
+  opacity: 0.9;
+}
+
+.fish-swatch.locked .fish-swatch-body,
+.fish-swatch.locked .fish-swatch-tail {
+  background: #4a5a6a;
+  border-left-color: #4a5a6a;
+  filter: grayscale(0.6);
+}
+
+.fish-card-title strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.fish-name-locked {
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.fish-subtitle {
+  display: block;
+  font-size: 0.78rem;
+  opacity: 0.72;
+  margin-top: 2px;
+}
+
+.fish-teaser {
+  font-size: 0.82rem;
+  opacity: 0.85;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+.fish-expand-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--sun);
+  background: rgba(255,211,122,0.12);
+  cursor: pointer;
+}
+
+.fish-detail-panel {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.fish-card.open .fish-detail-panel {
+  display: block;
+}
+
+.fish-detail-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.fish-detail-block h5 {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.65;
+}
+
+.fish-detail-block p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  opacity: 0.9;
+}
+
+.fish-tip {
+  color: var(--sun);
+}
+
+.fish-fun-fact {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+}
+
+.fish-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 0.78rem;
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+
+.fish-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+
+.fish-chips-label {
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
+.fish-bait-chip,
+.fish-zone-chip {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  font-size: 0.75rem;
+}
+
+.fish-locked-hint {
+  font-size: 0.78rem;
+  opacity: 0.65;
+  font-style: italic;
+  margin: 8px 0 0;
+}
+
+.fish-rarity-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 16px;
+}
+
+.legend-item {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border-left: 3px solid var(--lake);
+  background: rgba(255,255,255,0.06);
+}
+
+.legend-item.rarity-uncommon { border-left-color: #6bc4e8; }
+.legend-item.rarity-rare { border-left-color: #ffc832; }
+.legend-item.rarity-legendary { border-left-color: #ff6b35; }
+
+.fish-zone-section {
+  margin-bottom: 18px;
+}
+
+.fish-zone-section h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--sun);
+}
+
 .gear-row, .quest-row {
   display: flex;
   justify-content: space-between;

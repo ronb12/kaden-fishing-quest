@@ -486,6 +486,9 @@ function onFishingEvent(type, data) {
     case "caught":
       ui?.onTutorialTrigger?.("caught");
       ui?.showContextualTip?.("caught");
+      if (data.isNewSpecies && data.speciesId) {
+        ui?.showSpeciesCatchTip?.(data.speciesId);
+      }
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
       ui?.showCatch(
