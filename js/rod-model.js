@@ -295,17 +295,62 @@ export function buildHook() {
   return hook;
 }
 
+function brightenFishColor(hex, mix = 0.28) {
+  return new THREE.Color(hex).lerp(new THREE.Color(0xffffff), mix);
+}
+
+/** Bright MeshBasic look + optional glow so fish read clearly through water (renderOrder > water). */
+export function applySubmergedFishLook(fish, species, opts = {}) {
+  const color = species?.color ?? 0x4a90c4;
+  const {
+    opacity = 0.97,
+    bodyOrder = 14,
+    glowOrder = 13,
+    addGlow = true,
+    glowOpacity = 0.32,
+  } = opts;
+
+  fish.traverse((c) => {
+    if (!c.isMesh || c.name === "fishGlow") return;
+    if (c.material?.dispose) c.material.dispose();
+    c.material = new THREE.MeshBasicMaterial({
+      color: brightenFishColor(color),
+      transparent: true,
+      opacity,
+      depthWrite: false,
+    });
+    c.renderOrder = bodyOrder;
+    c.frustumCulled = false;
+  });
+  fish.renderOrder = bodyOrder;
+  fish.frustumCulled = false;
+
+  if (addGlow && !fish.getObjectByName("fishGlow")) {
+    const glowColor = new THREE.Color(color).lerp(new THREE.Color(0x7ee8ff), 0.5);
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.18, 10, 8),
+      new THREE.MeshBasicMaterial({
+        color: glowColor,
+        transparent: true,
+        opacity: glowOpacity,
+        depthWrite: false,
+      })
+    );
+    glow.name = "fishGlow";
+    glow.scale.set(2.4, 0.75, 1.2);
+    glow.renderOrder = glowOrder;
+    fish.add(glow);
+  }
+  return fish;
+}
+
 export function buildBiteFish(species) {
   const fish = buildDetailedFish(species, 1.45);
-  fish.traverse((c) => {
-    if (c.isMesh && c.material) {
-      c.material = c.material.clone();
-      c.material.transparent = true;
-      c.material.opacity = 1;
-      c.material.depthWrite = false;
-      c.material.emissive = new THREE.Color(species?.color ?? 0x4a90c4);
-      c.material.emissiveIntensity = 0.78;
-    }
+  applySubmergedFishLook(fish, species, {
+    opacity: 1,
+    bodyOrder: 16,
+    glowOrder: 15,
+    glowOpacity: 0.4,
   });
   return fish;
 }
@@ -388,15 +433,15 @@ export function buildFishSilhouette() {
   const mesh = new THREE.Mesh(
     new THREE.ShapeGeometry(shape),
     new THREE.MeshBasicMaterial({
-      color: 0x1a6078,
+      color: 0x2a98b0,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.68,
       depthWrite: false,
       side: THREE.DoubleSide,
     })
   );
   mesh.rotation.x = -Math.PI / 2;
-  mesh.renderOrder = 4;
+  mesh.renderOrder = 12;
   mesh.visible = false;
   return mesh;
 }

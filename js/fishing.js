@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
 import { getState, recordCatch, getSelectedBait } from "./state.js";
 import * as audio from "./audio.js";
-import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, updateFishingLineMesh, linePointsWithSag, buildDetailedFish, buildFishSilhouette, updateBaitAnimation, attachReelMechanism } from "./rod-model.js";
+import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, updateFishingLineMesh, linePointsWithSag, buildDetailedFish, buildFishSilhouette, applySubmergedFishLook, updateBaitAnimation, attachReelMechanism } from "./rod-model.js";
 import {
   FishFightAI,
   FightPhase,
@@ -626,19 +626,13 @@ export class FishingSystem {
     this.clearProspectFish();
     const s = getState();
     const preview = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, false);
-    this.prospectFish = buildDetailedFish(preview, 1.22);
-    this.prospectFish.traverse((c) => {
-      if (c.isMesh && c.material) {
-        c.material = c.material.clone();
-        c.material.transparent = true;
-        c.material.opacity = 0.94;
-        c.material.depthWrite = false;
-        c.material.emissive = new THREE.Color(preview?.color ?? 0x2a6080);
-        c.material.emissiveIntensity = 1.1;
-      }
+    this.prospectFish = buildDetailedFish(preview, 1.28);
+    applySubmergedFishLook(this.prospectFish, preview, {
+      opacity: 0.98,
+      bodyOrder: 14,
+      glowOrder: 13,
+      glowOpacity: 0.36,
     });
-    this.prospectFish.renderOrder = 6;
-    this.prospectFish.frustumCulled = false;
     this.prospectAngle = Math.random() * Math.PI * 2;
     this.scene.add(this.prospectFish);
     if (this.prospectFishShadow) {
@@ -656,17 +650,18 @@ export class FishingSystem {
     const radius = 1.15 - this.nibbleIndex * 0.12 + Math.sin(time * 0.7) * 0.15;
     const fx = bx + Math.cos(this.prospectAngle) * radius;
     const fz = bz + Math.sin(this.prospectAngle) * radius;
-    const swimDepth = 0.16 + this.nibbleIndex * 0.015;
-    const fishY = surface - swimDepth + Math.sin(time * 1.8) * 0.025;
+    const riseFromNibbles = this.nibbleIndex * 0.022 + this.nibbleDip * 0.05;
+    const swimDepth = Math.max(0.04, 0.1 - riseFromNibbles);
+    const fishY = surface - swimDepth + Math.sin(time * 1.8) * 0.02;
     this.prospectFish.position.set(fx, fishY, fz);
-    this.prospectFish.lookAt(bx, surface - swimDepth - 0.06, bz);
+    this.prospectFish.lookAt(bx, surface - swimDepth - 0.05, bz);
     this.prospectFish.rotation.z = Math.sin(time * 2.4) * 0.08;
-    const preBitePulse = this.preBiteWarned ? 0.28 + Math.sin(time * 8) * 0.22 : 0;
-    const emissiveBoost = this.prospectEmissivePulse * 0.45 + preBitePulse;
+    const preBitePulse = this.preBiteWarned ? 0.22 + Math.sin(time * 8) * 0.18 : 0;
+    const visibilityBoost = this.prospectEmissivePulse * 0.18 + preBitePulse;
     this.prospectFish.traverse((c) => {
-      if (c.isMesh && c.material?.emissiveIntensity != null) {
-        c.material.emissiveIntensity = 1.1 + emissiveBoost;
-      }
+      if (!c.isMesh || !c.material?.opacity) return;
+      c.material.opacity = Math.min(1, 0.98 + visibilityBoost);
+      if (c.name === "fishGlow") c.material.opacity = Math.min(0.55, 0.36 + visibilityBoost * 0.5);
     });
     if (this.prospectFishShadow) {
       this.prospectFishShadow.position.set(fx, surface + 0.015, fz);
@@ -674,7 +669,7 @@ export class FishingSystem {
       const shadowScale = (0.95 + this.nibbleIndex * 0.06) * pulse;
       this.prospectFishShadow.scale.set(shadowScale, shadowScale, 1);
       this.prospectFishShadow.rotation.z = this.prospectFish.rotation.y;
-      this.prospectFishShadow.material.opacity = 0.5 + this.nibbleIndex * 0.12 + (this.preBiteWarned ? 0.12 : 0);
+      this.prospectFishShadow.material.opacity = 0.58 + this.nibbleIndex * 0.1 + (this.preBiteWarned ? 0.14 : 0);
     }
   }
 
@@ -715,7 +710,6 @@ export class FishingSystem {
     const surface = this.surfaceY(pos.x, pos.z, 0);
     this.biteFish.position.set(pos.x + 0.28, surface + 0.18, pos.z + 0.2);
     this.biteFish.lookAt(pos.x, surface + 0.08, pos.z);
-    this.biteFish.renderOrder = 10;
     this.biteFish.frustumCulled = false;
     this.biteLunge = 0;
     this.scene.add(this.biteFish);
@@ -764,7 +758,6 @@ export class FishingSystem {
       this.biteFish = buildBiteFish(this.pendingFish);
       this.biteFish.scale.setScalar(this.legendaryEvent ? 1.85 : 1.65);
       this.biteFish.position.copy(this.catchRigPos);
-      this.biteFish.renderOrder = 12;
       this.scene.add(this.biteFish);
     }
     if (!this.biteFish) return;
