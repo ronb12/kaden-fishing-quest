@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
+    "three": "^0.170.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "playwright": "^1.61.1",
     "vercel": "^41.1.0"
   }
 }

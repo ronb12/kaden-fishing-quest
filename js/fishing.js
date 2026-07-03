@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
 import { getState, recordCatch, getSelectedBait } from "./state.js";
 import * as audio from "./audio.js";
-import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook } from "./rod-model.js";
+import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing } from "./rod-model.js";
 
 export const FishingState = {
   IDLE: "idle",
@@ -34,6 +34,9 @@ export class FishingSystem {
     this.pendingFish = null;
     this.castPower = 0;
     this.lastControllerPos = new THREE.Vector3();
+    this.biteFish = null;
+    this.splashRings = [];
+    this.biteLunge = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
   }
@@ -186,8 +189,15 @@ export class FishingSystem {
       if (this.state === FishingState.BITING) {
         this.bobber.position.y += Math.sin(time * 12) * 0.04;
         this.bobber.rotation.z = Math.sin(time * 14) * 0.15;
+        this.updateBiteFish(dt, time);
+      }
+
+      if (this.state === FishingState.REELING) {
+        this.updateFightFish(dt, time);
       }
     }
+
+    this.updateSplashRings(dt);
 
     if (this.state === FishingState.WAITING) {
       this.biteTimer -= dt;
@@ -196,6 +206,10 @@ export class FishingSystem {
 
     if (this.state === FishingState.BITING) {
       this.biteWindow -= dt;
+      this.onEvent?.("biteTick", {
+        progress: Math.max(0, this.biteWindow / (2.5 + getState().rodLevel * 0.2)),
+        species: this.pendingFish,
+      });
       if (this.biteWindow <= 0) {
         this.failCatch("Fish got away — hook it faster next time!");
       }
@@ -212,8 +226,83 @@ export class FishingSystem {
     this.pendingFish = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait);
     this.state = FishingState.BITING;
     this.biteWindow = 2.5 + s.rodLevel * 0.2;
+    this.biteWindowMax = this.biteWindow;
+    this.spawnBiteFish();
+    this.spawnSplash();
     audio.playBite();
     this.onEvent?.("bite", { species: this.pendingFish });
+  }
+
+  spawnBiteFish() {
+    this.clearBiteFish();
+    this.biteFish = buildBiteFish(this.pendingFish);
+    const pos = this.bobber.position;
+    this.biteFish.position.set(pos.x + 0.6, -0.25, pos.z + 0.4);
+    this.biteFish.lookAt(pos.x, -0.1, pos.z);
+    this.biteLunge = 0;
+    this.scene.add(this.biteFish);
+  }
+
+  updateBiteFish(dt) {
+    if (!this.biteFish) return;
+    const target = this.bobber.position.clone();
+    target.y = -0.12;
+    this.biteLunge = Math.min(1, this.biteLunge + dt * 1.8);
+    const start = new THREE.Vector3(
+      this.bobber.position.x + 0.6,
+      -0.25,
+      this.bobber.position.z + 0.4
+    );
+    this.biteFish.position.lerpVectors(start, target, this.biteLunge);
+    this.biteFish.lookAt(this.bobber.position.x, this.bobber.position.y - 0.08, this.bobber.position.z);
+    this.biteFish.rotation.z = Math.sin(this.biteLunge * 20) * 0.12;
+  }
+
+  updateFightFish(dt, time) {
+    if (!this.biteFish) return;
+    const pull = this.bobber.position.clone();
+    pull.y = -0.05 - Math.sin(time * 8) * 0.08;
+    this.biteFish.position.lerp(pull, dt * 3);
+    this.biteFish.rotation.z = Math.sin(time * 10) * 0.25;
+  }
+
+  spawnSplash() {
+    for (let i = 0; i < 3; i++) {
+      const ring = buildSplashRing();
+      ring.position.copy(this.bobber.position);
+      ring.position.y = 0.04;
+      ring.userData = { age: i * 0.15, maxAge: 0.9 };
+      this.scene.add(ring);
+      this.splashRings.push(ring);
+    }
+  }
+
+  updateSplashRings(dt) {
+    this.splashRings = this.splashRings.filter((ring) => {
+      ring.userData.age += dt;
+      const t = ring.userData.age / ring.userData.maxAge;
+      if (t >= 1) {
+        this.scene.remove(ring);
+        ring.geometry.dispose();
+        ring.material.dispose();
+        return false;
+      }
+      const scale = 1 + t * 4;
+      ring.scale.set(scale, scale, 1);
+      ring.material.opacity = 0.7 * (1 - t);
+      return true;
+    });
+  }
+
+  clearBiteFish() {
+    if (this.biteFish) {
+      this.scene.remove(this.biteFish);
+      this.biteFish.traverse((c) => {
+        if (c.geometry) c.geometry.dispose();
+        if (c.material) c.material.dispose();
+      });
+      this.biteFish = null;
+    }
   }
 
   hookFish() {
@@ -276,6 +365,13 @@ export class FishingSystem {
     this.reelProgress = 0;
     this.biteTimer = 0;
     this.bobber.rotation.z = 0;
+    this.clearBiteFish();
+    this.splashRings.forEach((ring) => {
+      this.scene.remove(ring);
+      ring.geometry?.dispose();
+      ring.material?.dispose();
+    });
+    this.splashRings = [];
     this.onEvent?.("reset");
   }
 
@@ -304,9 +400,9 @@ export class FishingSystem {
       case FishingState.WAITING:
         return `Waiting with ${bait.name}...`;
       case FishingState.BITING:
-        return "BITE! Hook now (trigger / Space)";
+        return `BITE! ${this.pendingFish?.name || "Fish"} — hook now (Space / trigger)`;
       case FishingState.REELING:
-        return `Reeling — tension ${Math.round(this.tension * 100)}%`;
+        return `Hooked! Hold R / trigger to reel — watch tension`;
       case FishingState.CAUGHT:
         return "Nice catch!";
       case FishingState.FAILED:

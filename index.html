@@ -40,8 +40,20 @@
     <div id="tension-bar" class="tension-bar">
       <label>Tension</label>
       <div class="bar-track"><div id="tension-fill" class="bar-fill tension-fill"></div></div>
-      <label>Reel</label>
+      <label>Reel progress</label>
       <div class="bar-track"><div id="reel-progress" class="bar-fill reel-fill"></div></div>
+    </div>
+
+    <div id="bite-alert" class="bite-alert" aria-live="assertive">
+      <p class="bite-alert-label">Fish on!</p>
+      <p id="bite-species" class="bite-species">Bass</p>
+      <p class="bite-alert-action">Press Space / trigger to HOOK</p>
+      <div class="bar-track bite-timer-track"><div id="bite-timer-fill" class="bar-fill bite-timer-fill"></div></div>
+    </div>
+
+    <div id="reel-alert" class="reel-alert">
+      <p>Hooked! Hold <strong>R</strong> / trigger to reel in</p>
+      <p class="reel-hint">Ease off if tension gets too high</p>
     </div>
 
     <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu">☰</button>

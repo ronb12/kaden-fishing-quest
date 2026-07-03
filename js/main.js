@@ -128,10 +128,16 @@ function handleFishingAction() {
 function onFishingEvent(type, data) {
   switch (type) {
     case "bite":
+      ui?.setBiteAlert(true, data.species?.name, 1);
       ui?.setStatus(fishing.getStatusText());
-      ui?.showToast("Something's biting — hook it!");
+      ui?.showToast(`${data.species?.name} is biting!`);
+      break;
+    case "biteTick":
+      ui?.setBiteAlert(true, data.species?.name, data.progress);
       break;
     case "hooked":
+      ui?.setBiteAlert(false);
+      ui?.setReelAlert(true);
       ui?.setStatus(fishing.getStatusText());
       ui?.setTension(fishing.tension, fishing.reelProgress, true);
       break;
@@ -140,17 +146,23 @@ function onFishingEvent(type, data) {
       ui?.setStatus(fishing.getStatusText());
       break;
     case "caught":
+      ui?.setBiteAlert(false);
+      ui?.setReelAlert(false);
       ui?.showCatch(data);
       ui?.setTension(0, 0, false);
       ui?.setStatus(fishing.getStatusText());
       ui?.showToast(`Caught ${data.name} (${data.weight} lb)!`);
       break;
     case "failed":
+      ui?.setBiteAlert(false);
+      ui?.setReelAlert(false);
       ui?.setTension(0, 0, false);
       ui?.setStatus(data.message);
       ui?.showToast(data.message);
       break;
     case "reset":
+      ui?.setBiteAlert(false);
+      ui?.setReelAlert(false);
       ui?.setTension(0, 0, false);
       ui?.setStatus(fishing.getStatusText());
       break;

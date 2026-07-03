@@ -230,3 +230,43 @@ export function buildHook() {
   hook.add(curve);
   return hook;
 }
+
+export function buildBiteFish(species) {
+  const group = new THREE.Group();
+  const color = species?.color ?? 0x4a90c4;
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color,
+    transparent: true,
+    opacity: 0.85,
+    roughness: 0.4,
+  });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), bodyMat);
+  body.scale.set(2.2, 0.55, 0.9);
+  group.add(body);
+
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.18, 4), bodyMat);
+  tail.rotation.z = Math.PI / 2;
+  tail.position.x = -0.28;
+  group.add(tail);
+
+  const fin = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.1, 3), bodyMat);
+  fin.rotation.x = Math.PI / 2;
+  fin.position.set(0, 0.08, 0);
+  group.add(fin);
+
+  return group;
+}
+
+export function buildSplashRing() {
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.05, 0.08, 24),
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+    })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  return ring;
+}

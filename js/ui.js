@@ -15,6 +15,10 @@ export function initUI(fishing, callbacks) {
   const reelProgress = document.getElementById("reel-progress");
   const statusText = document.getElementById("status-text");
   const catchOverlay = document.getElementById("catch-overlay");
+  const biteAlert = document.getElementById("bite-alert");
+  const biteSpecies = document.getElementById("bite-species");
+  const biteTimerFill = document.getElementById("bite-timer-fill");
+  const reelAlert = document.getElementById("reel-alert");
 
   function showToast(msg) {
     toast.textContent = msg;
@@ -77,7 +81,7 @@ export function initUI(fishing, callbacks) {
         <li><strong>1–3</strong> — Switch zones</li>
         <li><strong>B</strong> — Bait menu · <strong>4–9</strong> — Quick-select bait</li>
       </ul>
-      <p class="help-tip">Cast into the lake, wait for a bite, hook fast, then reel while managing tension.</p>
+      <p class="help-tip">Cast, wait for the bobber to dunk and a fish to strike, press Space/trigger to HOOK, then hold R/trigger to REEL while watching tension.</p>
     `;
   }
 
@@ -275,6 +279,16 @@ export function initUI(fishing, callbacks) {
       if (tensionBar) tensionBar.classList.toggle("visible", visible);
       if (tensionFill) tensionFill.style.width = `${tension * 100}%`;
       if (reelProgress) reelProgress.style.width = `${progress * 100}%`;
+    },
+    setBiteAlert(visible, speciesName, timerProgress = 1) {
+      biteAlert?.classList.toggle("visible", visible);
+      reelAlert?.classList.toggle("visible", false);
+      if (speciesName && biteSpecies) biteSpecies.textContent = speciesName;
+      if (biteTimerFill) biteTimerFill.style.width = `${timerProgress * 100}%`;
+    },
+    setReelAlert(visible) {
+      reelAlert?.classList.toggle("visible", visible);
+      biteAlert?.classList.toggle("visible", false);
     },
     showCatch(catchData) {
       if (!catchOverlay) return;
