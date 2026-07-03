@@ -262,8 +262,11 @@ export function buildBiteFish(species) {
   fish.traverse((c) => {
     if (c.isMesh && c.material) {
       c.material = c.material.clone();
+      c.material.transparent = true;
+      c.material.opacity = 0.95;
+      c.material.depthWrite = false;
       c.material.emissive = new THREE.Color(species?.color ?? 0x4a90c4);
-      c.material.emissiveIntensity = 0.12;
+      c.material.emissiveIntensity = 0.28;
     }
   });
   return fish;
@@ -284,14 +287,48 @@ export function buildSplashRing() {
 }
 
 export function buildFishingLine() {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3));
-  const material = new THREE.LineBasicMaterial({
-    color: 0xc8ddd8,
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x1e2e2c,
+    emissive: 0x0a1818,
+    emissiveIntensity: 0.45,
+    roughness: 0.55,
+    metalness: 0.08,
     transparent: true,
-    opacity: 0.88,
+    opacity: 0.94,
+    depthWrite: false,
   });
-  return new THREE.Line(geometry, material);
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 12;
+  mesh.name = "fishingLine";
+  return mesh;
+}
+
+/** Rebuild a visible braided line from rod tip to rig (TubeGeometry — WebGL lines are 1px). */
+export function updateFishingLineMesh(lineMesh, points, radius = 0.0022) {
+  if (!lineMesh || points.length < 2) return;
+  const curve = new THREE.CatmullRomCurve3(points);
+  const segments = Math.max(12, points.length * 3);
+  const geometry = new THREE.TubeGeometry(curve, segments, radius, 5, false);
+  if (lineMesh.geometry) lineMesh.geometry.dispose();
+  lineMesh.geometry = geometry;
+}
+
+export function buildFishSilhouette() {
+  const mesh = new THREE.Mesh(
+    new THREE.CircleGeometry(0.42, 20),
+    new THREE.MeshBasicMaterial({
+      color: 0x0a2838,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = 4;
+  mesh.visible = false;
+  return mesh;
 }
 
 export function linePointsWithSag(start, end, segments = 10, sag = 0.12) {

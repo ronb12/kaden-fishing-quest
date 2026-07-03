@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
 import { getState, recordCatch, getSelectedBait } from "./state.js";
 import * as audio from "./audio.js";
-import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, linePointsWithSag, buildDetailedFish, updateBaitAnimation } from "./rod-model.js";
+import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, updateFishingLineMesh, linePointsWithSag, buildDetailedFish, buildFishSilhouette, updateBaitAnimation } from "./rod-model.js";
 import {
   FishFightAI,
   FightPhase,
@@ -16,6 +16,7 @@ import {
   getSweetZone,
   baitDepthMatch,
   isLurePresentation,
+  isFloatPresentation,
 } from "./gear-stats.js";
 
 export const FishingState = {
@@ -67,6 +68,7 @@ export class FishingSystem {
     this.nibbleIndex = 0;
     this.nibbleDip = 0;
     this.prospectFish = null;
+    this.prospectFishShadow = null;
     this.prospectAngle = 0;
     this.fishPull = new THREE.Vector2();
     this.lineShake = 0;
@@ -89,6 +91,11 @@ export class FishingSystem {
     if (!this.line) {
       this.line = buildFishingLine();
       this.scene.add(this.line);
+    }
+
+    if (!this.prospectFishShadow) {
+      this.prospectFishShadow = buildFishSilhouette();
+      this.scene.add(this.prospectFishShadow);
     }
 
     if (!this.bobber) {
@@ -218,33 +225,45 @@ export class FishingSystem {
       segments.push(...linePointsWithSag(tip, end, 8, 0.05));
     }
 
-    this.line.geometry.setFromPoints(segments);
+    updateFishingLineMesh(this.line, segments, fighting ? 0.0026 : 0.0022);
     if (this.line.material) {
       const rod = getRodStats(getState().rodLevel);
       const zone = tensionZone(this.tension, rod);
       if (zone === "snap" || zone === "warning") {
         this.line.material.color.setHex(0xff8866);
-        this.line.material.opacity = 0.95;
+        this.line.material.emissive.setHex(0x662211);
+        this.line.material.opacity = 0.98;
       } else if (zone === "sweet" && fighting) {
-        this.line.material.color.setHex(0xa8e8c8);
-        this.line.material.opacity = 0.92;
+        this.line.material.color.setHex(0x6ac8a0);
+        this.line.material.emissive.setHex(0x1a4030);
+        this.line.material.opacity = 0.96;
       } else {
-        this.line.material.color.setHex(0xc8ddd8);
-        this.line.material.opacity = taut ? 0.9 : 0.82;
+        this.line.material.color.setHex(0x1e2e2c);
+        this.line.material.emissive.setHex(0x0a1818);
+        this.line.material.opacity = taut ? 0.94 : 0.9;
       }
     }
   }
 
   showRigAtTip() {
-    const tip = this.getRodTipWorld();
-    this.hookGroup.position.copy(tip);
-    this.hookGroup.position.y -= 0.04;
-    this.hookGroup.visible = this.state === FishingState.IDLE;
-    this.bobber.visible =
-      this.state === FishingState.CASTING ||
-      (this.state !== FishingState.IDLE &&
-        this.state !== FishingState.CAUGHT &&
-        this.state !== FishingState.FAILED);
+    const bait = getSelectedBait();
+    const usesBobber = isFloatPresentation(bait);
+    const active =
+      this.state !== FishingState.IDLE &&
+      this.state !== FishingState.CAUGHT &&
+      this.state !== FishingState.FAILED;
+
+    if (this.state === FishingState.IDLE) {
+      const tip = this.getRodTipWorld();
+      this.hookGroup.position.copy(tip);
+      this.hookGroup.position.y -= 0.04;
+      this.hookGroup.visible = true;
+      this.bobber.visible = false;
+      return;
+    }
+
+    this.bobber.visible = active && (usesBobber || this.state === FishingState.CASTING);
+    this.hookGroup.visible = active || this.state === FishingState.CASTING;
   }
 
   updateCastFlight(time) {
@@ -256,14 +275,12 @@ export class FishingSystem {
     const midZ = (start.z + end.z) * 0.5;
     const midY = Math.max(start.y, end.y) + arc;
     const u = 1 - t;
-    this.bobber.position.set(
-      u * u * start.x + 2 * u * t * midX + t * t * end.x,
-      u * u * start.y + 2 * u * t * midY + t * t * end.y,
-      u * u * start.z + 2 * u * t * midZ + t * t * end.z
-    );
-    this.hookGroup.position.copy(this.bobber.position);
-    this.hookGroup.position.y -= 0.05;
+    const flyX = u * u * start.x + 2 * u * t * midX + t * t * end.x;
+    const flyY = u * u * start.y + 2 * u * t * midY + t * t * end.y;
+    const flyZ = u * u * start.z + 2 * u * t * midZ + t * t * end.z;
+    this.hookGroup.position.set(flyX, flyY - 0.05, flyZ);
     this.hookGroup.visible = true;
+    this.bobber.position.set(flyX, flyY, flyZ);
   }
 
   startCast(power = 0.7, aimDir = null) {
@@ -313,7 +330,7 @@ export class FishingSystem {
     const depthMatch = baitDepthMatch(bait, zone?.depth ?? 0.3);
     this.bobber.position.copy(this.castTarget);
     this.bobber.position.y = 0.08;
-    this.bobber.visible = true;
+    this.bobber.visible = isFloatPresentation(bait);
     this.hookGroup.position.copy(this.castTarget);
     const sink = bait.sinkSpeed ?? 0.2;
     this.hookGroup.position.y = 0.02 - sink * 0.04;
@@ -388,7 +405,36 @@ export class FishingSystem {
       }
 
       this.hookGroup.position.copy(this.bobber.position);
-      this.hookGroup.position.y -= 0.05;
+      const sink = getSelectedBait()?.sinkSpeed ?? 0.2;
+      this.hookGroup.position.y -= 0.04 + sink * 0.06;
+    } else if (
+      this.hookGroup.visible &&
+      this.state !== FishingState.IDLE &&
+      this.state !== FishingState.CAUGHT &&
+      this.state !== FishingState.CASTING
+    ) {
+      const bait = getSelectedBait();
+      const sink = bait?.sinkSpeed ?? 0.3;
+      const waterY = this.surfaceY(this.hookGroup.position.x, this.hookGroup.position.z, time);
+      let hookY = waterY - sink * 0.1 + Math.sin(time * 3.2) * 0.012;
+
+      if (this.state === FishingState.REELING) {
+        hookY += this.fishPull.x * 0.06 + Math.sin(time * 11) * 0.025 * this.tension;
+        this.hookGroup.position.x += this.fishPull.x * dt * 0.35;
+        this.hookGroup.position.z += this.fishPull.y * dt * 0.35;
+        this.updateFightFish(dt, time);
+        this.lineShake += dt * (1.5 + this.tension * 4);
+      } else if (this.state === FishingState.BITING) {
+        hookY += Math.sin(time * 12) * 0.04;
+        this.updateBiteFish(dt, time);
+        this.lineShake *= 0.9;
+      } else {
+        this.lineShake *= 0.9;
+      }
+
+      this.hookGroup.position.y = hookY;
+    } else {
+      this.lineShake *= 0.9;
     }
 
     if (this.state === FishingState.WAITING) {
@@ -449,43 +495,59 @@ export class FishingSystem {
     this.clearProspectFish();
     const s = getState();
     const preview = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, false);
-    this.prospectFish = buildDetailedFish(preview, 0.45);
+    this.prospectFish = buildDetailedFish(preview, 0.55);
     this.prospectFish.traverse((c) => {
       if (c.isMesh && c.material) {
         c.material = c.material.clone();
         c.material.transparent = true;
-        c.material.opacity = 0.32;
+        c.material.opacity = 0.72;
+        c.material.depthWrite = false;
         c.material.emissive = new THREE.Color(preview?.color ?? 0x2a6080);
-        c.material.emissiveIntensity = 0.2;
+        c.material.emissiveIntensity = 0.35;
       }
     });
+    this.prospectFish.renderOrder = 6;
+    this.prospectFish.frustumCulled = false;
     this.prospectAngle = Math.random() * Math.PI * 2;
     this.scene.add(this.prospectFish);
+    if (this.prospectFishShadow) {
+      this.prospectFishShadow.visible = true;
+      this.prospectFishShadow.scale.setScalar(0.85);
+    }
   }
 
   updateProspectFish(dt, time) {
     if (!this.prospectFish) return;
     this.prospectAngle += dt * (0.6 + this.nibbleIndex * 0.15);
-    const bx = this.bobber.position.x;
-    const bz = this.bobber.position.z;
+    const bx = this.bobber.visible ? this.bobber.position.x : this.hookGroup.position.x;
+    const bz = this.bobber.visible ? this.bobber.position.z : this.hookGroup.position.z;
     const surface = this.surfaceY(bx, bz, time);
     const radius = 1.15 - this.nibbleIndex * 0.12 + Math.sin(time * 0.7) * 0.15;
-    this.prospectFish.position.set(
-      bx + Math.cos(this.prospectAngle) * radius,
-      surface - 0.22 - Math.sin(time * 1.8) * 0.04,
-      bz + Math.sin(this.prospectAngle) * radius
-    );
-    this.prospectFish.lookAt(bx, surface - 0.12, bz);
+    const fx = bx + Math.cos(this.prospectAngle) * radius;
+    const fz = bz + Math.sin(this.prospectAngle) * radius;
+    const fishY = surface - 0.06 + Math.sin(time * 1.8) * 0.03;
+    this.prospectFish.position.set(fx, fishY, fz);
+    this.prospectFish.lookAt(bx, surface - 0.04, bz);
+    if (this.prospectFishShadow) {
+      this.prospectFishShadow.position.set(fx, surface + 0.02, fz);
+      const pulse = 0.9 + Math.sin(time * 2.2 + this.nibbleIndex) * 0.12;
+      this.prospectFishShadow.scale.setScalar(0.75 * pulse);
+      this.prospectFishShadow.material.opacity = 0.35 + this.nibbleIndex * 0.08;
+    }
   }
 
   clearProspectFish() {
-    if (!this.prospectFish) return;
+    if (!this.prospectFish) {
+      if (this.prospectFishShadow) this.prospectFishShadow.visible = false;
+      return;
+    }
     this.scene.remove(this.prospectFish);
     this.prospectFish.traverse((c) => {
       if (c.geometry) c.geometry.dispose();
       if (c.material) c.material.dispose();
     });
     this.prospectFish = null;
+    if (this.prospectFishShadow) this.prospectFishShadow.visible = false;
   }
 
   triggerBite() {
@@ -513,44 +575,48 @@ export class FishingSystem {
         }
       });
     }
-    const pos = this.bobber.position;
+    const pos = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
     const surface = this.surfaceY(pos.x, pos.z, 0);
-    this.biteFish.position.set(pos.x + 0.55, surface - 0.06, pos.z + 0.35);
-    this.biteFish.lookAt(pos.x, surface + 0.02, pos.z);
+    this.biteFish.position.set(pos.x + 0.55, surface + 0.04, pos.z + 0.35);
+    this.biteFish.lookAt(pos.x, surface + 0.08, pos.z);
+    this.biteFish.renderOrder = 7;
+    this.biteFish.frustumCulled = false;
     this.biteLunge = 0;
     this.scene.add(this.biteFish);
   }
 
   updateBiteFish(dt, time) {
     if (!this.biteFish) return;
-    const bx = this.bobber.position.x;
-    const bz = this.bobber.position.z;
+    const rig = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
+    const bx = rig.x;
+    const bz = rig.z;
     const surface = this.surfaceY(bx, bz, time);
-    const target = new THREE.Vector3(bx + 0.08, surface - 0.02, bz + 0.05);
+    const target = new THREE.Vector3(bx + 0.08, surface + 0.06, bz + 0.05);
     this.biteLunge = Math.min(1, this.biteLunge + dt * 2.2);
-    const start = new THREE.Vector3(bx + 0.55, surface - 0.06, bz + 0.35);
+    const start = new THREE.Vector3(bx + 0.55, surface + 0.04, bz + 0.35);
     this.biteFish.position.lerpVectors(start, target, this.biteLunge);
-    this.biteFish.lookAt(bx, this.bobber.position.y, bz);
+    this.biteFish.lookAt(bx, surface + 0.1, bz);
     this.biteFish.rotation.z = Math.sin(this.biteLunge * 22) * 0.18;
     if (this.biteLunge > 0.55 && Math.random() < dt * 2) this.spawnSplash();
   }
 
   updateFightFish(dt, time) {
     if (!this.biteFish) return;
-    const bx = this.bobber.position.x;
-    const bz = this.bobber.position.z;
+    const rig = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
+    const bx = rig.x;
+    const bz = rig.z;
     const surface = this.surfaceY(bx, bz, time);
     const pullX = this.fishPull.x * 0.45;
     const pullZ = this.fishPull.y * 0.45;
     const target = new THREE.Vector3(
       bx - 0.12 + pullX,
-      surface - 0.08 + this.reelProgress * 0.55 + Math.sin(time * 9) * 0.14,
+      surface + 0.02 + this.reelProgress * 0.55 + Math.sin(time * 9) * 0.14,
       bz - 0.08 + pullZ
     );
     this.biteFish.position.lerp(target, dt * 4);
-    this.biteFish.lookAt(bx, this.bobber.position.y, bz);
+    this.biteFish.lookAt(bx, surface + 0.12, bz);
     this.biteFish.rotation.z = Math.sin(time * 11) * 0.35 * (0.5 + this.tension);
-    if (this.biteFish.position.y > surface - 0.02 && Math.random() < dt * 3) {
+    if (this.biteFish.position.y > surface && Math.random() < dt * 3) {
       this.spawnSplash();
     }
   }
