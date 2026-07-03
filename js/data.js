@@ -363,7 +363,30 @@ export function formatCatch(species, weight, zone, rodLevel = 1) {
   };
 }
 
+/** Boat tier at which the skiff model appears moored at the dock. */
+export const BOAT_SHOW_LEVEL = 2;
+/** Boat tier required to board the skiff and sail to distant zones. */
+export const BOAT_USE_LEVEL = 2;
+
+export function shouldShowBoat(boatLevel) {
+  return boatLevel >= BOAT_SHOW_LEVEL;
+}
+
+export function canUseBoat(boatLevel) {
+  return boatLevel >= BOAT_USE_LEVEL;
+}
+
+/** Zones reachable by boarding the skiff (not shore walk / menu shortcuts). */
+export function canBoatTravelToZone(boatLevel, zoneId) {
+  if (zoneId === "Lake Dock" || !canUseBoat(boatLevel)) return false;
+  const zone = ZONES[zoneId];
+  if (!zone) return false;
+  return boatLevel >= zone.boatRequired;
+}
+
 export function getBoatDescription(level) {
-  if (level >= 2) return "Deep Water unlocked · faster zone travel";
-  return "Unlocks North Cove";
+  if (level >= 3) return "Master skiff · sail to any unlocked zone from the dock";
+  if (level >= BOAT_USE_LEVEL) return "Skiff at dock · board (E) to reach North Cove & Deep Water";
+  if (level >= 1) return "Shore angler · walk or menu to North Cove · upgrade for your skiff";
+  return "Upgrade to unlock zone travel";
 }

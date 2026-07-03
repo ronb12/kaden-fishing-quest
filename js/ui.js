@@ -8,6 +8,8 @@ import {
   getGearCost,
   getBoatDescription,
   getBaitKitDescription,
+  BOAT_USE_LEVEL,
+  canUseBoat,
 } from "./data.js";
 import {
   getState,
@@ -324,11 +326,16 @@ export function initUI(fishing, callbacks) {
     return Object.values(ZONES)
       .map((z) => {
         const locked = !canAccessZone(z.id);
+        const lockHint = locked
+          ? z.boatRequired >= 2 && !canUseBoat(state.boatLevel)
+            ? `Requires Boat Lvl ${BOAT_USE_LEVEL} skiff`
+            : `Requires Boat Lvl ${z.boatRequired}`
+          : z.description;
         return `
           <button class="panel-btn ${state.zone === z.id ? "active" : ""} ${locked ? "locked" : ""}"
             data-zone="${z.id}" ${locked ? "disabled" : ""}>
             <strong>${z.label}</strong>
-            <span>${locked ? `Requires Boat Lvl ${z.boatRequired}` : z.description}</span>
+            <span>${lockHint}</span>
           </button>
         `;
       })
@@ -517,6 +524,7 @@ export function initUI(fishing, callbacks) {
         if (result.ok) {
           audio.playUpgrade();
           if (btn.dataset.upgrade === "rod") callbacks.onRodUpgrade?.();
+          if (btn.dataset.upgrade === "boat") callbacks.onBoatUpgrade?.(getState().boatLevel);
         }
       });
     });

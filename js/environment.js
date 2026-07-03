@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ZONES } from "./data.js";
+import { ZONES, shouldShowBoat } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
 import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, DOCK_BRIDGE_LOCAL_Z, DOCK_STAIRS_LOCAL_Z, registerDockWalkCollisions, isOnDockStairs, isOnDockWalk, getDockStairEyeHeightFallback, DOCK_STAIRS, DOCK_WALK, DOCK_EYE_OFFSET } from "./dock-layout.js";
@@ -96,6 +96,8 @@ export class LakeEnvironment {
     this.collisions = new CollisionSystem();
     this.dockStairsMeshes = [];
     this.dockWalkMeshes = [];
+    this.mooringBoat = null;
+    this.deepWaterBoat = null;
     this._stairRaycaster = new THREE.Raycaster();
     this._stairRayOrigin = new THREE.Vector3();
     this._stairRayDir = new THREE.Vector3(0, -1, 0);
@@ -278,9 +280,12 @@ export class LakeEnvironment {
     const boatGltf = assets?.env?.Boat;
     if (boatGltf) {
       const buoy = cloneModel(boatGltf, { scale: 0.45, rotationY: 0 });
+      buoy.name = "DeepWaterBoat";
       buoy.position.set(26, 0, -20);
       groundAlign(buoy, 0.04);
+      buoy.visible = false;
       group.add(buoy);
+      this.deepWaterBoat = buoy;
     } else {
       const buoy = new THREE.Mesh(
         new THREE.CylinderGeometry(0.35, 0.4, 0.9, 12),
@@ -415,7 +420,9 @@ export class LakeEnvironment {
       moor.name = "MooringBoat";
       moor.position.set(2.55, 0, 0.35);
       groundAlign(moor, 0.06);
+      moor.visible = false;
       dockGroup.add(moor);
+      this.mooringBoat = moor;
     }
 
     dockGroup.position.set(DOCK_GROUP.x, 0, DOCK_GROUP.z);
@@ -826,6 +833,25 @@ export class LakeEnvironment {
         group.visible = id === zoneId;
       });
     }
+  }
+
+  updateBoatForLevel(boatLevel) {
+    const show = shouldShowBoat(boatLevel);
+    if (this.mooringBoat) this.mooringBoat.visible = show;
+    if (this.deepWaterBoat) this.deepWaterBoat.visible = show;
+  }
+
+  getMooringBoatPosition(out = new THREE.Vector3()) {
+    if (!this.mooringBoat?.visible) return null;
+    return this.mooringBoat.getWorldPosition(out);
+  }
+
+  isNearMooringBoat(x, z, radius = 2.8) {
+    const pos = this.getMooringBoatPosition();
+    if (!pos) return false;
+    const dx = x - pos.x;
+    const dz = z - pos.z;
+    return dx * dx + dz * dz <= radius * radius;
   }
 
   setQuality(quality) {

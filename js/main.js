@@ -14,7 +14,7 @@ import {
   updateSettings,
   subscribe,
 } from "./state.js";
-import { BAITS, ZONES } from "./data.js";
+import { BAITS, ZONES, BOAT_USE_LEVEL, canUseBoat, canBoatTravelToZone } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouchControls } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
@@ -133,6 +133,11 @@ function dismissLoadingHint() {
 
 function refreshStatus() {
   if (!ui || inVR) return;
+  updateBoatInteractTarget();
+  if (boatInteractTarget && fishing.state === FishingState.IDLE) {
+    ui.setStatus(`[E] ${boatInteractTarget.label}`);
+    return;
+  }
   if (cabinInteractTarget && fishing.state === FishingState.IDLE) {
     ui.setStatus(`[E] ${cabinInteractTarget.label}`);
     return;
@@ -172,6 +177,31 @@ function getVrAimDirection() {
 }
 
 let cabinInteractTarget = null;
+let boatInteractTarget = null;
+
+function updateBoatInteractTarget() {
+  boatInteractTarget = null;
+  if (inVR || getState().zone !== "Lake Dock" || fishing.state !== FishingState.IDLE) return;
+  if (!env?.isNearMooringBoat(camera.position.x, camera.position.z)) return;
+  if (canUseBoat(getState().boatLevel)) {
+    boatInteractTarget = { label: "Board skiff — travel to fishing zones" };
+  } else {
+    boatInteractTarget = { label: `Skiff locked — upgrade to Boat Lvl ${BOAT_USE_LEVEL}` };
+  }
+}
+
+function tryBoatInteract() {
+  updateBoatInteractTarget();
+  if (!boatInteractTarget) return false;
+  audio.playUIClick();
+  if (!canUseBoat(getState().boatLevel)) {
+    ui?.showToast(`Upgrade boat to level ${BOAT_USE_LEVEL} to unlock the skiff`);
+    return true;
+  }
+  ui?.openPanel("zones");
+  ui?.showToast("Pick a zone to cast off");
+  return true;
+}
 
 function handleCabinInteraction(id) {
   const cg = env?.campground;
@@ -259,7 +289,10 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "KeyM") ui?.toggleMenu();
   if (e.code === "KeyH") ui?.openPanel?.("guide");
   if (e.code === "KeyB") ui?.openPanel?.("bait");
-  if (e.code === "KeyE") tryCabinInteract();
+  if (e.code === "KeyE") {
+    if (tryCabinInteract()) return;
+    tryBoatInteract();
+  }
   const baitKeyMap = {
     Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5, Digit0: 6,
     Minus: 7, Equal: 8, Backquote: 9,
@@ -290,6 +323,7 @@ canvas.addEventListener("click", () => {
   audio.resumeAudio();
   if (!inVR && !touch.active) {
     if (env?.campground?.insideCabin && tryCabinInteract()) return;
+    if (tryBoatInteract()) return;
     if (!pointerLocked) canvas.requestPointerLock();
   }
 });
@@ -526,7 +560,12 @@ function onFishingEvent(type, data) {
 
 function switchZone(zoneId) {
   if (!canAccessZone(zoneId)) {
-    ui?.showToast(`Upgrade boat to access ${zoneId}`);
+    const zone = ZONES[zoneId];
+    if (zone?.boatRequired >= 2 && !canUseBoat(getState().boatLevel)) {
+      ui?.showToast(`Upgrade boat to level ${BOAT_USE_LEVEL} to unlock the skiff and reach ${zoneId}`);
+    } else {
+      ui?.showToast(`Upgrade boat to access ${zoneId}`);
+    }
     return;
   }
   setZone(zoneId);
@@ -579,6 +618,12 @@ ui = initUI(fishing, {
     fishing.onRodLevelUp();
     audio.playUpgrade();
   },
+  onBoatUpgrade: (level) => {
+    env?.updateBoatForLevel(level);
+    if (canUseBoat(level)) {
+      ui?.showToast("Skiff moored at the dock — press E beside it to sail");
+    }
+  },
   onBaitChange: () => fishing.onBaitChanged(),
   onSettingsChange: (settings) => {
     audio.applyAudioSettings(settings);
@@ -594,9 +639,11 @@ audio.applyAudioSettings(getState().settings);
 env.setQuality(getState().settings?.quality || "high");
 teleportToZone(getState().zone);
 env.applyZone(getState().zone);
+env.updateBoatForLevel(getState().boatLevel);
 
 subscribe((state) => {
   ui?.updateSyncStatus?.();
+  env?.updateBoatForLevel(state.boatLevel);
 });
 
 touch = initTouchControls({
@@ -784,6 +831,7 @@ renderer.setAnimationLoop(() => {
   updateVrFishing(dt);
   updateDesktopMovement(dt);
   applyGroundEyeHeight();
+  updateBoatInteractTarget();
   checkZoneTeleports();
 
   env.campground?.update(time, camera.position, (event) => {

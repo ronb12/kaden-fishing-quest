@@ -7,6 +7,8 @@ import {
   isBaitUnlocked,
   GEAR_MAX,
   getGearCost,
+  ZONES,
+  canBoatTravelToZone,
 } from "./data.js";
 import { loadCloudSave, saveCloudSave, scheduleCloudSave } from "./api.js";
 import { GUIDED_STEPS, stepForTrigger } from "./tutorial.js";
@@ -196,8 +198,11 @@ export function getQuestProgress(quest) {
 }
 
 export function canAccessZone(zoneId) {
-  const zone = { "Lake Dock": 1, "North Cove": 1, "Deep Water": 2 }[zoneId];
-  return state.boatLevel >= (zone || 1);
+  const zone = ZONES[zoneId];
+  if (!zone) return false;
+  if (state.boatLevel < zone.boatRequired) return false;
+  if (zone.boatRequired >= 2 && !canBoatTravelToZone(state.boatLevel, zoneId)) return false;
+  return true;
 }
 
 export async function resetProgress() {

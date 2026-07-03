@@ -144,10 +144,11 @@ export const GUIDE_SECTIONS = [
     icon: "📍",
     content: `
       <ul class="help-list">
-        <li><strong>Lake Dock</strong> — Bluegill, Sunfish, Bass (beginner)</li>
-        <li><strong>North Cove</strong> — Trout, Golden Carp, Bass (boat lvl 1)</li>
-        <li><strong>Deep Water</strong> — Catfish, Night Pike, Lunker Bass legendary (boat lvl 2)</li>
+        <li><strong>Lake Dock</strong> — Bluegill, Sunfish, Bass (beginner, always available)</li>
+        <li><strong>North Cove</strong> — Trout, Golden Carp, Bass (Boat Lvl 1 · walk or menu)</li>
+        <li><strong>Deep Water</strong> — Catfish, Night Pike, Lunker Bass (Boat Lvl 2 skiff — board at dock)</li>
       </ul>
+      <p>At <strong>Boat Lvl 2+</strong> your skiff appears beside the pier. Walk up and press <strong>E</strong> to board and pick a zone. Deep Water requires the skiff.</p>
       <p>Open the <strong>Fish Field Guide</strong> tab above for habitat, behavior, bait tips, and fight styles for every species.</p>
       <p>Visit the cabin campground via the boardwalk path. Inside, press <strong>E</strong> to interact with tackle, maps, and gear.</p>
     `,
