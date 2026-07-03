@@ -22,7 +22,7 @@ import { loadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
 import { moveWithCollisions } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
-import { DOCK_SPAWN } from "./dock-layout.js";
+import { DOCK_SPAWN, getDockStairEyeHeight } from "./dock-layout.js";
 import { tensionZone } from "./fish-fight.js";
 import { getRodStats } from "./gear-stats.js";
 
@@ -636,6 +636,8 @@ function updateDesktopMovement(dt) {
       camera.position.add(delta);
     }
     camera.position.y = 1.6;
+    const stairY = getDockStairEyeHeight(camera.position.x, camera.position.z);
+    if (stairY != null) camera.position.y = stairY;
     camera.position.x = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.x));
     camera.position.z = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.z));
     if (env?.collisions) {

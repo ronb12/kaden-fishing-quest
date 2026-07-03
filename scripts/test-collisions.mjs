@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CollisionSystem, moveWithCollisions } from "../js/collisions.js";
 import { CAMP_ORIGIN, CABIN_SIZE, DOOR_WIDTH } from "../js/campground.js";
-import { DOCK_SHORE, registerDockWalkCollisions, DOCK_WALK } from "../js/dock-layout.js";
+import { DOCK_SHORE, registerDockWalkCollisions, DOCK_WALK, DOCK_STAIRS } from "../js/dock-layout.js";
 
 const c = new CollisionSystem();
 const cx = CAMP_ORIGIN.x;
@@ -52,6 +52,20 @@ const lakeTry = moveWithCollisions(
   c
 );
 assert("lake end blocked", lakeTry.z >= DOCK_WALK.startZ - 0.05);
+
+const stairCenter = moveWithCollisions(
+  new THREE.Vector3(DOCK_STAIRS.centerX, 1.6, DOCK_STAIRS.minZ + 0.5),
+  { x: 0, z: 0.6 },
+  c
+);
+assert("stairs center walkable", Math.abs(stairCenter.x) < 0.1 && stairCenter.z > DOCK_STAIRS.minZ + 0.4);
+
+const throughStairSide = moveWithCollisions(
+  new THREE.Vector3(DOCK_STAIRS.centerX - 1.1, 1.6, 15),
+  { x: -0.5, z: 0 },
+  c
+);
+assert("stairs side blocked", throughStairSide.x >= -DOCK_STAIRS.halfWidth - 0.1);
 
 const shoreExit = c.resolve(new THREE.Vector3(DOCK_SHORE.x, 1.6, DOCK_SHORE.z + 1.2));
 assert("shore spawn open", Math.abs(shoreExit.x - DOCK_SHORE.x) < 0.1 && shoreExit.z > DOCK_SHORE.z);
