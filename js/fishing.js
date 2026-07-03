@@ -238,6 +238,30 @@ export class FishingSystem {
     return Math.max(0.12, 0.06 + wave);
   }
 
+  getLineMaterials() {
+    if (!this.line) return { core: null, glow: null };
+    const coreMesh = this.line.getObjectByName?.("lineCore");
+    if (coreMesh) {
+      return {
+        core: coreMesh.material,
+        glow: this.line.getObjectByName?.("lineGlow")?.material ?? null,
+      };
+    }
+    return { core: this.line.material, glow: null };
+  }
+
+  setLineAppearance({ coreColor, coreOpacity = 0.96, glowColor, glowOpacity = 0.38 }) {
+    const { core, glow } = this.getLineMaterials();
+    if (core) {
+      core.color.setHex(coreColor);
+      core.opacity = coreOpacity;
+    }
+    if (glow) {
+      glow.color.setHex(glowColor ?? coreColor);
+      glow.opacity = glowOpacity;
+    }
+  }
+
   updateLine() {
     const active =
       this.state !== FishingState.IDLE &&
@@ -276,32 +300,40 @@ export class FishingSystem {
     }
 
     const casting = this.state === FishingState.CASTING;
-    const lineRadius = fighting ? 0.012 : casting ? 0.011 : 0.01;
+    const lineRadius = fighting ? 0.026 : casting ? 0.024 : 0.022;
     updateFishingLineMesh(this.line, segments, lineRadius);
-    if (this.line.material) {
-      if (this.lineSnapFlash > 0) {
-        const flash = this.lineSnapFlash / 0.35;
-        this.line.material.color.setHex(0xff4422);
-        this.line.material.emissive.setHex(0xaa1100);
-        this.line.material.emissiveIntensity = 0.9 + flash * 0.6;
-        this.line.material.opacity = 1;
+    if (this.lineSnapFlash > 0) {
+      const flash = this.lineSnapFlash / 0.35;
+      this.setLineAppearance({
+        coreColor: 0xff4422,
+        coreOpacity: 1,
+        glowColor: 0xff8866,
+        glowOpacity: 0.55 + flash * 0.25,
+      });
+    } else {
+      const rod = getRodStats(getState().rodLevel);
+      const zone = tensionZone(this.tension, rod);
+      if (zone === "snap" || zone === "warning") {
+        this.setLineAppearance({
+          coreColor: 0xff8866,
+          coreOpacity: 0.98,
+          glowColor: 0xff5533,
+          glowOpacity: 0.48,
+        });
+      } else if (zone === "sweet" && fighting) {
+        this.setLineAppearance({
+          coreColor: 0x9ff5c8,
+          coreOpacity: 0.98,
+          glowColor: 0x3dba6a,
+          glowOpacity: 0.42,
+        });
       } else {
-        this.line.material.emissiveIntensity = 0.55;
-        const rod = getRodStats(getState().rodLevel);
-        const zone = tensionZone(this.tension, rod);
-        if (zone === "snap" || zone === "warning") {
-          this.line.material.color.setHex(0xff8866);
-          this.line.material.emissive.setHex(0x662211);
-          this.line.material.opacity = 0.98;
-        } else if (zone === "sweet" && fighting) {
-          this.line.material.color.setHex(0x6ac8a0);
-          this.line.material.emissive.setHex(0x1a4030);
-          this.line.material.opacity = 0.96;
-        } else {
-          this.line.material.color.setHex(0xc8e8e0);
-          this.line.material.emissive.setHex(0x2a5048);
-          this.line.material.opacity = taut ? 0.98 : 0.94;
-        }
+        this.setLineAppearance({
+          coreColor: 0xffffff,
+          coreOpacity: taut ? 0.98 : 0.94,
+          glowColor: 0x7ad4ff,
+          glowOpacity: 0.36,
+        });
       }
     }
   }

@@ -331,6 +331,7 @@ export class LakeEnvironment {
     this.waterMesh = new THREE.Mesh(geo, mat);
     this.waterMesh.rotation.x = -Math.PI / 2;
     this.waterMesh.position.y = 0;
+    this.waterMesh.renderOrder = 8;
     this.scene.add(this.waterMesh);
   }
 

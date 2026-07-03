@@ -325,31 +325,56 @@ export function buildSplashRing() {
 }
 
 export function buildFishingLine() {
-  const material = new THREE.MeshStandardMaterial({
-    color: 0xc8e8e0,
-    emissive: 0x2a5048,
-    emissiveIntensity: 0.55,
-    roughness: 0.55,
-    metalness: 0.08,
-    transparent: true,
-    opacity: 0.94,
-    depthWrite: false,
-  });
-  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
-  mesh.frustumCulled = false;
-  mesh.renderOrder = 15;
-  mesh.name = "fishingLine";
-  return mesh;
+  const group = new THREE.Group();
+  group.name = "fishingLine";
+  group.frustumCulled = false;
+  group.renderOrder = 22;
+
+  const glow = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: 0x5ec8ff,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+    })
+  );
+  glow.name = "lineGlow";
+  glow.renderOrder = 22;
+
+  const core = new THREE.Mesh(
+    new THREE.BufferGeometry(),
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.96,
+      depthWrite: false,
+    })
+  );
+  core.name = "lineCore";
+  core.renderOrder = 23;
+
+  group.add(glow, core);
+  return group;
 }
 
-/** Rebuild a visible braided line from rod tip to rig (TubeGeometry — WebGL lines are 1px). */
-export function updateFishingLineMesh(lineMesh, points, radius = 0.0022) {
-  if (!lineMesh || points.length < 2) return;
+/** Rebuild a visible monofilament line from rod tip to rig (TubeGeometry — WebGL lines are 1px). */
+export function updateFishingLineMesh(lineRoot, points, radius = 0.003) {
+  if (!lineRoot || points.length < 2) return;
   const curve = new THREE.CatmullRomCurve3(points);
-  const segments = Math.max(12, points.length * 3);
-  const geometry = new THREE.TubeGeometry(curve, segments, radius, 5, false);
-  if (lineMesh.geometry) lineMesh.geometry.dispose();
-  lineMesh.geometry = geometry;
+  const segments = Math.max(16, points.length * 4);
+  const core = lineRoot.getObjectByName?.("lineCore") || lineRoot;
+  const glow = lineRoot.getObjectByName?.("lineGlow");
+
+  const coreGeo = new THREE.TubeGeometry(curve, segments, radius, 6, false);
+  if (core.geometry) core.geometry.dispose();
+  core.geometry = coreGeo;
+
+  if (glow) {
+    const glowGeo = new THREE.TubeGeometry(curve, segments, radius * 1.7, 6, false);
+    if (glow.geometry) glow.geometry.dispose();
+    glow.geometry = glowGeo;
+  }
 }
 
 export function buildFishSilhouette() {

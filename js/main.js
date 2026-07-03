@@ -936,12 +936,18 @@ if (new URLSearchParams(location.search).has("playtest")) {
     reel: (intensity = 1) => {
       if (fishing.state === FishingState.REELING) fishing.reel(0.05, intensity);
     },
-    getLineVisible: () => Boolean(fishing.line?.geometry?.attributes?.position?.count > 2),
-    getLineDetail: () => ({
-      meshVisible: Boolean(fishing.line?.visible),
-      verts: fishing.line?.geometry?.attributes?.position?.count ?? 0,
-      renderOrder: fishing.line?.renderOrder ?? 0,
-    }),
+    getLineVisible: () => {
+      const core = fishing.line?.getObjectByName?.("lineCore") || fishing.line;
+      return Boolean(core?.geometry?.attributes?.position?.count > 2);
+    },
+    getLineDetail: () => {
+      const core = fishing.line?.getObjectByName?.("lineCore") || fishing.line;
+      return {
+        meshVisible: Boolean(fishing.line?.visible),
+        verts: core?.geometry?.attributes?.position?.count ?? 0,
+        renderOrder: fishing.line?.renderOrder ?? 0,
+      };
+    },
     getBobberVisible: () => Boolean(fishing.bobber?.visible),
     getFishDetail: () => ({
       prospect: Boolean(fishing.prospectFish),
