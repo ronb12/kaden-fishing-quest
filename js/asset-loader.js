@@ -24,6 +24,8 @@ const MANIFEST = {
     "tree_default", "tree_detailed", "tree_fat", "tree_cone", "tree_thin",
     "rock_largeA", "rock_largeB", "rock_smallA", "rock_smallB", "rock_tallA",
     "plant_bushSmall", "plant_bushLarge", "grass", "lily_small", "log",
+    "path_wood", "path_woodCorner", "path_woodEnd", "ground_pathStraight",
+    "fence_simple", "fence_simpleLow", "campfire_logs", "log_stack", "log_stackLarge",
   ],
 };
 
