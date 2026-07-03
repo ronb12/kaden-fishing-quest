@@ -432,6 +432,237 @@ body > button {
   font-size: 0.85rem;
 }
 
+.guide-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.guide-tab {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.06);
+  color: white;
+  cursor: pointer;
+}
+
+.guide-tab.active {
+  background: var(--lake);
+  border-color: var(--lake);
+}
+
+.guide-walkthrough {
+  padding: 14px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.guide-walkthrough-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.guide-walkthrough-header h3 {
+  margin: 0;
+}
+
+.guide-badge {
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,211,122,0.2);
+  color: var(--sun);
+}
+
+.guide-badge.done {
+  background: rgba(126,232,160,0.2);
+  color: #7ee8a0;
+}
+
+.walkthrough-progress {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.walkthrough-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+}
+
+.walkthrough-dot.done {
+  background: var(--lake);
+}
+
+.walkthrough-dot.current {
+  background: var(--sun);
+  box-shadow: 0 0 0 3px rgba(255,211,122,0.25);
+}
+
+.guide-step-preview {
+  font-size: 0.88rem;
+  opacity: 0.9;
+  margin: 8px 0 12px;
+}
+
+.guide-walkthrough-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.guide-walkthrough-actions .panel-btn {
+  width: auto;
+  flex: 1;
+  min-width: 140px;
+  margin: 0;
+  text-align: center;
+}
+
+.guide-section-content h3 {
+  margin-top: 0;
+}
+
+.guide-section-content h4 {
+  margin: 14px 0 6px;
+  font-size: 0.88rem;
+}
+
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.tutorial-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tutorial-card {
+  width: min(520px, 100%);
+  padding: 22px 24px;
+  border-radius: 20px;
+  background: var(--panel);
+  border: 2px solid var(--sun);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  animation: catchPop 0.35s ease;
+}
+
+.tutorial-step-label {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--sun);
+  font-weight: 900;
+}
+
+.tutorial-card h2 {
+  margin: 0 0 10px;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 1.35rem;
+}
+
+.tutorial-body {
+  margin: 0 0 16px;
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
+.tutorial-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.tutorial-next-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 22px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  background: var(--sun);
+  color: var(--ink);
+}
+
+.tutorial-next-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tip-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 100px;
+  z-index: 45;
+  transform: translateX(-50%) translateY(120%);
+  transition: transform 0.3s ease;
+  width: min(420px, calc(100% - 32px));
+  pointer-events: none;
+}
+
+.tip-banner.show {
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.tip-banner-inner {
+  position: relative;
+  padding: 14px 40px 14px 16px;
+  border-radius: 14px;
+  background: var(--deep);
+  border: 1px solid rgba(255,211,122,0.35);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.tip-banner-inner strong {
+  display: block;
+  color: var(--sun);
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+}
+
+.tip-banner-inner p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+#tip-banner-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
 .panel-btn {
   display: block;
   width: 100%;

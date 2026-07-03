@@ -22,13 +22,29 @@ import {
   setDisplayName,
   updateSettings,
   getSyncStatus,
+  getTutorial,
+  setTutorialGuideSection,
+  advanceTutorialOnTrigger,
+  advanceTutorialStep,
+  completeTutorial,
+  skipTutorial,
+  restartTutorial,
+  markTipSeen,
+  shouldShowTip,
 } from "./state.js";
 import { fetchLeaderboard, getPlayerId } from "./api.js";
 import * as audio from "./audio.js";
 import { tensionZone } from "./fish-fight.js";
 import { getRodStats, baitStatsLine } from "./gear-stats.js";
+import {
+  GUIDED_STEPS,
+  GUIDE_SECTIONS,
+  CONTEXTUAL_TIPS,
+  getGuidedStepBody,
+} from "./tutorial.js";
 
-let activePanel = "hud";
+let activePanel = "guide";
+let guideView = "walkthrough";
 let leaderboardSort = "fish";
 
 export function initUI(fishing, callbacks) {
@@ -50,6 +66,18 @@ export function initUI(fishing, callbacks) {
   const reelHint = document.querySelector(".reel-hint");
   const fightPhaseHint = document.getElementById("fight-phase-hint");
   const tensionZoneLabel = document.getElementById("tension-zone-label");
+  const tutorialOverlay = document.getElementById("tutorial-overlay");
+  const tutorialTitle = document.getElementById("tutorial-title");
+  const tutorialBody = document.getElementById("tutorial-body");
+  const tutorialStepLabel = document.getElementById("tutorial-step-label");
+  const tutorialNextBtn = document.getElementById("tutorial-next");
+  const tutorialSkipBtn = document.getElementById("tutorial-skip");
+  const tipBanner = document.getElementById("tip-banner");
+  const tipBannerTitle = document.getElementById("tip-banner-title");
+  const tipBannerText = document.getElementById("tip-banner-text");
+  const tipBannerClose = document.getElementById("tip-banner-close");
+  let tipBannerTimer = null;
+  let lastTensionZoneTip = null;
 
   function inputMode() {
     if (document.body.classList.contains("touch-mode")) return "touch";
@@ -124,41 +152,157 @@ export function initUI(fishing, callbacks) {
       case "leaderboard":
         renderLeaderboard();
         return;
+      case "leaderboard":
+        renderLeaderboard();
+        return;
+      case "guide":
+        panelContent.innerHTML = renderGuide(state);
+        break;
       default:
-        panelContent.innerHTML = renderHelp();
+        panelContent.innerHTML = renderGuide(state);
     }
     bindPanelEvents();
   }
 
-  function renderHelp() {
+  function renderGuide(state) {
+    const tut = getTutorial();
+    const section = GUIDE_SECTIONS.find((s) => s.id === tut.guideSection) || GUIDE_SECTIONS[0];
+    const step = GUIDED_STEPS[tut.step] || GUIDED_STEPS[0];
+    const platform = inputMode();
+    const walkthroughActive = tut.active && !tut.completed;
+
+    const sectionNav = GUIDE_SECTIONS.map(
+      (s) => `<button type="button" class="guide-tab ${s.id === section.id ? "active" : ""}" data-guide-section="${s.id}">${s.icon} ${s.title}</button>`
+    ).join("");
+
+    const walkthroughPanel = `
+      <div class="guide-walkthrough">
+        <div class="guide-walkthrough-header">
+          <h3>Interactive Walkthrough</h3>
+          ${tut.completed ? '<span class="guide-badge done">Completed</span>' : '<span class="guide-badge">In progress</span>'}
+        </div>
+        <p class="help-tip">${walkthroughActive ? "Follow the on-screen cards while you play. Steps advance automatically as you fish." : "Replay the guided tour anytime."}</p>
+        <div class="walkthrough-progress">
+          ${GUIDED_STEPS.map((s, i) => `<span class="walkthrough-dot ${i < tut.step ? "done" : ""} ${i === tut.step && walkthroughActive ? "current" : ""}" title="${s.title}"></span>`).join("")}
+        </div>
+        <p><strong>${step.title}</strong></p>
+        <p class="guide-step-preview">${getGuidedStepBody(step, platform)}</p>
+        <div class="guide-walkthrough-actions">
+          ${walkthroughActive
+            ? `<button type="button" class="panel-btn" data-tutorial-resume>Resume walkthrough</button>
+               <button type="button" class="panel-btn" data-tutorial-skip>Skip walkthrough</button>`
+            : `<button type="button" class="panel-btn" data-tutorial-restart>Start walkthrough</button>`}
+        </div>
+      </div>
+    `;
+
     return `
-      <h3>VR Controls</h3>
-      <ul class="help-list">
-        <li><strong>Cast</strong> — Pull rod back, then swing forward (like a real cast)</li>
-        <li><strong>Hook</strong> — Jerk rod upward on a bite, or pull right trigger</li>
-        <li><strong>Reel (VR)</strong> — Left hand cranks the reel in a circle; right hand holds the rod</li>
-        <li><strong>Reel (desktop)</strong> — Hold R in the green tension zone</li>
-        <li><strong>Left Trigger on zone pad</strong> — Teleport to zone</li>
-        <li><strong>Left Grip</strong> — Open menu</li>
-      </ul>
-      <h3>Desktop Controls</h3>
-      <ul class="help-list">
-        <li><strong>Hold Space</strong> — Charge cast power, release to cast</li>
-        <li><strong>Hold R</strong> — Reel in (watch tension!)</li>
-        <li><strong>Mouse</strong> — Look and aim cast</li>
-        <li><strong>WASD</strong> — Move · walk to gold rings to change zones</li>
-        <li><strong>E</strong> — Interact with cabin items (inside the cabin)</li>
-        <li><strong>B</strong> — Bait menu · <strong>4–9, 0</strong> — Quick-select bait</li>
-      </ul>
-      <h3>Touch / iPhone</h3>
-      <ul class="help-list">
-        <li><strong>Drag right side</strong> — Look and aim</li>
-        <li><strong>Hold Cast</strong> — Charge power, release to cast</li>
-        <li><strong>HOOK!</strong> when fish bites · <strong>Hold Reel</strong> after hooking</li>
-      </ul>
-      <p class="help-tip">The glowing ring on the water marks the fishing pool — cast inside it. Watch for nibbles and fish shadows. Reel in the green tension zone when the fish tires!</p>
+      <div class="guide-nav">${sectionNav}</div>
+      ${walkthroughPanel}
+      <div class="guide-section-content">
+        <h3>${section.icon} ${section.title}</h3>
+        ${section.content}
+      </div>
     `;
   }
+
+  function showContextualTip(tipKey) {
+    const tip = CONTEXTUAL_TIPS[tipKey];
+    if (!tip || !shouldShowTip(tip.id)) return;
+    markTipSeen(tip.id);
+    if (tipBannerTitle) tipBannerTitle.textContent = tip.title || "Tip";
+    if (tipBannerText) tipBannerText.textContent = tip.text;
+    tipBanner?.classList.add("show");
+    clearTimeout(tipBannerTimer);
+    tipBannerTimer = setTimeout(() => tipBanner?.classList.remove("show"), 6500);
+  }
+
+  function refreshTutorialOverlay() {
+    const tut = getTutorial();
+    if (!tutorialOverlay) return;
+    if (!tut.active || tut.completed) {
+      tutorialOverlay.classList.remove("show");
+      tutorialOverlay.setAttribute("aria-hidden", "true");
+      return;
+    }
+    const step = GUIDED_STEPS[tut.step] || GUIDED_STEPS[0];
+    const platform = inputMode();
+    const body = getGuidedStepBody(step, platform);
+    if (tutorialTitle) tutorialTitle.textContent = step.title;
+    if (tutorialBody) tutorialBody.innerHTML = body || "";
+    if (tutorialStepLabel) {
+      tutorialStepLabel.textContent = `Step ${tut.step + 1} of ${GUIDED_STEPS.length}`;
+    }
+    if (tutorialNextBtn) {
+      const needsAction = step.advanceOn && tut.step < GUIDED_STEPS.length - 1;
+      tutorialNextBtn.textContent = needsAction ? "Waiting…" : tut.step >= GUIDED_STEPS.length - 1 ? "Finish" : "Next";
+      tutorialNextBtn.disabled = Boolean(needsAction);
+    }
+    tutorialOverlay.classList.add("show");
+    tutorialOverlay.setAttribute("aria-hidden", "false");
+  }
+
+  function tutorialNext() {
+    const tut = getTutorial();
+    const step = GUIDED_STEPS[tut.step];
+    if (step?.advanceOn && tut.step < GUIDED_STEPS.length - 1) return;
+    if (tut.step >= GUIDED_STEPS.length - 1) {
+      completeTutorial();
+      refreshTutorialOverlay();
+      showToast("Tutorial complete — tight lines!");
+      return;
+    }
+    advanceTutorialStep(tut.step + 1);
+    refreshTutorialOverlay();
+  }
+
+  function onTutorialTrigger(trigger) {
+    if (advanceTutorialOnTrigger(trigger)) {
+      refreshTutorialOverlay();
+    }
+  }
+
+  function checkTensionTip(zone, phase) {
+    if (zone === "warning" || zone === "snap") {
+      if (lastTensionZoneTip !== "warning") {
+        lastTensionZoneTip = "warning";
+        showContextualTip("tension_warning");
+      }
+      return;
+    }
+    if (zone === "sweet" && phase === "tired") {
+      if (lastTensionZoneTip !== "sweet") {
+        lastTensionZoneTip = "sweet";
+        showContextualTip("tension_sweet");
+      }
+      return;
+    }
+    if (phase === "run" || phase === "surge" || phase === "thrash") {
+      if (lastTensionZoneTip !== "run") {
+        lastTensionZoneTip = "run";
+        showContextualTip("phase_run");
+      }
+      return;
+    }
+    if (phase === "tired") {
+      if (lastTensionZoneTip !== "tired") {
+        lastTensionZoneTip = "tired";
+        showContextualTip("phase_tired");
+      }
+    }
+  }
+
+  tipBannerClose?.addEventListener("click", () => tipBanner?.classList.remove("show"));
+  tutorialNextBtn?.addEventListener("click", () => {
+    audio.playUIClick();
+    tutorialNext();
+  });
+  tutorialSkipBtn?.addEventListener("click", () => {
+    audio.playUIClick();
+    skipTutorial();
+    refreshTutorialOverlay();
+    showToast("Tutorial skipped — open Guide anytime from the menu.");
+  });
 
   function renderZones(state) {
     return Object.values(ZONES)
@@ -404,6 +548,32 @@ export function initUI(fishing, callbacks) {
       const result = setDisplayName(input?.value);
       showToast(result.message);
     });
+    panelContent?.querySelectorAll("[data-guide-section]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        audio.playUIClick();
+        setTutorialGuideSection(btn.dataset.guideSection);
+        renderPanel(getState());
+      });
+    });
+    panelContent?.querySelector("[data-tutorial-resume]")?.addEventListener("click", () => {
+      audio.playUIClick();
+      menu?.classList.remove("open");
+      refreshTutorialOverlay();
+    });
+    panelContent?.querySelector("[data-tutorial-restart]")?.addEventListener("click", () => {
+      audio.playUIClick();
+      restartTutorial();
+      renderPanel(getState());
+      refreshTutorialOverlay();
+      showToast("Walkthrough restarted — follow the on-screen steps.");
+    });
+    panelContent?.querySelector("[data-tutorial-skip]")?.addEventListener("click", () => {
+      audio.playUIClick();
+      skipTutorial();
+      renderPanel(getState());
+      refreshTutorialOverlay();
+      showToast("Walkthrough skipped.");
+    });
   }
 
   document.querySelectorAll("[data-panel]").forEach((tab) => {
@@ -433,14 +603,20 @@ export function initUI(fishing, callbacks) {
   subscribe((state) => {
     renderHUD(state);
     if (menu?.classList.contains("open")) renderPanel(state);
+    refreshTutorialOverlay();
   });
 
   renderHUD(getState());
   renderPanel(getState());
+  setTimeout(() => refreshTutorialOverlay(), 800);
 
   return {
     showToast,
     updateSyncStatus,
+    refreshTutorialOverlay,
+    onTutorialTrigger,
+    showContextualTip,
+    checkTensionTip,
     setStatus(text) {
       if (statusText) statusText.textContent = text;
     },

@@ -69,7 +69,7 @@
         <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
       </header>
       <nav class="menu-tabs">
-        <button class="active" type="button" data-panel="help">Help</button>
+        <button type="button" data-panel="guide" class="active">Guide</button>
         <button type="button" data-panel="zones">Zones</button>
         <button type="button" data-panel="codex">Codex</button>
         <button type="button" data-panel="gear">Gear</button>
@@ -83,6 +83,26 @@
 
     <div id="catch-overlay" class="catch-overlay"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <div id="tutorial-overlay" class="tutorial-overlay" aria-hidden="true">
+      <div class="tutorial-card">
+        <p class="tutorial-step-label" id="tutorial-step-label">Step 1 of 8</p>
+        <h2 id="tutorial-title">Welcome</h2>
+        <p id="tutorial-body" class="tutorial-body">Tutorial text</p>
+        <div class="tutorial-actions">
+          <button id="tutorial-skip" type="button" class="ghost-btn">Skip tutorial</button>
+          <button id="tutorial-next" type="button" class="tutorial-next-btn">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tip-banner" class="tip-banner" aria-live="polite">
+      <div class="tip-banner-inner">
+        <strong id="tip-banner-title">Tip</strong>
+        <p id="tip-banner-text"></p>
+        <button id="tip-banner-close" type="button" aria-label="Dismiss tip">×</button>
+      </div>
+    </div>
 
     <div id="touch-controls" class="touch-controls">
       <div id="touch-look" class="touch-look" aria-hidden="true"></div>
@@ -108,7 +128,7 @@
 
     <div class="loading-hint" id="loading-hint">
       <p>WebXR VR supported on Quest, Vision Pro, and desktop VR headsets.</p>
-      <p class="desktop-hint">Desktop: click to look · hold Space to charge cast · hold R to reel · M menu</p>
+      <p class="desktop-hint">Desktop: click to look · hold Space to cast · hold R to reel · M menu · H guide</p>
       <p class="touch-hint">Touch: drag right to look · joystick to move · Cast / Hold Reel buttons</p>
     </div>
 

@@ -149,7 +149,7 @@ function refreshStatus() {
   if (touch.active) {
     ui.setStatus("Hold Cast to charge · drag right to look · joystick to move");
   } else if (pointerLocked) {
-    ui.setStatus("WASD move · hold Space to cast · hold R to reel · M menu");
+    ui.setStatus("WASD move · hold Space to cast · hold R to reel · M menu · H guide");
   } else {
     ui.setStatus("Click to look · WASD to move · walk the boardwalk to the lake");
   }
@@ -257,6 +257,7 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Digit2") switchZone("North Cove");
   if (e.code === "Digit3") switchZone("Deep Water");
   if (e.code === "KeyM") ui?.toggleMenu();
+  if (e.code === "KeyH") ui?.openPanel?.("guide");
   if (e.code === "KeyB") ui?.openPanel?.("bait");
   if (e.code === "KeyE") tryCabinInteract();
   const baitKeyMap = {
@@ -424,16 +425,26 @@ function updateTouchUI() {
 
 function onFishingEvent(type, data) {
   switch (type) {
+    case "cast":
+      ui?.onTutorialTrigger?.("cast");
+      ui?.showContextualTip?.("first_cast");
+      ui?.setStatus(fishing.getStatusText(inVR));
+      break;
     case "nibble":
+      ui?.onTutorialTrigger?.("nibble");
+      ui?.showContextualTip?.("nibble");
       ui?.setStatus(fishing.getStatusText(inVR));
       vibrate(12);
       break;
     case "preBite":
+      ui?.showContextualTip?.("preBite");
       audio.playPreBite();
       ui?.setStatus(fishing.getStatusText());
       vibrate(30);
       break;
     case "bite":
+      ui?.onTutorialTrigger?.("bite");
+      ui?.showContextualTip?.("bite");
       ui?.setBiteAlert(true, data.species?.name, 1);
       ui?.setStatus(fishing.getStatusText());
       if (data.legendary) {
@@ -448,6 +459,8 @@ function onFishingEvent(type, data) {
       ui?.setBiteAlert(true, data.species?.name, data.progress);
       break;
     case "hooked":
+      ui?.onTutorialTrigger?.("hooked");
+      ui?.showContextualTip?.("hooked");
       ui?.setBiteAlert(false);
       ui?.setReelAlert(true);
       ui?.setStatus(fishing.getStatusText(inVR));
@@ -456,6 +469,10 @@ function onFishingEvent(type, data) {
       });
       break;
     case "reeling":
+      ui?.checkTensionTip?.(
+        tensionZone(data.tension, getRodStats(getState().rodLevel)),
+        data.phase
+      );
       ui?.setTension(data.tension, data.progress, true, {
         phase: data.phase,
         phaseLabel: data.phaseLabel,
@@ -467,6 +484,8 @@ function onFishingEvent(type, data) {
       }
       break;
     case "caught":
+      ui?.onTutorialTrigger?.("caught");
+      ui?.showContextualTip?.("caught");
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
       ui?.showCatch(
@@ -481,6 +500,8 @@ function onFishingEvent(type, data) {
       ui?.setStatus(fishing.getStatusText());
       break;
     case "failed":
+      if (data.reason === "snap") ui?.showContextualTip?.("failed_snap");
+      else if (data.reason === "escape") ui?.showContextualTip?.("failed_escape");
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
       ui?.setTension(0, 0, false);

@@ -281,6 +281,13 @@ export const DEFAULT_STATE = {
   bestCatch: null,
   claimedQuests: [],
   settings: { music: true, sfx: true, quality: "high" },
+  tutorial: {
+    completed: false,
+    step: 0,
+    active: true,
+    tipsSeen: {},
+    guideSection: "basics",
+  },
   lastSaved: 0,
 };
 

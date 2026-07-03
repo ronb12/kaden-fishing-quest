@@ -9,6 +9,7 @@ import {
   getGearCost,
 } from "./data.js";
 import { loadCloudSave, saveCloudSave, scheduleCloudSave } from "./api.js";
+import { GUIDED_STEPS, stepForTrigger } from "./tutorial.js";
 
 let state = loadLocal();
 const listeners = new Set();
@@ -18,7 +19,11 @@ let syncStatus = "local";
 function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = { ...DEFAULT_STATE, ...JSON.parse(raw) };
+      if (!parsed.tutorial) parsed.tutorial = { ...DEFAULT_STATE.tutorial };
+      return parsed;
+    }
   } catch {
     /* ignore */
   }
@@ -35,6 +40,7 @@ export async function initState() {
     if (!state.selectedBait) state.selectedBait = "worm";
     if (!state.questProgress) state.questProgress = { ...DEFAULT_STATE.questProgress };
     if (!state.settings) state.settings = { ...DEFAULT_STATE.settings };
+    if (!state.tutorial) state.tutorial = { ...DEFAULT_STATE.tutorial };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     listeners.forEach((fn) => fn(state));
     syncStatus = "synced";
@@ -202,4 +208,71 @@ export async function resetProgress() {
 
 export function isCloudReady() {
   return cloudReady;
+}
+
+function ensureTutorial() {
+  if (!state.tutorial) state.tutorial = { ...DEFAULT_STATE.tutorial };
+  if (!state.tutorial.tipsSeen) state.tutorial.tipsSeen = {};
+}
+
+export function getTutorial() {
+  ensureTutorial();
+  return state.tutorial;
+}
+
+export function setTutorialGuideSection(sectionId) {
+  ensureTutorial();
+  state.tutorial.guideSection = sectionId;
+  notify();
+}
+
+export function advanceTutorialStep(nextStep) {
+  ensureTutorial();
+  if (state.tutorial.completed) return false;
+  state.tutorial.step = Math.min(Math.max(0, nextStep), GUIDED_STEPS.length - 1);
+  notify();
+  return true;
+}
+
+export function advanceTutorialOnTrigger(trigger) {
+  ensureTutorial();
+  if (state.tutorial.completed || !state.tutorial.active) return false;
+  const next = stepForTrigger(trigger, state.tutorial.step);
+  if (next === state.tutorial.step) return false;
+  state.tutorial.step = next;
+  notify();
+  return true;
+}
+
+export function completeTutorial() {
+  ensureTutorial();
+  state.tutorial.completed = true;
+  state.tutorial.active = false;
+  state.tutorial.step = GUIDED_STEPS.length - 1;
+  notify();
+}
+
+export function skipTutorial() {
+  completeTutorial();
+}
+
+export function restartTutorial() {
+  ensureTutorial();
+  state.tutorial.completed = false;
+  state.tutorial.active = true;
+  state.tutorial.step = 0;
+  notify();
+}
+
+export function markTipSeen(tipId) {
+  ensureTutorial();
+  if (state.tutorial.tipsSeen[tipId]) return false;
+  state.tutorial.tipsSeen[tipId] = true;
+  notify();
+  return true;
+}
+
+export function shouldShowTip(tipId) {
+  ensureTutorial();
+  return !state.tutorial.tipsSeen[tipId];
 }
