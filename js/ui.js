@@ -81,6 +81,14 @@ export function initUI(fishing, callbacks) {
         <li><strong>1–3</strong> — Switch zones</li>
         <li><strong>B</strong> — Bait menu · <strong>4–9</strong> — Quick-select bait</li>
       </ul>
+      <h3>Touch / iPhone</h3>
+      <ul class="help-list">
+        <li><strong>Drag right side</strong> — Look around</li>
+        <li><strong>Left joystick</strong> — Move</li>
+        <li><strong>Cast / HOOK!</strong> — Tap action button</li>
+        <li><strong>Hold Reel</strong> — After hooking a fish</li>
+        <li><strong>🪱 Bait</strong> — Open bait picker</li>
+      </ul>
       <p class="help-tip">Cast, wait for the bobber to dunk and a fish to strike, press Space/trigger to HOOK, then hold R/trigger to REEL while watching tension.</p>
     `;
   }

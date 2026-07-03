@@ -207,7 +207,7 @@ export class FishingSystem {
     if (this.state === FishingState.BITING) {
       this.biteWindow -= dt;
       this.onEvent?.("biteTick", {
-        progress: Math.max(0, this.biteWindow / (2.5 + getState().rodLevel * 0.2)),
+        progress: Math.max(0, this.biteWindow / this.biteWindowMax),
         species: this.pendingFish,
       });
       if (this.biteWindow <= 0) {

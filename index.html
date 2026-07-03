@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Kaden VR Fishing Quest</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./app-icon.png" />
@@ -47,12 +47,12 @@
     <div id="bite-alert" class="bite-alert" aria-live="assertive">
       <p class="bite-alert-label">Fish on!</p>
       <p id="bite-species" class="bite-species">Bass</p>
-      <p class="bite-alert-action">Press Space / trigger to HOOK</p>
+      <p class="bite-alert-action">Tap HOOK now!</p>
       <div class="bar-track bite-timer-track"><div id="bite-timer-fill" class="bar-fill bite-timer-fill"></div></div>
     </div>
 
     <div id="reel-alert" class="reel-alert">
-      <p>Hooked! Hold <strong>R</strong> / trigger to reel in</p>
+      <p>Hooked! Hold <strong>REEL</strong> to pull in</p>
       <p class="reel-hint">Ease off if tension gets too high</p>
     </div>
 
@@ -78,9 +78,22 @@
     <div id="catch-overlay" class="catch-overlay"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <div class="loading-hint">
+    <div id="touch-controls" class="touch-controls">
+      <div id="touch-look" class="touch-look" aria-hidden="true"></div>
+      <div id="touch-joystick" class="touch-joystick">
+        <div id="touch-stick" class="touch-stick"></div>
+      </div>
+      <div class="touch-actions">
+        <button id="touch-bait" type="button" class="touch-btn touch-btn-small">🪱 Bait</button>
+        <button id="touch-action" type="button" class="touch-btn touch-btn-action">Cast</button>
+        <button id="touch-reel" type="button" class="touch-btn touch-btn-reel hidden">Hold Reel</button>
+      </div>
+    </div>
+
+    <div class="loading-hint" id="loading-hint">
       <p>WebXR VR supported on Quest, Vision Pro, and desktop VR headsets.</p>
-      <p>Desktop: click to look · WASD move · Space cast · R reel · M menu · B bait</p>
+      <p class="desktop-hint">Desktop: click to look · WASD move · Space cast · R reel · M menu · B bait</p>
+      <p class="touch-hint">Touch: drag right to look · joystick to move · Cast / Hold Reel buttons</p>
     </div>
 
     <script type="module" src="./js/main.js"></script>

@@ -8,8 +8,10 @@ import { getState, setZone, canAccessZone, initState, setBait, getSelectedBait }
 import { BAITS } from "./data.js";
 import { ZONES } from "./data.js";
 import * as audio from "./audio.js";
+import { initTouchControls, isTouchDevice } from "./touch-controls.js";
 
 let ui = null;
+let touch = { active: false };
 
 const canvas = document.getElementById("game-canvas");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -92,7 +94,7 @@ document.addEventListener("keyup", (e) => {
 });
 
 canvas.addEventListener("click", () => {
-  if (!inVR && !pointerLocked) canvas.requestPointerLock();
+  if (!inVR && !pointerLocked && !touch.active) canvas.requestPointerLock();
   audio.resumeAudio();
 });
 document.addEventListener("pointerlockchange", () => {
@@ -122,6 +124,39 @@ function handleFishingAction() {
     fishing.hookFish();
   } else if (fs === FishingState.REELING) {
     reelHeld = true;
+  }
+  updateTouchUI();
+}
+
+function updateTouchUI() {
+  if (!touch.active) return;
+  const fs = fishing.state;
+  switch (fs) {
+    case FishingState.IDLE:
+      touch.setActionLabel("Cast");
+      touch.setActionEnabled(true);
+      touch.setReelVisible(false);
+      break;
+    case FishingState.CASTING:
+    case FishingState.WAITING:
+      touch.setActionLabel("Waiting…");
+      touch.setActionEnabled(false);
+      touch.setReelVisible(false);
+      break;
+    case FishingState.BITING:
+      touch.setActionLabel("HOOK!");
+      touch.setActionEnabled(true);
+      touch.setReelVisible(false);
+      break;
+    case FishingState.REELING:
+      touch.setActionLabel("Hooked");
+      touch.setActionEnabled(false);
+      touch.setReelVisible(true);
+      break;
+    default:
+      touch.setActionLabel("Cast");
+      touch.setActionEnabled(true);
+      touch.setReelVisible(false);
   }
 }
 
@@ -169,6 +204,7 @@ function onFishingEvent(type, data) {
     default:
       ui?.setStatus(fishing.getStatusText());
   }
+  updateTouchUI();
 }
 
 function switchZone(zoneId) {
@@ -208,6 +244,34 @@ teleportToZone(getState().zone);
 env.applyZone(getState().zone);
 renderHUDRefresh();
 
+touch = initTouchControls({
+  onLook(dx, dy) {
+    mouseX -= dx * 0.004;
+    mouseY -= dy * 0.004;
+    mouseY = Math.max(-1.2, Math.min(1.2, mouseY));
+    audio.resumeAudio();
+  },
+  onAction() {
+    audio.resumeAudio();
+    handleFishingAction();
+  },
+  onReelStart() {
+    reelHeld = true;
+    audio.resumeAudio();
+  },
+  onReelEnd() {
+    reelHeld = false;
+  },
+  onBait() {
+    ui?.openPanel?.("bait");
+  },
+}) || { active: false };
+
+if (touch.active) {
+  document.getElementById("status-text").textContent = "Drag right to look · joystick to move · tap Cast";
+  updateTouchUI();
+}
+
 function renderHUDRefresh() {
   const s = getState();
   document.getElementById("hud-fish").textContent = s.fish;
@@ -233,24 +297,30 @@ function updateDesktopMovement(dt) {
   camera.rotation.x = mouseY;
 
   const dir = new THREE.Vector3();
-  if (keys.KeyW) dir.z -= 1;
-  if (keys.KeyS) dir.z += 1;
-  if (keys.KeyA) dir.x -= 1;
-  if (keys.KeyD) dir.x += 1;
+  if (touch.active) {
+    const mv = touch.getMoveVector();
+    dir.x = mv.x;
+    dir.z = mv.z;
+    reelHeld = touch.isReelHeld();
+  } else {
+    if (keys.KeyW) dir.z -= 1;
+    if (keys.KeyS) dir.z += 1;
+    if (keys.KeyA) dir.x -= 1;
+    if (keys.KeyD) dir.x += 1;
+    if (keys.Space && !spaceWasDown) {
+      handleFishingAction();
+      spaceWasDown = true;
+    }
+    if (!keys.Space) spaceWasDown = false;
+    reelHeld = keys.KeyR;
+  }
+
   if (dir.length() > 0) {
     dir.normalize();
     dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), mouseX));
     camera.position.add(dir.multiplyScalar(moveSpeed * dt));
     camera.position.y = 1.6;
   }
-
-  if (keys.Space && !spaceWasDown) {
-    handleFishingAction();
-    spaceWasDown = true;
-  }
-  if (!keys.Space) spaceWasDown = false;
-
-  reelHeld = keys.KeyR;
 
   const rodOffset = new THREE.Vector3(0.25, -0.15, -0.4).applyQuaternion(camera.quaternion);
   fishing.updateRodTransform({

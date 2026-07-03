@@ -540,7 +540,159 @@ body > button {
   line-height: 1.5;
 }
 
+.loading-hint.hidden { display: none; }
+
+.touch-hint { display: none; }
+.touch-mode .touch-hint { display: block; }
+.touch-mode .desktop-hint { display: none; }
+
+.touch-controls {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+}
+
+.touch-controls.visible {
+  display: block;
+}
+
+.touch-look {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 55%;
+  height: 100%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-joystick {
+  position: absolute;
+  left: 20px;
+  bottom: 28px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(12, 31, 47, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-stick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: translate(0, 0);
+  will-change: transform;
+}
+
+.touch-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 16px 24px;
+  color: white;
+  background: var(--deep);
+  font: inherit;
+  font-weight: 900;
+  font-size: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.touch-btn:active,
+.touch-btn.pressed {
+  transform: scale(0.95);
+  background: #0a3d5c;
+}
+
+.touch-btn-action {
+  min-width: 120px;
+  font-size: 1.15rem;
+  background: var(--deep);
+}
+
+.touch-btn-action:disabled {
+  opacity: 0.45;
+}
+
+.touch-btn-reel {
+  background: var(--lake);
+  min-width: 120px;
+}
+
+.touch-btn-reel.bite-mode {
+  animation: bitePulse 0.5s ease infinite alternate;
+}
+
+.touch-btn-small {
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  background: rgba(12, 31, 47, 0.75);
+}
+
+.touch-btn.hidden {
+  display: none;
+}
+
+body.touch-mode > button {
+  display: none !important;
+}
+
+body.touch-mode .menu-toggle {
+  pointer-events: auto;
+}
+
+body.touch-mode .tension-bar {
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(280px, 80vw);
+}
+
+body.touch-mode .tension-bar.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+body.touch-mode .toast {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%) translateY(140%);
+  bottom: 200px;
+  max-width: 90vw;
+}
+
+body.touch-mode .toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+body.touch-mode .hud-stats {
+  font-size: 0.75rem;
+  gap: 8px;
+}
+
 @media (max-width: 600px) {
   .hud-stats { gap: 8px; font-size: 0.8rem; }
-  .loading-hint { display: none; }
+  .loading-hint:not(.touch-mode) { display: none; }
 }
