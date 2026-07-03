@@ -675,7 +675,7 @@ export class LakeEnvironment {
       const group = new THREE.Group();
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(1.0, 1.4, 32),
-        new THREE.MeshBasicMaterial({ color: 0xffd37a, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+        new THREE.MeshBasicMaterial({ color: 0xffd37a, side: THREE.DoubleSide, transparent: true, opacity: 0.35 })
       );
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.05;
@@ -740,9 +740,9 @@ export class LakeEnvironment {
       const innerRing = new THREE.Mesh(
         new THREE.RingGeometry(0.35, 0.55, 32),
         new THREE.MeshBasicMaterial({
-          color: 0xffd37a,
+          color: 0x7ee8ff,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0.16,
           side: THREE.DoubleSide,
           depthWrite: false,
         })
@@ -855,6 +855,12 @@ export class LakeEnvironment {
     const dx = x - pos.x;
     const dz = z - pos.z;
     return dx * dx + dz * dz <= radius * radius;
+  }
+
+  setZoneMarkersVisible(visible) {
+    this.zoneMarkers?.forEach((group) => {
+      group.visible = visible;
+    });
   }
 
   setEnvironmentMaps(envMaps) {

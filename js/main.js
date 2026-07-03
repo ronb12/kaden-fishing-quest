@@ -464,44 +464,46 @@ function updateTouchUI() {
   }
 }
 
+function syncFishingUiFocus() {
+  const focused = fishing && [
+    FishingState.WAITING,
+    FishingState.BITING,
+    FishingState.REELING,
+  ].includes(fishing.state);
+  ui?.setFishingFocusMode?.(focused);
+  if (focused) ui?.refreshTutorialOverlay?.();
+  env?.setZoneMarkersVisible?.(!focused);
+}
+
 function onFishingEvent(type, data) {
   switch (type) {
     case "cast":
       ui?.onTutorialTrigger?.("cast");
-      ui?.showContextualTip?.("first_cast");
       ui?.setStatus(fishing.getStatusText(inVR));
+      syncFishingUiFocus();
       break;
     case "nibble":
       ui?.onTutorialTrigger?.("nibble");
-      ui?.showContextualTip?.("nibble");
       ui?.setStatus(fishing.getStatusText(inVR));
       vibrate(12);
       break;
     case "preBite":
-      ui?.showContextualTip?.("preBite");
       audio.playPreBite();
       ui?.setStatus(fishing.getStatusText(), "urgent");
       vibrate(30);
       break;
     case "bite":
       ui?.onTutorialTrigger?.("bite");
-      ui?.showContextualTip?.("bite");
       ui?.setBiteAlert(true, data.species?.name, 1, { legendary: data.legendary });
       ui?.setStatus(fishing.getStatusText(), "strike");
-      if (data.legendary) {
-        ui?.showToast("⚡ LEGENDARY FISH nearby!");
-        vibrate([80, 40, 80]);
-      } else {
-        ui?.showToast(`${data.species?.name} is biting!`);
-        vibrate(60);
-      }
+      if (data.legendary) vibrate([80, 40, 80]);
+      else vibrate(60);
       break;
     case "biteTick":
       ui?.setBiteAlert(true, data.species?.name, data.progress, { legendary: fishing.legendaryEvent });
       break;
     case "hooked":
       ui?.onTutorialTrigger?.("hooked");
-      ui?.showContextualTip?.("hooked");
       ui?.setBiteAlert(false);
       ui?.setReelAlert(true);
       ui?.setStatus(fishing.getStatusText(inVR));
@@ -526,12 +528,12 @@ function onFishingEvent(type, data) {
       break;
     case "caught":
       ui?.onTutorialTrigger?.("caught");
-      ui?.showContextualTip?.("caught");
       if (data.isNewSpecies && data.speciesId) {
         ui?.showSpeciesCatchTip?.(data.speciesId);
       }
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
+      syncFishingUiFocus();
       ui?.showCatch(
         data,
         () => {
@@ -544,13 +546,13 @@ function onFishingEvent(type, data) {
       ui?.setStatus(fishing.getStatusText());
       break;
     case "failed":
+      syncFishingUiFocus();
       if (data.reason === "snap") ui?.showContextualTip?.("failed_snap");
       else if (data.reason === "escape") ui?.showContextualTip?.("failed_escape");
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
       ui?.setTension(0, 0, false);
       ui?.setStatus(data.message, "fail");
-      ui?.showToast(data.message);
       break;
     case "reset":
       ui?.setBiteAlert(false);
@@ -558,6 +560,7 @@ function onFishingEvent(type, data) {
       ui?.setTension(0, 0, false);
       ui?.setStatus(fishing.getStatusText(inVR));
       vrMotion.resetCast();
+      syncFishingUiFocus();
       break;
     default:
       ui?.setStatus(fishing.getStatusText());

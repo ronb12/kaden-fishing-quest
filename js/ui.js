@@ -89,6 +89,11 @@ export function initUI(fishing, callbacks) {
   let lastTensionZoneTip = null;
   let statusToneTimer = null;
   let prevHudStats = { fish: 0, coins: 0 };
+  let fishingFocusMode = false;
+
+  const TIPS_BLOCKED_IN_FOCUS = new Set([
+    "bite", "hooked", "caught", "first_cast", "nibble", "preBite",
+  ]);
 
   function setMenuOpen(open) {
     menu?.classList.toggle("open", open);
@@ -183,10 +188,11 @@ export function initUI(fishing, callbacks) {
   }
 
   function showToast(msg) {
+    if (fishingFocusMode) return;
     hideToast();
     toast.textContent = msg;
     toast.classList.add("show");
-    toastTimer = setTimeout(hideToast, 2200);
+    toastTimer = setTimeout(hideToast, 1800);
   }
 
   function updateSyncStatus() {
@@ -302,15 +308,25 @@ export function initUI(fishing, callbacks) {
     `;
   }
 
+  function setFishingFocusMode(active) {
+    fishingFocusMode = active;
+    if (active) {
+      hideTipBanner();
+      hideToast();
+    }
+  }
+
   function showContextualTip(tipKey) {
     const tip = CONTEXTUAL_TIPS[tipKey];
     if (!tip || !shouldShowTip(tip.id)) return;
+    if (fishingFocusMode && TIPS_BLOCKED_IN_FOCUS.has(tipKey)) return;
+    if (biteAlert?.classList.contains("visible") || reelAlert?.classList.contains("visible")) return;
     markTipSeen(tip.id);
     if (tipBannerTitle) tipBannerTitle.textContent = tip.title || "Tip";
     if (tipBannerText) tipBannerText.textContent = tip.text;
     tipBanner?.classList.add("show");
     clearTimeout(tipBannerTimer);
-    tipBannerTimer = setTimeout(hideTipBanner, 6500);
+    tipBannerTimer = setTimeout(hideTipBanner, fishingFocusMode ? 4000 : 5500);
   }
 
   function showSpeciesCatchTip(speciesId) {
@@ -321,17 +337,22 @@ export function initUI(fishing, callbacks) {
     if (tipBannerText) tipBannerText.textContent = tip.text;
     tipBanner?.classList.add("show");
     clearTimeout(tipBannerTimer);
-    tipBannerTimer = setTimeout(hideTipBanner, 8000);
+    tipBannerTimer = setTimeout(hideTipBanner, 6000);
   }
 
   function refreshTutorialOverlay() {
     const tut = getTutorial();
     if (!tutorialOverlay) return;
     if (!tut.active || tut.completed || tutorialOverlayMinimized) {
-      tutorialOverlay.classList.remove("show");
+      tutorialOverlay.classList.remove("show", "compact");
       tutorialOverlay.setAttribute("aria-hidden", "true");
       if (!tut.active || tut.completed) tutorialOverlayMinimized = false;
       return;
+    }
+    if (fishingFocusMode) {
+      tutorialOverlay.classList.add("compact");
+    } else {
+      tutorialOverlay.classList.remove("compact");
     }
     const step = GUIDED_STEPS[tut.step] || GUIDED_STEPS[0];
     const platform = inputMode();
@@ -750,6 +771,7 @@ export function initUI(fishing, callbacks) {
 
   return {
     showToast,
+    setFishingFocusMode,
     updateSyncStatus,
     refreshTutorialOverlay,
     onTutorialTrigger,
@@ -802,6 +824,7 @@ export function initUI(fishing, callbacks) {
       biteAlert?.classList.toggle("visible", visible);
       biteAlert?.classList.toggle("legendary", Boolean(meta.legendary && visible));
       reelAlert?.classList.toggle("visible", false);
+      if (visible) hideTipBanner();
       if (speciesName && biteSpecies) {
         biteSpecies.textContent = meta.legendary ? `⚡ ${speciesName}` : speciesName;
       }
@@ -813,10 +836,12 @@ export function initUI(fishing, callbacks) {
     setReelAlert(visible) {
       reelAlert?.classList.toggle("visible", visible);
       biteAlert?.classList.toggle("visible", false);
+      if (visible) hideTipBanner();
       if (reelHint) reelHint.textContent = reelHintText();
     },
     showCatch(catchData, onCastAgain, onDismiss) {
       if (!catchOverlay) return;
+      hideTipBanner();
       clearTimeout(catchAutoDismissTimer);
       const newBadge = catchData.isNewSpecies
         ? '<p class="catch-new">New codex entry!</p>'

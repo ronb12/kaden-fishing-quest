@@ -667,8 +667,8 @@ body > button {
   z-index: 55;
   display: flex;
   align-items: flex-end;
-  justify-content: center;
-  padding: 24px;
+  justify-content: flex-end;
+  padding: 16px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.25s;
@@ -676,18 +676,31 @@ body > button {
 
 .tutorial-overlay.show {
   opacity: 1;
-  pointer-events: auto;
+}
+
+.tutorial-overlay.compact {
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 12px 16px 88px;
 }
 
 .tutorial-card {
   position: relative;
-  width: min(520px, 100%);
-  padding: 22px 24px;
-  border-radius: 20px;
-  background: var(--panel);
-  border: 2px solid var(--sun);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: rgba(12, 31, 47, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
   animation: catchPop 0.35s ease;
+  pointer-events: auto;
+}
+
+.tutorial-overlay.compact .tutorial-card {
+  width: min(300px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border-left: 3px solid var(--lake);
 }
 
 .tutorial-close {
@@ -742,34 +755,39 @@ body > button {
 
 .tip-banner {
   position: fixed;
-  left: 50%;
-  bottom: 100px;
-  z-index: 45;
-  transform: translateX(-50%) translateY(120%);
-  transition: transform 0.3s ease;
-  width: min(420px, calc(100% - 32px));
+  top: 76px;
+  left: 16px;
+  right: auto;
+  bottom: auto;
+  z-index: 12;
+  transform: translateX(-120%);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  width: min(300px, calc(100vw - 32px));
   pointer-events: none;
+  opacity: 0;
 }
 
 .tip-banner.show {
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(0);
   pointer-events: auto;
+  opacity: 1;
 }
 
 .tip-banner-inner {
   position: relative;
-  padding: 14px 40px 14px 16px;
-  border-radius: 14px;
-  background: var(--deep);
-  border: 1px solid rgba(255,211,122,0.35);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  padding: 10px 36px 10px 12px;
+  border-radius: 12px;
+  background: rgba(12, 31, 47, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .tip-banner-inner strong {
   display: block;
-  color: var(--sun);
-  margin-bottom: 4px;
-  font-size: 0.85rem;
+  color: #9ae8ff;
+  margin-bottom: 2px;
+  font-size: 0.78rem;
 }
 
 .tip-banner-inner p {
@@ -1402,22 +1420,32 @@ body > button {
 
 .toast {
   position: fixed;
-  right: 20px;
-  bottom: 90px;
-  z-index: 40;
-  transform: translateY(140%);
-  transition: transform 0.25s ease;
-  border-radius: 14px;
-  padding: 14px 18px;
+  top: 76px;
+  right: 16px;
+  left: auto;
+  bottom: auto;
+  z-index: 12;
+  transform: translateY(-120%);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  border-radius: 999px;
+  padding: 8px 14px;
   color: white;
-  background: var(--deep);
+  background: rgba(12, 31, 47, 0.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   font-weight: 700;
-  max-width: 320px;
+  font-size: 0.82rem;
+  max-width: min(280px, calc(100vw - 32px));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  opacity: 0;
 }
 
 .toast.show {
   transform: translateY(0);
   cursor: pointer;
+  pointer-events: auto;
+  opacity: 1;
 }
 
 .loading-hint {
@@ -1568,15 +1596,26 @@ body.touch-mode .tension-bar.visible {
 }
 
 body.touch-mode .toast {
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%) translateY(140%);
-  bottom: 200px;
-  max-width: 90vw;
+  top: 68px;
+  right: 12px;
+  left: auto;
+  transform: translateY(-120%);
+  bottom: auto;
+  max-width: min(260px, 72vw);
 }
 
 body.touch-mode .toast.show {
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
+}
+
+body.touch-mode .tip-banner {
+  top: 68px;
+  left: 12px;
+  width: min(260px, 72vw);
+}
+
+body.touch-mode .tutorial-overlay.compact {
+  padding-bottom: 150px;
 }
 
 body.touch-mode .hud-stats {
