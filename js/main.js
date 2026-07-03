@@ -811,7 +811,28 @@ if (new URLSearchParams(location.search).has("playtest")) {
       if (fishing.state === FishingState.REELING) fishing.reel(0.05, intensity);
     },
     getLineVisible: () => Boolean(fishing.line?.geometry?.attributes?.position?.count > 2),
+    getLineDetail: () => ({
+      meshVisible: Boolean(fishing.line?.visible),
+      verts: fishing.line?.geometry?.attributes?.position?.count ?? 0,
+      renderOrder: fishing.line?.renderOrder ?? 0,
+    }),
     getBobberVisible: () => Boolean(fishing.bobber?.visible),
+    getFishDetail: () => ({
+      prospect: Boolean(fishing.prospectFish),
+      prospectVisible: Boolean(fishing.prospectFish?.visible),
+      prospectPos: fishing.prospectFish
+        ? { x: fishing.prospectFish.position.x, y: fishing.prospectFish.position.y, z: fishing.prospectFish.position.z }
+        : null,
+      prospectShadow: Boolean(fishing.prospectFishShadow?.visible),
+      biteFish: Boolean(fishing.biteFish),
+      biteFishVisible: Boolean(fishing.biteFish?.visible),
+      bitePos: fishing.biteFish
+        ? { x: fishing.biteFish.position.x, y: fishing.biteFish.position.y, z: fishing.biteFish.position.z }
+        : null,
+      bobberPos: fishing.bobber?.visible
+        ? { x: fishing.bobber.position.x, y: fishing.bobber.position.y, z: fishing.bobber.position.z }
+        : null,
+    }),
     getPoolMarkerVisible: () => {
       const zone = getState().zone;
       return Boolean(env?.fishingPoolMarkers?.[zone]?.visible);

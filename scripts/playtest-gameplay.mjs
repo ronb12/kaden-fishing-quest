@@ -98,6 +98,15 @@ try {
   if (bobberVisible) pass("bobber visible after cast");
   else pass("bobber hidden (lure rig ok)");
 
+  const lineDetail = await page.evaluate(() => window.__playtest.getLineDetail?.() || null);
+  if (lineDetail?.meshVisible && lineDetail.verts > 2) pass("fishing line mesh visible after cast");
+  else fail("fishing line mesh visible after cast", JSON.stringify(lineDetail));
+
+  await page.waitForTimeout(1200);
+  const fishDetail = await page.evaluate(() => window.__playtest.getFishDetail?.() || null);
+  if (fishDetail?.prospect) pass("prospect fish spawned in water");
+  else fail("prospect fish spawned in water", JSON.stringify(fishDetail));
+
   await page.evaluate(() => window.__playtest.forceBite());
   await page.waitForFunction(() => window.__playtest.getFishingState() === "biting", { timeout: 8000 });
   pass("fish bite triggered");
@@ -105,6 +114,10 @@ try {
   await page.evaluate(() => window.__playtest.hook());
   await page.waitForFunction(() => window.__playtest.getFishingState() === "reeling", { timeout: 3000 });
   pass("hook set — reeling");
+
+  const biteFish = await page.evaluate(() => window.__playtest.getFishDetail?.() || null);
+  if (biteFish?.biteFish) pass("bite fish visible during fight");
+  else fail("bite fish visible during fight", JSON.stringify(biteFish));
 
   for (let i = 0; i < 80; i++) {
     await page.evaluate(() => window.__playtest.reel(1));

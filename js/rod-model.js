@@ -258,15 +258,15 @@ export function buildHook() {
 }
 
 export function buildBiteFish(species) {
-  const fish = buildDetailedFish(species, 1.2);
+  const fish = buildDetailedFish(species, 1.35);
   fish.traverse((c) => {
     if (c.isMesh && c.material) {
       c.material = c.material.clone();
       c.material.transparent = true;
-      c.material.opacity = 0.95;
+      c.material.opacity = 1;
       c.material.depthWrite = false;
       c.material.emissive = new THREE.Color(species?.color ?? 0x4a90c4);
-      c.material.emissiveIntensity = 0.28;
+      c.material.emissiveIntensity = 0.45;
     }
   });
   return fish;
@@ -288,9 +288,9 @@ export function buildSplashRing() {
 
 export function buildFishingLine() {
   const material = new THREE.MeshStandardMaterial({
-    color: 0x1e2e2c,
-    emissive: 0x0a1818,
-    emissiveIntensity: 0.45,
+    color: 0xc8e8e0,
+    emissive: 0x2a5048,
+    emissiveIntensity: 0.55,
     roughness: 0.55,
     metalness: 0.08,
     transparent: true,
@@ -299,7 +299,7 @@ export function buildFishingLine() {
   });
   const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
   mesh.frustumCulled = false;
-  mesh.renderOrder = 12;
+  mesh.renderOrder = 15;
   mesh.name = "fishingLine";
   return mesh;
 }
@@ -316,17 +316,17 @@ export function updateFishingLineMesh(lineMesh, points, radius = 0.0022) {
 
 export function buildFishSilhouette() {
   const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(0.42, 20),
+    new THREE.CircleGeometry(0.55, 24),
     new THREE.MeshBasicMaterial({
-      color: 0x0a2838,
+      color: 0x143848,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.62,
       depthWrite: false,
       side: THREE.DoubleSide,
     })
   );
   mesh.rotation.x = -Math.PI / 2;
-  mesh.renderOrder = 4;
+  mesh.renderOrder = 5;
   mesh.visible = false;
   return mesh;
 }

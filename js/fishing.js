@@ -192,7 +192,9 @@ export class FishingSystem {
   }
 
   surfaceY(x, z, time) {
-    return 0.06 + this.env.getWaterHeight(x, z, time);
+    const wave = this.env.getWaterHeight(x, z, time);
+    // Keep rigs above the visible water plane — raw wave sum can dip below y=0.
+    return Math.max(0.12, 0.06 + wave);
   }
 
   updateLine() {
@@ -232,7 +234,7 @@ export class FishingSystem {
       segments.push(...linePointsWithSag(tip, end, 8, 0.05));
     }
 
-    updateFishingLineMesh(this.line, segments, fighting ? 0.0026 : 0.0022);
+    updateFishingLineMesh(this.line, segments, fighting ? 0.012 : 0.01);
     if (this.line.material) {
       const rod = getRodStats(getState().rodLevel);
       const zone = tensionZone(this.tension, rod);
@@ -245,9 +247,9 @@ export class FishingSystem {
         this.line.material.emissive.setHex(0x1a4030);
         this.line.material.opacity = 0.96;
       } else {
-        this.line.material.color.setHex(0x1e2e2c);
-        this.line.material.emissive.setHex(0x0a1818);
-        this.line.material.opacity = taut ? 0.94 : 0.9;
+        this.line.material.color.setHex(0xc8e8e0);
+        this.line.material.emissive.setHex(0x2a5048);
+        this.line.material.opacity = taut ? 0.98 : 0.94;
       }
     }
   }
@@ -502,18 +504,18 @@ export class FishingSystem {
     this.clearProspectFish();
     const s = getState();
     const preview = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, false);
-    this.prospectFish = buildDetailedFish(preview, 0.55);
+    this.prospectFish = buildDetailedFish(preview, 0.85);
     this.prospectFish.traverse((c) => {
       if (c.isMesh && c.material) {
         c.material = c.material.clone();
         c.material.transparent = true;
-        c.material.opacity = 0.72;
+        c.material.opacity = 0.92;
         c.material.depthWrite = false;
         c.material.emissive = new THREE.Color(preview?.color ?? 0x2a6080);
-        c.material.emissiveIntensity = 0.35;
+        c.material.emissiveIntensity = 0.55;
       }
     });
-    this.prospectFish.renderOrder = 6;
+    this.prospectFish.renderOrder = 8;
     this.prospectFish.frustumCulled = false;
     this.prospectAngle = Math.random() * Math.PI * 2;
     this.scene.add(this.prospectFish);
@@ -532,7 +534,7 @@ export class FishingSystem {
     const radius = 1.15 - this.nibbleIndex * 0.12 + Math.sin(time * 0.7) * 0.15;
     const fx = bx + Math.cos(this.prospectAngle) * radius;
     const fz = bz + Math.sin(this.prospectAngle) * radius;
-    const fishY = surface - 0.06 + Math.sin(time * 1.8) * 0.03;
+    const fishY = surface + 0.08 + Math.sin(time * 1.8) * 0.04;
     this.prospectFish.position.set(fx, fishY, fz);
     this.prospectFish.lookAt(bx, surface - 0.04, bz);
     if (this.prospectFishShadow) {
@@ -574,19 +576,12 @@ export class FishingSystem {
   spawnBiteFish() {
     this.clearBiteFish();
     this.biteFish = buildBiteFish(this.pendingFish);
-    if (this.legendaryEvent) {
-      this.biteFish.scale.setScalar(1.35);
-      this.biteFish.traverse((c) => {
-        if (c.isMesh && c.material) {
-          c.material.emissiveIntensity = 0.45;
-        }
-      });
-    }
+    this.biteFish.scale.setScalar(this.legendaryEvent ? 1.55 : 1.35);
     const pos = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
     const surface = this.surfaceY(pos.x, pos.z, 0);
-    this.biteFish.position.set(pos.x + 0.55, surface + 0.04, pos.z + 0.35);
-    this.biteFish.lookAt(pos.x, surface + 0.08, pos.z);
-    this.biteFish.renderOrder = 7;
+    this.biteFish.position.set(pos.x + 0.32, surface + 0.22, pos.z + 0.22);
+    this.biteFish.lookAt(pos.x, surface + 0.12, pos.z);
+    this.biteFish.renderOrder = 9;
     this.biteFish.frustumCulled = false;
     this.biteLunge = 0;
     this.scene.add(this.biteFish);
@@ -598,9 +593,9 @@ export class FishingSystem {
     const bx = rig.x;
     const bz = rig.z;
     const surface = this.surfaceY(bx, bz, time);
-    const target = new THREE.Vector3(bx + 0.08, surface + 0.06, bz + 0.05);
+    const target = new THREE.Vector3(bx + 0.06, surface + 0.2, bz + 0.04);
     this.biteLunge = Math.min(1, this.biteLunge + dt * 2.2);
-    const start = new THREE.Vector3(bx + 0.55, surface + 0.04, bz + 0.35);
+    const start = new THREE.Vector3(bx + 0.32, surface + 0.22, bz + 0.22);
     this.biteFish.position.lerpVectors(start, target, this.biteLunge);
     this.biteFish.lookAt(bx, surface + 0.1, bz);
     this.biteFish.rotation.z = Math.sin(this.biteLunge * 22) * 0.18;
@@ -617,7 +612,7 @@ export class FishingSystem {
     const pullZ = this.fishPull.y * 0.45;
     const target = new THREE.Vector3(
       bx - 0.12 + pullX,
-      surface + 0.02 + this.reelProgress * 0.55 + Math.sin(time * 9) * 0.14,
+      surface + 0.12 + this.reelProgress * 0.55 + Math.sin(time * 9) * 0.14,
       bz - 0.08 + pullZ
     );
     this.biteFish.position.lerp(target, dt * 4);
