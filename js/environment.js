@@ -3,6 +3,7 @@ import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
 import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z } from "./dock-layout.js";
+import { CollisionSystem } from "./collisions.js";
 
 const WATER_VERT = `
   uniform float uTime;
@@ -92,6 +93,7 @@ export class LakeEnvironment {
     this.waterMesh = null;
     this.zoneDressing = {};
     this.currentZoneId = "Lake Dock";
+    this.collisions = new CollisionSystem();
     this.build();
   }
 
@@ -127,10 +129,33 @@ export class LakeEnvironment {
     this.buildTrees();
     this.buildMountains();
     this.buildZoneMarkers();
-    this.campground = new Campground(this.scene);
+    this.campground = new Campground(this.scene, this.collisions);
     this.campFire = this.campground.campFire;
     this.buildZoneDressing();
+    this.buildEnvironmentCollisions();
     this.spawnAmbientFish();
+  }
+
+  buildEnvironmentCollisions() {
+    const c = this.collisions;
+    // Dock zone sign.
+    c.addCircle(1.5, 11.5, 0.55);
+    // North Cove rocks.
+    for (const [x, z] of [
+      [-22, -8], [-14, -12], [-24, -16], [-12, -18], [-20, -22],
+    ]) {
+      c.addCircle(x, z, 2.4);
+    }
+    // Deep water buoy / boat.
+    c.addCircle(26, -20, 1.8);
+    // North Cove bushes.
+    for (const [x, z] of [[-16, -8], [-20, -10], [-14, -12]]) {
+      c.addCircle(x, z, 1.0);
+    }
+  }
+
+  resolveCollisions(position) {
+    return this.collisions.resolve(position);
   }
 
   buildZoneDressing() {
@@ -372,6 +397,7 @@ export class LakeEnvironment {
         tree.position.set(x, 0, z);
         groundAlign(tree, 0);
         this.scene.add(tree);
+        this.collisions.addCircle(x, z, useKenney ? 1.25 + scale * 0.12 : 0.7);
       } else {
         const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22 });
         const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d6b3a });
@@ -383,6 +409,7 @@ export class LakeEnvironment {
         tree.add(trunk, leaves);
         tree.position.set(x, 0, z);
         this.scene.add(tree);
+        this.collisions.addCircle(x, z, 1.1);
       }
     });
 
@@ -399,6 +426,9 @@ export class LakeEnvironment {
       prop.position.set(x, 0, z);
       groundAlign(prop, 0.02);
       this.scene.add(prop);
+      if (gltf === bushGltf) {
+        this.collisions.addCircle(x, z, 0.55);
+      }
     });
   }
 

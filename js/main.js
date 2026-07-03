@@ -20,6 +20,7 @@ import { initTouchControls } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
 import { loadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
+import { moveWithCollisions } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
 import { DOCK_SPAWN } from "./dock-layout.js";
 
@@ -557,12 +558,17 @@ function updateDesktopMovement(dt) {
   if (dir.length() > 0) {
     dir.normalize();
     dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), mouseX));
-    camera.position.add(dir.multiplyScalar(moveSpeed * dt));
+    const delta = dir.multiplyScalar(moveSpeed * dt);
+    if (env?.collisions) {
+      camera.position.copy(moveWithCollisions(camera.position, delta, env.collisions));
+    } else {
+      camera.position.add(delta);
+    }
     camera.position.y = 1.6;
     camera.position.x = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.x));
     camera.position.z = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.z));
-    if (env.campground) {
-      camera.position.copy(env.campground.resolveCollisions(camera.position));
+    if (env?.collisions) {
+      camera.position.copy(env.collisions.resolve(camera.position));
     }
   }
 

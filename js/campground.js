@@ -43,8 +43,9 @@ function metalMat(color = 0x888888) {
 }
 
 export class Campground {
-  constructor(scene) {
+  constructor(scene, collisions = null) {
     this.scene = scene;
+    this.collisions = collisions;
     this.group = new THREE.Group();
     this.group.name = "Campground";
     this.interiorBounds = null;
@@ -69,6 +70,7 @@ export class Campground {
     this.buildCabin();
     this.buildOutdoorCamp();
     this.buildSigns();
+    this.buildCollisions();
   }
 
   tagInteractable(object, id, label) {
@@ -719,43 +721,71 @@ export class Campground {
     this.group.add(cabinSign);
   }
 
+  buildCollisions() {
+    if (!this.collisions) return;
+
+    const { x: cx, z: cz } = CAMP_ORIGIN;
+    const { width, depth, wall } = CABIN_SIZE;
+    const halfW = width / 2;
+    const halfD = depth / 2;
+    const c = this.collisions;
+
+    // Exterior cabin walls (door gap left open on the front).
+    c.addBox(cx - halfW, cx + halfW, cz + halfD - wall, cz + halfD);
+    c.addBox(cx - halfW, cx - halfW + wall, cz - halfD, cz + halfD);
+    c.addBox(cx + halfW - wall, cx + halfW, cz - halfD, cz + halfD);
+    c.addBox(cx - halfW, cx - DOOR_WIDTH / 2, cz - halfD, cz - halfD + wall);
+    c.addBox(cx + DOOR_WIDTH / 2, cx + halfW, cz - halfD, cz - halfD + wall);
+
+    // Porch side rails.
+    const porchZ = cz - halfD - 1.0;
+    c.addBoxCenter(cx - 1.6, porchZ, 0.18, 1.05);
+    c.addBoxCenter(cx + 1.6, porchZ, 0.18, 1.05);
+
+    // Chimney.
+    c.addCircle(cx + 2.4, cz + 1.8, 0.45);
+
+    // Interior furnishings.
+    c.addBoxCenter(cx - 2.8, cz + 2.6, 1.15, 1.45);
+    c.addCircle(cx - 4.0, cz + 1.5, 0.42);
+    c.addBoxCenter(cx - 3.6, cz + 3.5, 0.55, 0.45);
+    c.addBoxCenter(cx + 0.3, cz - 0.2, 0.95, 0.55);
+    c.addBoxCenter(cx - 0.9, cz - 0.55, 0.38, 0.38);
+    c.addBoxCenter(cx + 1.5, cz - 0.55, 0.38, 0.38);
+    c.addBoxCenter(cx + halfW - 0.65, cz + 0.5, 0.55, 1.25);
+    c.addBoxCenter(cx + 2.8, cz - 2.2, 0.55, 0.35);
+    c.addBoxCenter(cx + 3.6, cz - 2.8, 0.42, 0.32);
+    c.addBoxCenter(cx + 3.8, cz + 0.8, 0.45, 0.38);
+    c.addBoxCenter(cx + 0.5, cz + halfD - 0.85, 1.15, 0.45);
+    c.addCircle(cx - 2.0, cz - 2.8, 0.38);
+    c.addBoxCenter(cx + 1.8, cz - 3.2, 0.55, 0.28);
+
+    // Outdoor camp props.
+    c.addCircle(cx + 5.5, cz + 2, 1.55);
+    c.addCircle(cx + 3.5, cz - 2, 0.85);
+    c.addCircle(cx - 4.5, cz + 3.5, 1.05);
+    c.addBoxCenter(cx + 2, cz - 1, 0.85, 0.5);
+    c.addBoxCenter(cx + 2, cz - 1.6, 0.75, 0.22);
+
+    // Fence posts.
+    for (const [x, z] of [
+      [-22, 15], [-22, 24], [-22, 27], [-6, 27], [-6, 15], [-6, 13],
+    ]) {
+      c.addCircle(x, z, 0.85);
+    }
+
+    // Camp signs.
+    c.addCircle(DOCK_SHORE.x + 0.5, DOCK_SHORE.z + 0.6, 0.35);
+    c.addBoxCenter(CAMP_ORIGIN.x, CAMP_ORIGIN.z - CABIN_SIZE.depth / 2 - 1.4, 0.85, 0.2);
+  }
+
   isInsideCabin(position) {
     return this.interiorBounds?.containsPoint(position) ?? false;
   }
 
   resolveCollisions(position) {
-    const p = position.clone();
-    const cx = CAMP_ORIGIN.x;
-    const cz = CAMP_ORIGIN.z;
-    const hw = CABIN_SIZE.width / 2;
-    const hd = CABIN_SIZE.depth / 2;
-    const w = CABIN_SIZE.wall;
-    const r = 0.38;
-
-    if (p.x < cx - hw - 2 || p.x > cx + hw + 2 || p.z < cz - hd - 3 || p.z > cz + hd + 2) {
-      return p;
-    }
-
-    const inDoorway =
-      p.z < cz - hd + w + 0.45 &&
-      Math.abs(p.x - cx) < DOOR_WIDTH / 2 + 0.05;
-
-    if (p.z + r > cz + hd - w && p.x > cx - hw - r && p.x < cx + hw + r) {
-      p.z = cz + hd - w - r;
-    }
-    if (p.x - r < cx - hw + w && p.z > cz - hd && p.z < cz + hd) {
-      p.x = cx - hw + w + r;
-    }
-    if (p.x + r > cx + hw - w && p.z > cz - hd && p.z < cz + hd) {
-      p.x = cx + hw - w - r;
-    }
-    if (!inDoorway && p.z - r < cz - hd + w) {
-      if (p.x < cx - DOOR_WIDTH / 2 - r || p.x > cx + DOOR_WIDTH / 2 + r) {
-        p.z = cz - hd + w + r;
-      }
-    }
-
-    return p;
+    if (!this.collisions) return position;
+    return this.collisions.resolve(position);
   }
 
   update(time, playerPos, onCabinEvent) {
