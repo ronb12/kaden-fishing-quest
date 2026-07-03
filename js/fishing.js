@@ -1016,6 +1016,7 @@ export class FishingSystem {
       ring.material?.dispose();
     });
     this.splashRings = [];
+    if (this.line?.userData) this.line.userData.lineCache = null;
     audio.stopReelLoop();
     this.onEvent?.("reset");
   }

@@ -1,1 +1,1 @@
-export const BUILD_ID = "app-icon-polish-2026.07.03";
+export const BUILD_ID = "fix-freeze-2026.07.03";

@@ -9,6 +9,18 @@ const API_BASE = "/api";
 let syncTimer = null;
 let cloudEnabled = true;
 
+const FETCH_TIMEOUT_MS = 5000;
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function getPlayerId() {
   return playerId;
 }
@@ -16,7 +28,7 @@ export function getPlayerId() {
 export async function loadCloudSave() {
   if (!cloudEnabled) return null;
   try {
-    const res = await fetch(`${API_BASE}/progress?playerId=${encodeURIComponent(playerId)}`);
+    const res = await fetchWithTimeout(`${API_BASE}/progress?playerId=${encodeURIComponent(playerId)}`);
     if (res.status === 404) return null;
     if (!res.ok) return null;
     const data = await res.json();
@@ -34,7 +46,7 @@ export async function loadCloudSave() {
 export async function saveCloudSave(state) {
   if (!cloudEnabled) return false;
   try {
-    const res = await fetch(`${API_BASE}/progress`, {
+    const res = await fetchWithTimeout(`${API_BASE}/progress`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -59,7 +71,7 @@ export function scheduleCloudSave(state, onComplete) {
 
 export async function fetchLeaderboard(sort = "fish") {
   try {
-    const res = await fetch(`${API_BASE}/leaderboard?sort=${encodeURIComponent(sort)}`);
+    const res = await fetchWithTimeout(`${API_BASE}/leaderboard?sort=${encodeURIComponent(sort)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.leaderboard || [];

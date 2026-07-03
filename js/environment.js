@@ -110,6 +110,7 @@ export class LakeEnvironment {
     this._stairRaycaster = new THREE.Raycaster();
     this._stairRayOrigin = new THREE.Vector3();
     this._stairRayDir = new THREE.Vector3(0, -1, 0);
+    this._dockEyeCache = { x: NaN, z: NaN, y: null };
     this.build();
   }
 
@@ -922,7 +923,17 @@ export class LakeEnvironment {
 
   /** Sample pier/stair tread under the player so the camera rides the dock mesh. */
   getDockWalkEyeHeight(x, z) {
-    if (!isOnDockWalk(x, z)) return null;
+    const cache = this._dockEyeCache;
+    if (Math.abs(x - cache.x) < 0.025 && Math.abs(z - cache.z) < 0.025 && cache.y != null) {
+      return cache.y;
+    }
+    cache.x = x;
+    cache.z = z;
+
+    if (!isOnDockWalk(x, z)) {
+      cache.y = null;
+      return null;
+    }
 
     if (this.dockWalkMeshes.length) {
       this._stairRayOrigin.set(x, 8, z);
@@ -930,12 +941,17 @@ export class LakeEnvironment {
       const hits = this._stairRaycaster.intersectObjects(this.dockWalkMeshes, false);
       if (hits.length) {
         const surface = Math.max(...hits.map((h) => h.point.y));
-        return surface + DOCK_EYE_OFFSET;
+        cache.y = surface + DOCK_EYE_OFFSET;
+        return cache.y;
       }
     }
 
-    if (isOnDockStairs(x, z)) return getDockStairEyeHeightFallback(x, z);
-    return DOCK_WALK.plankEyeY;
+    if (isOnDockStairs(x, z)) {
+      cache.y = getDockStairEyeHeightFallback(x, z);
+      return cache.y;
+    }
+    cache.y = DOCK_WALK.plankEyeY;
+    return cache.y;
   }
 
   /** @deprecated use getDockWalkEyeHeight */

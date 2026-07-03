@@ -125,10 +125,14 @@ export function groundAlign(object, floorY = 0) {
 }
 
 export function updateModelAnimations(object, dt) {
-  object?.traverse?.((c) => {
+  if (!object) return;
+  if (object.userData?.mixer) {
+    object.userData.mixer.update(dt);
+    return;
+  }
+  object.traverse?.((c) => {
     if (c.userData?.mixer) c.userData.mixer.update(dt);
   });
-  if (object?.userData?.mixer) object.userData.mixer.update(dt);
 }
 
 export function addRodTipMarker(rodGroup) {

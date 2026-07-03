@@ -127,6 +127,8 @@ let spaceWasDown = false;
 let prevReelHeld = false;
 let lastTensionZone = "sweet";
 let gameStarted = false;
+let lastHudStatus = "";
+const uiFrameCache = { biteProgress: -1, reelTension: -1, reelProgress: -1 };
 
 function dismissLoadingHint() {
   if (gameStarted) return;
@@ -139,31 +141,36 @@ function dismissLoadingHint() {
 function refreshStatus() {
   if (!ui || inVR) return;
   updateBoatInteractTarget();
+  let text;
+  let tone = "";
   if (boatInteractTarget && fishing.state === FishingState.IDLE) {
-    ui.setStatus(`[E] ${boatInteractTarget.label}`);
-    return;
-  }
-  if (cabinInteractTarget && fishing.state === FishingState.IDLE) {
-    ui.setStatus(`[E] ${cabinInteractTarget.label}`);
-    return;
-  }
-  if (castCharging && fishing.state === FishingState.IDLE) {
+    text = `[E] ${boatInteractTarget.label}`;
+  } else if (cabinInteractTarget && fishing.state === FishingState.IDLE) {
+    text = `[E] ${cabinInteractTarget.label}`;
+  } else if (castCharging && fishing.state === FishingState.IDLE) {
     const pct = Math.round((0.35 + castCharge * 0.65) * 100);
-    ui.setStatus(`Charging cast… ${pct}% — release Space`);
+    text = `Charging cast… ${pct}% — release Space`;
     ui.setCastCharge?.(true, castCharge);
+    if (text !== lastHudStatus) {
+      lastHudStatus = text;
+      ui.setStatus(text, tone);
+    }
     return;
-  }
-  ui.setCastCharge?.(false);
-  if (fishing.state !== FishingState.IDLE) {
-    ui.setStatus(fishing.getStatusText(inVR));
-    return;
-  }
-  if (touch.active) {
-    ui.setStatus("Hold Cast to charge · drag right to look · joystick to move");
-  } else if (pointerLocked) {
-    ui.setStatus("WASD move · hold Space to cast · hold R to reel · M menu · H guide");
   } else {
-    ui.setStatus("Click to look · WASD to move · walk the boardwalk to the lake");
+    ui.setCastCharge?.(false);
+    if (fishing.state !== FishingState.IDLE) {
+      text = fishing.getStatusText(inVR);
+    } else if (touch.active) {
+      text = "Hold Cast to charge · drag right to look · joystick to move";
+    } else if (pointerLocked) {
+      text = "WASD move · hold Space to cast · hold R to reel · M menu · H guide";
+    } else {
+      text = "Click to look · WASD to move · walk the boardwalk to the lake";
+    }
+  }
+  if (text !== lastHudStatus) {
+    lastHudStatus = text;
+    ui.setStatus(text, tone);
   }
 }
 
@@ -493,16 +500,23 @@ function onFishingEvent(type, data) {
       vibrate(30);
       break;
     case "bite":
+      uiFrameCache.biteProgress = -1;
       ui?.onTutorialTrigger?.("bite");
       ui?.setBiteAlert(true, data.species?.name, 1, { legendary: data.legendary });
       ui?.setStatus(fishing.getStatusText(), "strike");
       if (data.legendary) vibrate([80, 40, 80]);
       else vibrate(60);
       break;
-    case "biteTick":
-      ui?.setBiteAlert(true, data.species?.name, data.progress, { legendary: fishing.legendaryEvent });
+    case "biteTick": {
+      const progress = data.progress ?? 1;
+      if (Math.abs(progress - uiFrameCache.biteProgress) < 0.02) break;
+      uiFrameCache.biteProgress = progress;
+      ui?.setBiteAlert(true, data.species?.name, progress, { legendary: fishing.legendaryEvent });
       break;
+    }
     case "hooked":
+      uiFrameCache.reelTension = -1;
+      uiFrameCache.reelProgress = -1;
       ui?.onTutorialTrigger?.("hooked");
       ui?.setBiteAlert(false);
       ui?.setReelAlert(true);
@@ -511,12 +525,21 @@ function onFishingEvent(type, data) {
         phaseLabel: fishing.fightPhaseLabel,
       });
       break;
-    case "reeling":
+    case "reeling": {
+      const t = data.tension ?? 0;
+      const p = data.progress ?? 0;
+      const changed =
+        data.phaseChanged ||
+        Math.abs(t - uiFrameCache.reelTension) >= 0.025 ||
+        Math.abs(p - uiFrameCache.reelProgress) >= 0.02;
+      if (!changed) break;
+      uiFrameCache.reelTension = t;
+      uiFrameCache.reelProgress = p;
       ui?.checkTensionTip?.(
-        tensionZone(data.tension, getRodStats(getState().rodLevel)),
+        tensionZone(t, getRodStats(getState().rodLevel)),
         data.phase
       );
-      ui?.setTension(data.tension, data.progress, true, {
+      ui?.setTension(t, p, true, {
         phase: data.phase,
         phaseLabel: data.phaseLabel,
       });
@@ -526,6 +549,7 @@ function onFishingEvent(type, data) {
         vrMotion.pulseHaptic(controllers[1], strong ? 0.55 : 0.25, strong ? 55 : 30);
       }
       break;
+    }
     case "caught":
       ui?.onTutorialTrigger?.("caught");
       if (data.isNewSpecies && data.speciesId) {

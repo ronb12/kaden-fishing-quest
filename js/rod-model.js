@@ -406,17 +406,23 @@ export function buildFishingLine() {
 /** Rebuild a visible monofilament line from rod tip to rig (TubeGeometry — WebGL lines are 1px). */
 export function updateFishingLineMesh(lineRoot, points, radius = 0.003) {
   if (!lineRoot || points.length < 2) return;
+
+  const key = points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`).join("|");
+  const cache = lineRoot.userData.lineCache;
+  if (cache?.key === key && cache?.radius === radius) return;
+  lineRoot.userData.lineCache = { key, radius };
+
   const curve = new THREE.CatmullRomCurve3(points);
-  const segments = Math.max(16, points.length * 4);
+  const segments = Math.min(36, Math.max(12, points.length * 2));
   const core = lineRoot.getObjectByName?.("lineCore") || lineRoot;
   const glow = lineRoot.getObjectByName?.("lineGlow");
 
-  const coreGeo = new THREE.TubeGeometry(curve, segments, radius, 6, false);
+  const coreGeo = new THREE.TubeGeometry(curve, segments, radius, 5, false);
   if (core.geometry) core.geometry.dispose();
   core.geometry = coreGeo;
 
   if (glow) {
-    const glowGeo = new THREE.TubeGeometry(curve, segments, radius * 1.7, 6, false);
+    const glowGeo = new THREE.TubeGeometry(curve, segments, radius * 1.65, 5, false);
     if (glow.geometry) glow.geometry.dispose();
     glow.geometry = glowGeo;
   }
