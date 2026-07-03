@@ -1,3 +1,5 @@
+import { DOCK_SPAWN } from "./dock-layout.js";
+
 export const STORAGE_KEY = "kaden-vr-fishing-v1";
 
 export const GEAR_MAX = { rod: 5, boat: 3, bait: 3 };
@@ -12,7 +14,7 @@ export const ZONES = {
     id: "Lake Dock",
     label: "Lake Dock",
     description: "Calm shallows perfect for beginners.",
-    teleport: { x: 0, y: 0, z: 13.5 },
+    teleport: { x: DOCK_SPAWN.x, y: DOCK_SPAWN.y, z: DOCK_SPAWN.z },
     lookAt: { x: 0, y: 0, z: -4 },
     castCenter: { x: 0, z: -12 },
     castRadius: 8,

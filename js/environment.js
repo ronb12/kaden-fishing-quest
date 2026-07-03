@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { ZONES } from "./data.js";
-import { getAssets, cloneModel, updateModelAnimations, groundAlign, layFlat } from "./asset-loader.js";
+import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
-import { DOCK_GROUP } from "./dock-layout.js";
+import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z } from "./dock-layout.js";
 
 const WATER_VERT = `
   uniform float uTime;
@@ -154,7 +154,8 @@ export class LakeEnvironment {
     if (lilyGltf) {
       for (let i = 0; i < 10; i++) {
         const lily = cloneModel(lilyGltf, { scale: 1.6 + Math.random() * 0.4, rotationY: Math.random() * Math.PI });
-        lily.position.set(-7 + (i % 5) * 2.8, 0.02, -7 - Math.floor(i / 5) * 2.2);
+        lily.position.set(-7 + (i % 5) * 2.8, 0, -7 - Math.floor(i / 5) * 2.2);
+        groundAlign(lily, 0.02);
         group.add(lily);
       }
     }
@@ -183,6 +184,7 @@ export class LakeEnvironment {
       if (gltf) {
         const rock = cloneModel(gltf, { scale: 2.8 + Math.random() * 1.2, rotationY: Math.random() * Math.PI });
         rock.position.set(x, 0, z);
+        groundAlign(rock, 0.02);
         group.add(rock);
       } else {
         const rock = new THREE.Mesh(
@@ -198,13 +200,13 @@ export class LakeEnvironment {
       [-16, -20, -14].forEach((x, i) => {
         const bush = cloneModel(bushGltf, { scale: 2.2 + i * 0.2, rotationY: i });
         bush.position.set(x, 0, -6 - i * 2);
+        groundAlign(bush, 0.02);
         group.add(bush);
       });
     }
     const pierGltf = assets?.env?.Dock_Long_NoRope || assets?.env?.Dock_Long;
     if (pierGltf) {
       const pier = cloneModel(pierGltf, { scale: 0.35, rotationY: 0 });
-      layFlat(pier);
       pier.position.set(-18, 0, -4);
       groundAlign(pier, 0.02);
       group.add(pier);
@@ -221,7 +223,8 @@ export class LakeEnvironment {
     const boatGltf = assets?.env?.Boat;
     if (boatGltf) {
       const buoy = cloneModel(boatGltf, { scale: 0.45, rotationY: 0 });
-      buoy.position.set(26, 0.05, -20);
+      buoy.position.set(26, 0, -20);
+      groundAlign(buoy, 0.04);
       group.add(buoy);
     } else {
       const buoy = new THREE.Mesh(
@@ -296,11 +299,10 @@ export class LakeEnvironment {
       }
     }
 
-    const bridgeZ = [0.5, 2.2, 3.9, 5.6, 7.3, 9.0, 10.7];
+    const bridgeZ = [4.5, 8.5];
     if (longGltf) {
       bridgeZ.forEach((z) => {
         const seg = cloneModel(longGltf, { scale: 0.4, rotationY: 0 });
-        layFlat(seg);
         seg.position.set(0, 0, z);
         groundAlign(seg, 0.06);
         dockGroup.add(seg);
@@ -327,7 +329,7 @@ export class LakeEnvironment {
     }
 
     const shoreDeck = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.12, 3.6), plankMat);
-    shoreDeck.position.set(0, 0.1, 12.4);
+    shoreDeck.position.set(0, 0.1, DOCK_SHORE_LOCAL_Z);
     shoreDeck.receiveShadow = true;
     dockGroup.add(shoreDeck);
 
@@ -415,6 +417,7 @@ export class LakeEnvironment {
       if (gltf) {
         const rock = cloneModel(gltf, { scale: s, rotationY: i * 0.8 });
         rock.position.set(x, 0, z);
+        groundAlign(rock, 0);
         this.scene.add(rock);
       } else {
         const mat = new THREE.MeshStandardMaterial({ color: 0x6a8a9a, flatShading: true });
@@ -446,7 +449,7 @@ export class LakeEnvironment {
       pad.rotation.x = Math.PI / 2;
       pad.position.y = 0.03;
       group.add(ring, pillar, pad);
-      group.position.set(zone.teleport.x + (zone.id === "Lake Dock" ? 3.5 : 0), 0, zone.teleport.z);
+      group.position.set(zone.teleport.x, 0, zone.teleport.z);
       group.userData.zoneId = zone.id;
       group.userData.zoneLabel = zone.label;
       this.scene.add(group);

@@ -21,6 +21,7 @@ import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
 import { loadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
 import { BUILD_ID } from "./version.js";
+import { DOCK_SPAWN } from "./dock-layout.js";
 
 let ui = null;
 let touch = { active: false };
@@ -37,7 +38,7 @@ renderer.xr.enabled = true;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 1.6, 13.5);
+camera.position.set(DOCK_SPAWN.x, 1.6, DOCK_SPAWN.z);
 
 let env = null;
 let fishing = null;
@@ -681,3 +682,10 @@ window.addEventListener("resize", () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+if (new URLSearchParams(location.search).has("playtest")) {
+  window.__setPlaytestCamera = (x, y, z, lx, ly, lz) => {
+    camera.position.set(x, y, z);
+    camera.lookAt(lx, ly, lz);
+  };
+}

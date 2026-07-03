@@ -78,39 +78,38 @@ export class Campground {
   }
 
   buildPathFromDock() {
-    const assets = getAssets();
     const pathPoints = [
-      { x: DOCK_SHORE.x, z: DOCK_SHORE.z, rot: -0.2 },
-      { x: -0.5, z: DOCK_SHORE.z + 1.8, rot: 0.05 },
-      { x: -1.8, z: DOCK_SHORE.z + 3.5, rot: 0.28 },
-      { x: -4.2, z: DOCK_SHORE.z + 5.2, rot: 0.48 },
-      { x: -7.2, z: DOCK_SHORE.z + 6.5, rot: 0.68 },
-      { x: -10.2, z: DOCK_SHORE.z + 7.2, rot: 0.88 },
-      { x: -13, z: CAMP_ORIGIN.z - 1.5, rot: 1.05 },
+      { x: DOCK_SHORE.x, z: DOCK_SHORE.z },
+      { x: -0.5, z: DOCK_SHORE.z + 1.8 },
+      { x: -1.8, z: DOCK_SHORE.z + 3.5 },
+      { x: -4.2, z: DOCK_SHORE.z + 5.2 },
+      { x: -7.2, z: DOCK_SHORE.z + 6.5 },
+      { x: -10.2, z: DOCK_SHORE.z + 7.2 },
+      { x: -13, z: CAMP_ORIGIN.z - 1.5 },
+      { x: CAMP_ORIGIN.x, z: CAMP_ORIGIN.z - 2 },
     ];
 
-    const woodPath = assets?.kenney?.path_wood;
-    const woodCorner = assets?.kenney?.path_woodCorner;
-    const woodEnd = assets?.kenney?.path_woodEnd;
-    const dirtPath = assets?.kenney?.ground_pathStraight;
-
-    pathPoints.forEach((pt, i) => {
-      const gltf = i === 0 ? woodEnd : i === pathPoints.length - 1 ? woodCorner : woodPath || dirtPath;
-      if (!gltf) {
-        const mat = plankMat(0x9a7048);
-        const plank = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 1.2), mat);
-        plank.position.set(pt.x, 0.04, pt.z);
-        plank.rotation.y = pt.rot;
+    for (let i = 0; i < pathPoints.length - 1; i++) {
+      const a = pathPoints[i];
+      const b = pathPoints[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const len = Math.hypot(dx, dz);
+      const yaw = Math.atan2(dx, dz);
+      const steps = Math.max(1, Math.ceil(len / 1.35));
+      for (let s = 0; s < steps; s++) {
+        const t = (s + 0.5) / steps;
+        const plank = new THREE.Mesh(
+          new THREE.BoxGeometry(1.55, 0.06, 1.05),
+          plankMat(0x9a7048)
+        );
+        plank.position.set(a.x + dx * t, 0.04, a.z + dz * t);
+        plank.rotation.y = yaw;
+        plank.castShadow = true;
+        plank.receiveShadow = true;
         this.group.add(plank);
-        return;
       }
-      const tile = cloneModel(gltf, { scale: 2.2, rotationY: 0 });
-      layFlat(tile);
-      tile.rotation.y = pt.rot;
-      tile.position.set(pt.x, 0, pt.z);
-      groundAlign(tile, 0.04);
-      this.group.add(tile);
-    });
+    }
   }
 
   buildClearedGround() {
@@ -656,7 +655,7 @@ export class Campground {
     const assets = getAssets();
     const { x: cx, z: cz } = CAMP_ORIGIN;
 
-    const tent = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.4, 4), fabricMat(0xe85a4f));
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.4, 4), fabricMat(0x8b4a3a));
     tent.position.set(cx + 5.5, 1.2, cz + 2);
     tent.rotation.y = Math.PI / 6;
     tent.castShadow = true;
@@ -693,6 +692,7 @@ export class Campground {
     if (logPile) {
       const pile = cloneModel(logPile, { scale: 2.2, rotationY: 0.4 });
       pile.position.set(cx - 4.5, 0, cz + 3.5);
+      groundAlign(pile, 0.02);
       this.group.add(pile);
     }
 
