@@ -1,55 +1,94 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kaden VR Fishing Quest">
   <defs>
-    <linearGradient id="sky" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#0d4f73"/>
-      <stop offset="55%" stop-color="#0f86a8"/>
-      <stop offset="100%" stop-color="#ffd37a"/>
+    <linearGradient id="bg" x1="96" y1="48" x2="416" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0a3550"/>
+      <stop offset="42%" stop-color="#0d4f73"/>
+      <stop offset="78%" stop-color="#0f86a8"/>
+      <stop offset="100%" stop-color="#ffc96a"/>
     </linearGradient>
-    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#d5f0fa" stop-opacity=".98"/>
-      <stop offset="100%" stop-color="#7ec8e8" stop-opacity=".92"/>
+    <radialGradient id="sunGlow" cx="78%" cy="18%" r="42%">
+      <stop offset="0%" stop-color="#ffe8a8" stop-opacity=".95"/>
+      <stop offset="55%" stop-color="#ffd37a" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#ffd37a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="waterTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8f8ff"/>
+      <stop offset="100%" stop-color="#6ec4e8"/>
     </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0c1f2f" flood-opacity=".28"/>
+    <linearGradient id="fishBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5ed4f0"/>
+      <stop offset="45%" stop-color="#0f86a8"/>
+      <stop offset="100%" stop-color="#0a5570"/>
+    </linearGradient>
+    <linearGradient id="rod" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff8ef"/>
+      <stop offset="100%" stop-color="#d8dde8"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#061018" flood-opacity=".35"/>
+    </filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
-  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <!-- App icon safe area: keep key art inside ~432px with 40px inset -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#sunGlow)"/>
 
-  <!-- distant hills -->
-  <path d="M0 250c70-40 150-55 230-45s170 35 282 20v262H0z" fill="#0a3d5c" fill-opacity=".35"/>
+  <!-- distant shore -->
+  <path d="M0 248c88-36 176-48 256-38s176 34 256 18v304H0z" fill="#083248" fill-opacity=".42"/>
 
-  <!-- water -->
-  <path d="M48 300c56-46 136-74 208-74s152 28 208 74-136 92-208 92-152-46-208-92z" fill="url(#water)"/>
-  <path d="M88 300c36-24 84-38 136-38s100 14 152 38" fill="none" stroke="#0d4f73" stroke-width="12" stroke-linecap="round" opacity=".55"/>
+  <!-- water body -->
+  <ellipse cx="256" cy="332" rx="228" ry="108" fill="url(#waterTop)" fill-opacity=".94"/>
+  <ellipse cx="256" cy="318" rx="196" ry="34" fill="#ffffff" fill-opacity=".22"/>
+  <path d="M72 318c52-18 116-28 184-28s132 10 184 28" fill="none" stroke="#0d4f73" stroke-width="8" stroke-linecap="round" opacity=".35"/>
+
+  <!-- subtle VR lens rings (top-left, integrated) -->
+  <g opacity=".88">
+    <circle cx="118" cy="118" r="52" fill="none" stroke="#ffffff" stroke-width="10" opacity=".18"/>
+    <circle cx="118" cy="118" r="34" fill="none" stroke="#7ee8ff" stroke-width="6" opacity=".35"/>
+    <circle cx="118" cy="118" r="10" fill="#ffd37a" opacity=".85"/>
+  </g>
 
   <!-- fishing rod -->
-  <g filter="url(#soft)">
-    <path d="M350 92c0 72-18 132-66 188" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
-    <path d="M350 92c0 72-18 132-66 188" fill="none" stroke="#0c1f2f" stroke-width="8" stroke-linecap="round" opacity=".25"/>
-    <circle cx="350" cy="92" r="16" fill="#c49a6c" stroke="#0c1f2f" stroke-width="6"/>
+  <g filter="url(#shadow)">
+    <path d="M392 88 C360 148 318 210 268 268" fill="none" stroke="#0c1f2f" stroke-width="14" stroke-linecap="round" opacity=".22"/>
+    <path d="M392 88 C360 148 318 210 268 268" fill="none" stroke="url(#rod)" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="392" cy="88" r="18" fill="#c49a6c" stroke="#8b6340" stroke-width="4"/>
+    <circle cx="392" cy="88" r="8" fill="#e8c9a0"/>
   </g>
 
-  <!-- bobber -->
-  <g filter="url(#soft)">
-    <rect x="276" y="248" width="14" height="34" rx="4" fill="#fff"/>
-    <ellipse cx="283" cy="266" rx="18" ry="14" fill="#fff"/>
-    <path d="M265 266h36" fill="none" stroke="#0d4f73" stroke-width="5" stroke-linecap="round"/>
-    <ellipse cx="283" cy="278" rx="18" ry="14" fill="#e84545"/>
+  <!-- line + bobber -->
+  <g filter="url(#shadow)">
+    <path d="M268 268 C252 286 244 302 244 322" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity=".95"/>
+    <ellipse cx="244" cy="328" rx="22" ry="17" fill="#ffffff"/>
+    <ellipse cx="244" cy="338" rx="22" ry="17" fill="#e84545"/>
+    <rect x="240" y="312" width="8" height="18" rx="3" fill="#ffffff"/>
+    <ellipse cx="244" cy="328" rx="30" ry="10" fill="#ffffff" fill-opacity=".28"/>
   </g>
 
-  <!-- fish -->
-  <g filter="url(#soft)">
-    <path d="M228 318c-36 0-68 16-92 44 24 28 56 44 92 44 40 0 76-20 104-56-28-20-64-32-104-32z" fill="#0f86a8" stroke="#0c1f2f" stroke-width="16" stroke-linejoin="round"/>
-    <path d="M136 362l-44 28 12-52z" fill="#0f86a8" stroke="#0c1f2f" stroke-width="12" stroke-linejoin="round"/>
-    <circle cx="252" cy="346" r="12" fill="#fff"/>
-    <circle cx="256" cy="346" r="5" fill="#0c1f2f"/>
-    <path d="M300 330c18 10 28 24 32 40" fill="none" stroke="#7ee8ff" stroke-width="10" stroke-linecap="round" opacity=".75"/>
+  <!-- hero fish -->
+  <g filter="url(#shadow)">
+    <path d="M168 356 C132 356 104 372 88 398 C112 424 148 438 184 438 C228 438 268 416 296 378 C264 360 224 356 184 356 Z" fill="url(#fishBody)" stroke="#0c1f2f" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M88 398 L48 428 L62 372 Z" fill="#0f86a8" stroke="#0c1f2f" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M196 368 C214 356 236 352 258 358" fill="none" stroke="#7ee8ff" stroke-width="8" stroke-linecap="round" opacity=".75"/>
+    <circle cx="214" cy="384" r="14" fill="#ffffff"/>
+    <circle cx="220" cy="384" r="6" fill="#0c1f2f"/>
+    <path d="M248 392 C268 400 286 414 298 432" fill="none" stroke="#5ed4f0" stroke-width="7" stroke-linecap="round" opacity=".65"/>
   </g>
 
-  <!-- VR badge -->
-  <g transform="translate(92 92)">
-    <rect width="112" height="56" rx="28" fill="#0c1f2f" fill-opacity=".72"/>
-    <text x="56" y="38" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="28" font-weight="900" fill="#ffd37a">VR</text>
+  <!-- water sparkle -->
+  <g fill="#ffffff" opacity=".75">
+    <circle cx="148" cy="302" r="4"/>
+    <circle cx="332" cy="294" r="3"/>
+    <circle cx="380" cy="318" r="2.5"/>
   </g>
+
+  <!-- bottom vignette for depth -->
+  <path d="M0 420 Q256 480 512 420 L512 512 L0 512 Z" fill="#061018" fill-opacity=".12"/>
 </svg>

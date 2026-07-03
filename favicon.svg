@@ -1,16 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Kaden VR Fishing Quest">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0.2" y2="1">
-      <stop offset="0%" stop-color="#0d4f73"/>
-      <stop offset="100%" stop-color="#ffd37a"/>
+    <linearGradient id="bg" x1="4" y1="2" x2="28" y2="30">
+      <stop offset="0%" stop-color="#0a3550"/>
+      <stop offset="55%" stop-color="#0f86a8"/>
+      <stop offset="100%" stop-color="#ffc96a"/>
+    </linearGradient>
+    <linearGradient id="fish" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5ed4f0"/>
+      <stop offset="100%" stop-color="#0f86a8"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="6" fill="url(#sky)"/>
-  <path d="M4 21c4-3 9-5 14-5s10 2 14 5-9 7-14 7-10-4-14-7z" fill="#d5f0fa" fill-opacity=".95"/>
-  <path d="M7 21c2-2 5-3 8-3s6 1 10 3" fill="none" stroke="#0d4f73" stroke-width="1.4" stroke-linecap="round"/>
-  <path d="M18 9c0 3-1 6-3 8" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M14 19c-2 0-4 1-5 3 1 2 3 3 5 3 2 0 5-1 7-3-2-1-4-3-7-3z" fill="#0f86a8" stroke="#0c1f2f" stroke-width="1.2"/>
-  <circle cx="16" cy="20.5" r="1" fill="#fff"/>
-  <circle cx="18.5" cy="9.5" r="1.6" fill="#fff"/>
-  <rect x="18.2" y="10.8" width="1" height="2.2" rx=".4" fill="#e84545"/>
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+  <ellipse cx="16" cy="21" rx="12" ry="5.5" fill="#e8f8ff" fill-opacity=".9"/>
+  <path d="M6 21c3-1.5 7-2.5 10-2.5s7 1 10 2.5" fill="none" stroke="#0d4f73" stroke-width="1" stroke-linecap="round" opacity=".4"/>
+  <path d="M22 7 C20 11 18 15 15 18" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="22" cy="7" r="1.4" fill="#c49a6c"/>
+  <ellipse cx="14.5" cy="18.5" rx="2.2" ry="1.6" fill="#fff"/>
+  <ellipse cx="14.5" cy="19.8" rx="2.2" ry="1.6" fill="#e84545"/>
+  <path d="M10 22 C8 22 6.5 23 5.5 24.5 C7 26 9 27 11 27 C14 27 16.5 25.5 18 23.5 C16 22.2 13.5 21.5 11 21.5 C10.6 21.5 10.2 21.6 10 22 Z" fill="url(#fish)" stroke="#0c1f2f" stroke-width=".8"/>
+  <circle cx="12" cy="24" r=".9" fill="#fff"/>
+  <circle cx="12.4" cy="24" r=".35" fill="#0c1f2f"/>
 </svg>
