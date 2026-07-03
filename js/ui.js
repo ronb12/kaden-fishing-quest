@@ -53,6 +53,8 @@ let leaderboardSort = "fish";
 export function initUI(fishing, callbacks) {
   const hud = document.getElementById("hud");
   const menu = document.getElementById("vr-menu");
+  const menuBackdrop = document.getElementById("menu-backdrop");
+  const menuCloseBtn = document.getElementById("menu-close");
   const toast = document.getElementById("toast");
   const syncIndicator = document.getElementById("sync-indicator");
   const panelContent = document.getElementById("panel-content");
@@ -75,12 +77,87 @@ export function initUI(fishing, callbacks) {
   const tutorialStepLabel = document.getElementById("tutorial-step-label");
   const tutorialNextBtn = document.getElementById("tutorial-next");
   const tutorialSkipBtn = document.getElementById("tutorial-skip");
+  const tutorialCloseBtn = document.getElementById("tutorial-close");
   const tipBanner = document.getElementById("tip-banner");
   const tipBannerTitle = document.getElementById("tip-banner-title");
   const tipBannerText = document.getElementById("tip-banner-text");
   const tipBannerClose = document.getElementById("tip-banner-close");
   let tipBannerTimer = null;
+  let toastTimer = null;
+  let catchDismissFn = null;
+  let catchAutoDismissTimer = null;
+  let tutorialOverlayMinimized = false;
   let lastTensionZoneTip = null;
+
+  function setMenuOpen(open) {
+    menu?.classList.toggle("open", open);
+    menuBackdrop?.classList.toggle("show", open);
+    menuBackdrop?.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
+  function isMenuOpen() {
+    return menu?.classList.contains("open");
+  }
+
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
+  function openMenu() {
+    setMenuOpen(true);
+    renderPanel(getState());
+  }
+
+  function hideToast() {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+    toast?.classList.remove("show");
+  }
+
+  function hideTipBanner() {
+    clearTimeout(tipBannerTimer);
+    tipBannerTimer = null;
+    tipBanner?.classList.remove("show");
+  }
+
+  function hideTutorialOverlay() {
+    tutorialOverlayMinimized = true;
+    tutorialOverlay?.classList.remove("show");
+    tutorialOverlay?.setAttribute("aria-hidden", "true");
+  }
+
+  function dismissCatchOverlay() {
+    if (!catchOverlay?.classList.contains("show")) return false;
+    clearTimeout(catchAutoDismissTimer);
+    catchAutoDismissTimer = null;
+    const onDismiss = catchDismissFn;
+    catchDismissFn = null;
+    catchOverlay.classList.remove("show");
+    catchOverlay.setAttribute("aria-hidden", "true");
+    onDismiss?.();
+    return true;
+  }
+
+  function dismissTopOverlay() {
+    if (isMenuOpen()) {
+      closeMenu();
+      return true;
+    }
+    if (dismissCatchOverlay()) return true;
+    if (tutorialOverlay?.classList.contains("show")) {
+      hideTutorialOverlay();
+      return true;
+    }
+    if (tipBanner?.classList.contains("show")) {
+      hideTipBanner();
+      return true;
+    }
+    if (toast?.classList.contains("show")) {
+      hideToast();
+      return true;
+    }
+    return false;
+  }
 
   function inputMode() {
     if (document.body.classList.contains("touch-mode")) return "touch";
@@ -105,9 +182,10 @@ export function initUI(fishing, callbacks) {
   }
 
   function showToast(msg) {
+    hideToast();
     toast.textContent = msg;
     toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2200);
+    toastTimer = setTimeout(hideToast, 2200);
   }
 
   function updateSyncStatus() {
@@ -221,7 +299,7 @@ export function initUI(fishing, callbacks) {
     if (tipBannerText) tipBannerText.textContent = tip.text;
     tipBanner?.classList.add("show");
     clearTimeout(tipBannerTimer);
-    tipBannerTimer = setTimeout(() => tipBanner?.classList.remove("show"), 6500);
+    tipBannerTimer = setTimeout(hideTipBanner, 6500);
   }
 
   function showSpeciesCatchTip(speciesId) {
@@ -232,15 +310,16 @@ export function initUI(fishing, callbacks) {
     if (tipBannerText) tipBannerText.textContent = tip.text;
     tipBanner?.classList.add("show");
     clearTimeout(tipBannerTimer);
-    tipBannerTimer = setTimeout(() => tipBanner?.classList.remove("show"), 8000);
+    tipBannerTimer = setTimeout(hideTipBanner, 8000);
   }
 
   function refreshTutorialOverlay() {
     const tut = getTutorial();
     if (!tutorialOverlay) return;
-    if (!tut.active || tut.completed) {
+    if (!tut.active || tut.completed || tutorialOverlayMinimized) {
       tutorialOverlay.classList.remove("show");
       tutorialOverlay.setAttribute("aria-hidden", "true");
+      if (!tut.active || tut.completed) tutorialOverlayMinimized = false;
       return;
     }
     const step = GUIDED_STEPS[tut.step] || GUIDED_STEPS[0];
@@ -264,6 +343,7 @@ export function initUI(fishing, callbacks) {
     const tut = getTutorial();
     const step = GUIDED_STEPS[tut.step];
     if (step?.advanceOn && tut.step < GUIDED_STEPS.length - 1) return;
+    tutorialOverlayMinimized = false;
     if (tut.step >= GUIDED_STEPS.length - 1) {
       completeTutorial();
       refreshTutorialOverlay();
@@ -276,6 +356,7 @@ export function initUI(fishing, callbacks) {
 
   function onTutorialTrigger(trigger) {
     if (advanceTutorialOnTrigger(trigger)) {
+      tutorialOverlayMinimized = false;
       refreshTutorialOverlay();
     }
   }
@@ -310,13 +391,35 @@ export function initUI(fishing, callbacks) {
     }
   }
 
-  tipBannerClose?.addEventListener("click", () => tipBanner?.classList.remove("show"));
+  tipBannerClose?.addEventListener("click", () => {
+    audio.playUIClick();
+    hideTipBanner();
+  });
+  toast?.addEventListener("click", () => {
+    if (toast.classList.contains("show")) hideToast();
+  });
+  menuCloseBtn?.addEventListener("click", () => {
+    audio.playUIClick();
+    closeMenu();
+  });
+  menuBackdrop?.addEventListener("click", () => {
+    audio.playUIClick();
+    closeMenu();
+  });
+  tutorialCloseBtn?.addEventListener("click", () => {
+    audio.playUIClick();
+    hideTutorialOverlay();
+  });
+  catchOverlay?.addEventListener("click", (e) => {
+    if (e.target === catchOverlay) dismissCatchOverlay();
+  });
   tutorialNextBtn?.addEventListener("click", () => {
     audio.playUIClick();
     tutorialNext();
   });
   tutorialSkipBtn?.addEventListener("click", () => {
     audio.playUIClick();
+    tutorialOverlayMinimized = false;
     skipTutorial();
     refreshTutorialOverlay();
     showToast("Tutorial skipped — open Guide anytime from the menu.");
@@ -570,11 +673,13 @@ export function initUI(fishing, callbacks) {
     });
     panelContent?.querySelector("[data-tutorial-resume]")?.addEventListener("click", () => {
       audio.playUIClick();
-      menu?.classList.remove("open");
+      tutorialOverlayMinimized = false;
+      closeMenu();
       refreshTutorialOverlay();
     });
     panelContent?.querySelector("[data-tutorial-restart]")?.addEventListener("click", () => {
       audio.playUIClick();
+      tutorialOverlayMinimized = false;
       restartTutorial();
       renderPanel(getState());
       refreshTutorialOverlay();
@@ -610,8 +715,16 @@ export function initUI(fishing, callbacks) {
 
   document.getElementById("menu-toggle")?.addEventListener("click", () => {
     audio.playUIClick();
-    menu?.classList.toggle("open");
-    if (menu?.classList.contains("open")) renderPanel(getState());
+    if (isMenuOpen()) closeMenu();
+    else openMenu();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Escape") return;
+    if (dismissTopOverlay()) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   });
 
   subscribe((state) => {
@@ -672,6 +785,7 @@ export function initUI(fishing, callbacks) {
     },
     showCatch(catchData, onCastAgain, onDismiss) {
       if (!catchOverlay) return;
+      clearTimeout(catchAutoDismissTimer);
       const newBadge = catchData.isNewSpecies
         ? '<p class="catch-new">New codex entry!</p>'
         : "";
@@ -679,6 +793,7 @@ export function initUI(fishing, callbacks) {
       const fishColor = catchData.color || "#4a90c4";
       catchOverlay.innerHTML = `
         <div class="catch-card rarity-${catchData.rarity}${legendary}">
+          <button type="button" class="overlay-close catch-close" aria-label="Close catch screen">×</button>
           <div class="catch-fish-visual" style="--fish-color: ${fishColor}" aria-hidden="true">
             <span class="catch-fish-body"></span>
             <span class="catch-fish-tail"></span>
@@ -689,7 +804,7 @@ export function initUI(fishing, callbacks) {
           <p>${catchData.weight} lb · ${catchData.rarity}${catchData.baitUsed ? ` · ${catchData.baitUsed}` : ""}</p>
           <p class="catch-value">+${catchData.value} coins</p>
           ${newBadge}
-          <p class="catch-dismiss">Tap a button below or wait to continue</p>
+          <p class="catch-dismiss">Tap a button, press Esc, or wait to continue</p>
           <div class="catch-actions">
             <button id="catch-cast-again" type="button">Cast Again</button>
             <button id="catch-view-codex" type="button">View Codex</button>
@@ -697,10 +812,21 @@ export function initUI(fishing, callbacks) {
         </div>
       `;
       catchOverlay.classList.add("show");
+      catchOverlay.setAttribute("aria-hidden", "false");
       const dismiss = () => {
+        if (!catchOverlay.classList.contains("show")) return;
+        clearTimeout(catchAutoDismissTimer);
+        catchAutoDismissTimer = null;
+        catchDismissFn = null;
         catchOverlay.classList.remove("show");
+        catchOverlay.setAttribute("aria-hidden", "true");
         onDismiss?.();
       };
+      catchDismissFn = onDismiss;
+      catchOverlay.querySelector(".catch-close")?.addEventListener("click", () => {
+        audio.playUIClick();
+        dismiss();
+      });
       document.getElementById("catch-cast-again")?.addEventListener("click", () => {
         dismiss();
         onCastAgain?.();
@@ -712,24 +838,24 @@ export function initUI(fishing, callbacks) {
         document.querySelectorAll("[data-panel]").forEach((t) =>
           t.classList.toggle("active", t.dataset.panel === "codex")
         );
-        menu?.classList.add("open");
-        renderPanel(getState());
+        openMenu();
       });
-      setTimeout(() => {
+      catchAutoDismissTimer = setTimeout(() => {
         if (catchOverlay.classList.contains("show")) dismiss();
       }, 6000);
     },
     toggleMenu() {
-      menu?.classList.toggle("open");
-      if (menu?.classList.contains("open")) renderPanel(getState());
+      if (isMenuOpen()) closeMenu();
+      else openMenu();
     },
+    closeMenu,
+    dismissTopOverlay,
     openPanel(name) {
       activePanel = name;
       document.querySelectorAll("[data-panel]").forEach((t) =>
         t.classList.toggle("active", t.dataset.panel === activePanel)
       );
-      menu?.classList.add("open");
-      renderPanel(getState());
+      openMenu();
     },
   };
 }
