@@ -117,9 +117,9 @@ export class LakeEnvironment {
     }
     const lilyGltf = assets?.kenney?.lily_small;
     if (lilyGltf) {
-      for (let i = 0; i < 6; i++) {
-        const lily = cloneModel(lilyGltf, { scale: 0.5, rotationY: Math.random() * Math.PI });
-        lily.position.set(-6 + i * 2.2, 0.02, -8 - (i % 2) * 1.5);
+      for (let i = 0; i < 10; i++) {
+        const lily = cloneModel(lilyGltf, { scale: 1.6 + Math.random() * 0.4, rotationY: Math.random() * Math.PI });
+        lily.position.set(-7 + (i % 5) * 2.8, 0.02, -7 - Math.floor(i / 5) * 2.2);
         group.add(lily);
       }
     }
@@ -152,7 +152,7 @@ export class LakeEnvironment {
       const key = rockKeys[i % rockKeys.length];
       const gltf = assets?.kenney?.[key] || assets?.env?.[`Rock_${(i % 3) + 1}`];
       if (gltf) {
-        const rock = cloneModel(gltf, { scale: 1.2 + Math.random() * 0.5, rotationY: Math.random() * Math.PI });
+        const rock = cloneModel(gltf, { scale: 2.8 + Math.random() * 1.2, rotationY: Math.random() * Math.PI });
         rock.position.set(x, 0, z);
         group.add(rock);
       } else {
@@ -166,8 +166,8 @@ export class LakeEnvironment {
     });
     const bushGltf = assets?.kenney?.plant_bushLarge;
     if (bushGltf) {
-      [-16, -20].forEach((x, i) => {
-        const bush = cloneModel(bushGltf, { scale: 0.8, rotationY: i });
+      [-16, -20, -14].forEach((x, i) => {
+        const bush = cloneModel(bushGltf, { scale: 2.2 + i * 0.2, rotationY: i });
         bush.position.set(x, 0, -6 - i * 2);
         group.add(bush);
       });
@@ -272,11 +272,15 @@ export class LakeEnvironment {
     ];
 
     positions.forEach(([x, z], i) => {
-      const source = treeSources[i % 2];
+      const useKenney = i % 2 === 0;
+      const source = useKenney ? treeSources[0] : treeSources[1];
       const key = source.keys[i % source.keys.length];
       const gltf = assets?.[source.cat]?.[key];
       if (gltf) {
-        const tree = cloneModel(gltf, { scale: 0.55 + Math.random() * 0.25, rotationY: Math.random() * Math.PI * 2 });
+        const scale = useKenney
+          ? 3.2 + Math.random() * 1.2
+          : 0.55 + Math.random() * 0.25;
+        const tree = cloneModel(gltf, { scale, rotationY: Math.random() * Math.PI * 2 });
         tree.position.set(x, 0, z);
         this.scene.add(tree);
       } else {
@@ -296,29 +300,39 @@ export class LakeEnvironment {
     const grassGltf = assets?.kenney?.grass;
     const bushGltf = assets?.kenney?.plant_bushSmall;
     const scatter = [
-      [-4, 11], [5, 10], [-10, 5], [12, 4], [-18, 2], [15, -1],
+      [-4, 11], [5, 10], [-10, 5], [12, 4], [-18, 2], [15, -1], [0, 12], [-8, 6],
     ];
     scatter.forEach(([x, z], i) => {
       const gltf = i % 2 === 0 ? grassGltf : bushGltf;
       if (!gltf) return;
-      const prop = cloneModel(gltf, { scale: 0.6 + Math.random() * 0.3, rotationY: Math.random() * Math.PI });
+      const prop = cloneModel(gltf, { scale: 2.0 + Math.random() * 0.8, rotationY: Math.random() * Math.PI });
       prop.position.set(x, 0, z);
       this.scene.add(prop);
     });
   }
 
   buildMountains() {
-    const mat = new THREE.MeshStandardMaterial({ color: 0x6a8a9a, flatShading: true });
+    const assets = getAssets();
+    const rockKeys = ["rock_tallA", "rock_largeA", "rock_largeB", "rock_tallA"];
     const peaks = [
-      { x: -40, z: -50, s: 18 },
-      { x: -20, z: -55, s: 14 },
-      { x: 10, z: -58, s: 20 },
-      { x: 35, z: -48, s: 16 },
+      { x: -40, z: -50, s: 3.5 },
+      { x: -20, z: -55, s: 2.8 },
+      { x: 10, z: -58, s: 4.0 },
+      { x: 35, z: -48, s: 3.2 },
     ];
-    peaks.forEach(({ x, z, s }) => {
-      const m = new THREE.Mesh(new THREE.ConeGeometry(s, s * 1.2, 6), mat);
-      m.position.set(x, s * 0.4, z);
-      this.scene.add(m);
+    peaks.forEach(({ x, z, s }, i) => {
+      const key = rockKeys[i % rockKeys.length];
+      const gltf = assets?.kenney?.[key];
+      if (gltf) {
+        const rock = cloneModel(gltf, { scale: s, rotationY: i * 0.8 });
+        rock.position.set(x, 0, z);
+        this.scene.add(rock);
+      } else {
+        const mat = new THREE.MeshStandardMaterial({ color: 0x6a8a9a, flatShading: true });
+        const m = new THREE.Mesh(new THREE.ConeGeometry(s * 5, s * 6, 6), mat);
+        m.position.set(x, s * 2, z);
+        this.scene.add(m);
+      }
     });
   }
 

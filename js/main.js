@@ -18,6 +18,7 @@ import { BAITS, ZONES } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouchControls } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
+import { BUILD_ID } from "./version.js";
 
 let ui = null;
 let touch = { active: false };
@@ -40,6 +41,10 @@ let fishing = null;
 const loadingEl = document.getElementById("asset-loading");
 const loadingFill = document.getElementById("asset-loading-fill");
 const loadingLabel = document.getElementById("asset-loading-label");
+const loadingVersion = document.getElementById("asset-loading-version");
+const hudVersion = document.getElementById("hud-version");
+if (loadingVersion) loadingVersion.textContent = `Build ${BUILD_ID}`;
+if (hudVersion) hudVersion.textContent = BUILD_ID;
 
 await loadGameAssets((progress, name) => {
   if (loadingFill) loadingFill.style.width = `${Math.round(progress * 100)}%`;

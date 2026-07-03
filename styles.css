@@ -35,6 +35,19 @@
   opacity: 0.85;
 }
 
+.asset-loading-version {
+  margin-top: 8px !important;
+  font-size: 0.75rem !important;
+  opacity: 0.55 !important;
+  letter-spacing: 0.04em;
+}
+
+.hud-version {
+  font-size: 0.65rem;
+  opacity: 0.45;
+  margin-left: 8px;
+}
+
   --ink: #0c1f2f;
   --deep: #0d4f73;
   --lake: #0f86a8;

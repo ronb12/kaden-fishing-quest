@@ -59,7 +59,7 @@ export function buildDetailedFish(species, size = 1) {
   const assets = getAssets();
   const key = species?.modelKey || "Goldfish";
   const gltf = assets?.fish?.[key];
-  const fishScale = 0.45 * size * (0.85 + (species?.weight?.[1] || 3) * 0.03);
+  const fishScale = 0.65 * size * (0.85 + (species?.weight?.[1] || 3) * 0.03);
 
   if (gltf) {
     return cloneModel(gltf, {
