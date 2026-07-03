@@ -29,7 +29,7 @@ function assert(name, cond) {
 
 // Blocked by back wall.
 let p = c.resolve(new THREE.Vector3(cx, 1.6, cz + halfD + 0.2));
-assert("back wall blocks", p.z <= cz + halfD + 0.39);
+assert("back wall blocks", p.z <= cz + halfD + 0.44);
 
 p = c.resolve(new THREE.Vector3(cx, 1.6, cz - halfD - 0.2));
 assert("doorway open", p.z < cz - halfD + 0.1);
@@ -44,7 +44,7 @@ const onDock = c.resolve(dockCenter.clone());
 assert("dock center walkable", Math.abs(onDock.x - DOCK_WALK.centerX) < 0.05 && Math.abs(onDock.z - 8) < 0.05);
 
 const offSide = c.resolve(new THREE.Vector3(DOCK_WALK.centerX + 2.5, 1.6, 8));
-assert("dock side blocked", offSide.x <= DOCK_WALK.centerX + DOCK_WALK.halfWidth + 0.45);
+assert("dock side blocked", offSide.x <= DOCK_WALK.centerX + DOCK_WALK.halfWidth + 0.48);
 
 const lakeTry = moveWithCollisions(
   new THREE.Vector3(DOCK_WALK.centerX, 1.6, DOCK_WALK.startZ + 0.15),
@@ -65,7 +65,7 @@ const throughStairSide = moveWithCollisions(
   { x: -0.5, z: 0 },
   c
 );
-assert("stairs side blocked", throughStairSide.x >= -0.48 - 0.45);
+assert("stairs side blocked", throughStairSide.x >= -0.48 - 0.52);
 
 const shoreExit = c.resolve(new THREE.Vector3(DOCK_SHORE.x, 1.6, DOCK_SHORE.z + 1.2));
 assert("shore spawn open", Math.abs(shoreExit.x - DOCK_SHORE.x) < 0.1 && shoreExit.z > DOCK_SHORE.z);

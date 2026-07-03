@@ -2,7 +2,19 @@ import * as THREE from "three";
 import { ZONES, shouldShowBoat } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
-import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, DOCK_BRIDGE_LOCAL_Z, DOCK_STAIRS_LOCAL_Z, registerDockWalkCollisions, isOnDockStairs, isOnDockWalk, getDockStairEyeHeightFallback, DOCK_STAIRS, DOCK_WALK, DOCK_EYE_OFFSET } from "./dock-layout.js";
+import {
+  DOCK_GROUP,
+  DOCK_SHORE_LOCAL_Z,
+  DOCK_BRIDGE_LOCAL_Z,
+  DOCK_STAIRS_LOCAL_Z,
+  registerDockWalkCollisions,
+  isOnDockStairs,
+  isOnDockWalk,
+  getDockStairEyeHeightFallback,
+  DOCK_STAIRS,
+  DOCK_WALK,
+  DOCK_EYE_OFFSET,
+} from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
 /** Keep shore props out of active fishing pools and cast approach lanes. */
@@ -162,6 +174,23 @@ export class LakeEnvironment {
 
   buildDockCollisions() {
     registerDockWalkCollisions(this.collisions);
+    const c = this.collisions;
+    const dx = DOCK_GROUP.x;
+    const dz = DOCK_GROUP.z;
+    // Side berms flanking the shore deck
+    c.addBoxCenter(dx - 4.3, dz + DOCK_SHORE_LOCAL_Z + 1.6, 1.7, 2.4);
+    c.addBoxCenter(dx + 4.3, dz + DOCK_SHORE_LOCAL_Z + 1.6, 1.7, 2.4);
+    // Mooring skiff
+    c.addCircle(dx + 2.55, dz + 0.35, 1.1);
+    // Dock bench, crate, log stack
+    c.addBoxCenter(dx + 1.55, dz + 2.5, 0.75, 0.35);
+    c.addBoxCenter(dx + 1.55, dz + 9.2, 0.35, 0.35);
+    c.addCircle(dx - 1.85, dz + 9.4, 0.55);
+    // Pier rail posts
+    for (const z of [0.5, 5.5, 9.5]) {
+      c.addCircle(dx - 1.55, dz + z, 0.35);
+      c.addCircle(dx + 1.55, dz + z, 0.35);
+    }
   }
 
   buildEnvironmentCollisions() {
@@ -180,6 +209,13 @@ export class LakeEnvironment {
     for (const [x, z] of [[-16, -8], [-20, -10], [-14, -12]]) {
       c.addCircle(x, z, 1.0);
     }
+    // Moonlit Cove rocks and pier
+    for (const [x, z, r] of [[-14, -30, 1.6], [-2, -42, 1.4], [-10, -44, 1.5]]) {
+      c.addCircle(x, z, r);
+    }
+    c.addBoxCenter(-8, -26, 1.2, 0.45);
+    // Lake Dock barrel and sign
+    c.addCircle(-2.5, 10.5, 0.45);
   }
 
   resolveCollisions(position) {
@@ -625,7 +661,7 @@ export class LakeEnvironment {
       prop.position.set(x, 0, z);
       groundAlign(prop, 0.02);
       this.scene.add(prop);
-      if (i % 2 === 1) this.collisions.addCircle(x, z, 0.5);
+      if (i % 2 === 1) this.collisions.addCircle(x, z, 0.65);
     });
   }
 
@@ -656,7 +692,7 @@ export class LakeEnvironment {
         tree.position.set(x, 0, z);
         groundAlign(tree, 0);
         this.scene.add(tree);
-        this.collisions.addCircle(x, z, useKenney ? 1.25 + scale * 0.12 : 0.7);
+        this.collisions.addCircle(x, z, useKenney ? 1.35 + scale * 0.14 : 0.85);
       } else {
         const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22 });
         const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d6b3a });

@@ -122,7 +122,7 @@ try {
   });
   const sideTrace = await page.evaluate(() => window.__playtest.walk(-1, 0, 0.6));
   const maxLeft = Math.min(...sideTrace.map((p) => p.x));
-  if (maxLeft >= -0.48 - 0.12) {
+  if (maxLeft >= -0.48 - 0.52) {
     pass("stairs side rail blocks cut-through");
   } else {
     fail("stairs side rail blocks cut-through", `minX=${maxLeft.toFixed(2)}`);

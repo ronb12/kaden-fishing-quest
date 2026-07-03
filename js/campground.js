@@ -145,6 +145,7 @@ export class Campground {
           log.position.set(p.x + side * 1.1, 0, p.z + side * 0.3);
           groundAlign(log, 0.02);
           this.group.add(log);
+          this.collisions?.addCircle(log.position.x, log.position.z, 0.45);
         }
       }
       if (i % 4 === 1) {
@@ -187,6 +188,17 @@ export class Campground {
       fence.position.set(x, 0, z);
       groundAlign(fence, 0);
       this.group.add(fence);
+    });
+    // Fence rail segments between posts
+    const segments = [
+      [-22, 15, -22, 24], [-22, 24, -22, 27], [-22, 27, -6, 27], [-6, 27, -6, 15], [-6, 15, -6, 13],
+    ];
+    segments.forEach(([x1, z1, x2, z2]) => {
+      const cx = (x1 + x2) / 2;
+      const cz = (z1 + z2) / 2;
+      const halfX = Math.abs(x2 - x1) / 2 + 0.15;
+      const halfZ = Math.abs(z2 - z1) / 2 + 0.15;
+      this.collisions?.addBoxCenter(cx, cz, Math.max(halfX, 0.2), Math.max(halfZ, 0.2));
     });
   }
 
@@ -1027,6 +1039,14 @@ export class Campground {
     c.addBox(cx + halfW - wall, cx + halfW, cz - halfD, cz + halfD);
     c.addBox(cx - halfW, cx - DOOR_WIDTH / 2, cz - halfD, cz - halfD + wall);
     c.addBox(cx + DOOR_WIDTH / 2, cx + halfW, cz - halfD, cz - halfD + wall);
+
+    // Interior wall barriers (block walking through walls from inside).
+    const inner = wall + 0.05;
+    c.addBox(cx - halfW + inner, cx + halfW - inner, cz + halfD - inner - 0.15, cz + halfD - inner);
+    c.addBox(cx - halfW + inner, cx - halfW + inner + 0.15, cz - halfD + inner, cz + halfD - inner);
+    c.addBox(cx + halfW - inner - 0.15, cx + halfW - inner, cz - halfD + inner, cz + halfD - inner);
+    c.addBox(cx - halfW + inner, cx - DOOR_WIDTH / 2, cz - halfD + inner, cz - halfD + inner + 0.15);
+    c.addBox(cx + DOOR_WIDTH / 2, cx + halfW - inner, cz - halfD + inner, cz - halfD + inner + 0.15);
 
     // Porch side rails.
     const porchZ = cz - halfD - 1.0;

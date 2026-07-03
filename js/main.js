@@ -22,7 +22,7 @@ import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
 import { loadEnvironmentMaps, reloadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
 import { VRHandRig } from "./vr-hands.js";
-import { moveWithCollisions } from "./collisions.js";
+import { moveWithCollisions, correctRigFromEye } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
 import { DOCK_SPAWN } from "./dock-layout.js";
 import { tensionZone } from "./fish-fight.js";
@@ -49,8 +49,20 @@ renderer.toneMappingExposure = 1.05;
 renderer.xr.enabled = true;
 
 const scene = new THREE.Scene();
+const player = new THREE.Group();
+player.name = "Player";
+scene.add(player);
+
 const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, 280);
-camera.position.set(DOCK_SPAWN.x, 1.6, DOCK_SPAWN.z);
+player.add(camera);
+player.position.set(DOCK_SPAWN.x, 0, DOCK_SPAWN.z);
+camera.position.set(0, 1.6, 0);
+
+const _worldEye = new THREE.Vector3();
+function getWorldEye(out = _worldEye) {
+  camera.getWorldPosition(out);
+  return out;
+}
 
 let env = null;
 let fishing = null;
@@ -106,7 +118,7 @@ const vrHands = new VRHandRig(grips, controllerModels);
 
 fishing.attachToController(controllers[1]);
 const vrMotion = new VRFishingMotion();
-const vrComfort = new VRComfort(camera, () => getState().settings);
+const vrComfort = new VRComfort(player, () => getState().settings);
 const vrHud = new VRHud(
   document.getElementById("vr-hud"),
   document.getElementById("vr-tension"),
@@ -230,7 +242,7 @@ let boatInteractTarget = null;
 function updateBoatInteractTarget() {
   boatInteractTarget = null;
   if (getState().zone !== "Lake Dock" || fishing.state !== FishingState.IDLE) return;
-  if (!env?.isNearMooringBoat(camera.position.x, camera.position.z)) return;
+  if (!env?.isNearMooringBoat(player.position.x, player.position.z)) return;
   if (canUseBoat(getState().boatLevel)) {
     boatInteractTarget = { label: "Board skiff — sail to fishing zones" };
   } else {
@@ -678,14 +690,16 @@ function switchZone(zoneId, opts = {}) {
     const dest = ZONES[zoneId].teleport;
     const duration = getBoatTravelDuration(getState().boatLevel) / getBoatSpeedMultiplier(getState().boatLevel);
     startBoatVoyage({
-      from: camera.position,
+      from: getWorldEye(),
       to: { x: dest.x, y: dest.y + 1.6, z: dest.z },
+      player,
       camera,
       overlayEl: travelOverlay,
       duration,
       onMidpoint: () => env.applyZone(zoneId),
       onComplete: () => {
         setZone(zoneId);
+        player.position.set(dest.x, 0, dest.z);
         applyGroundEyeHeight();
         aimAtFishingPool(ZONES[zoneId]);
         boatVoyageActive = false;
@@ -699,24 +713,29 @@ function switchZone(zoneId, opts = {}) {
 
 function aimAtFishingPool(zone) {
   if (!zone) return;
+  const eye = getWorldEye();
   const look = new THREE.Vector3(
     zone.lookAt?.x ?? zone.castCenter.x,
     zone.lookAt?.y ?? 0.4,
     zone.lookAt?.z ?? zone.castCenter.z
   );
   camera.lookAt(look);
-  const dx = look.x - camera.position.x;
-  const dz = look.z - camera.position.z;
-  const dy = look.y - camera.position.y;
+  const dx = look.x - eye.x;
+  const dz = look.z - eye.z;
+  const dy = look.y - eye.y;
   mouseX = Math.atan2(dx, dz);
   mouseY = Math.atan2(dy, Math.hypot(dx, dz));
   mouseY = Math.max(-1.2, Math.min(1.2, mouseY));
+  player.rotation.y = mouseX;
+  camera.rotation.order = "YXZ";
+  camera.rotation.y = 0;
+  camera.rotation.x = mouseY;
 }
 
 function applyGroundEyeHeight() {
   if (inVR) return;
   let y = 1.6;
-  const stairY = env?.getDockWalkEyeHeight?.(camera.position.x, camera.position.z);
+  const stairY = env?.getDockWalkEyeHeight?.(player.position.x, player.position.z);
   if (stairY != null) y = stairY;
   camera.position.y = y;
 }
@@ -724,10 +743,14 @@ function applyGroundEyeHeight() {
 function teleportToZone(zoneId) {
   const zone = ZONES[zoneId];
   if (!zone) return;
-  const offset = new THREE.Vector3(zone.teleport.x, zone.teleport.y + 1.6, zone.teleport.z);
-  camera.position.copy(offset);
+  player.position.set(zone.teleport.x, 0, zone.teleport.z);
   applyGroundEyeHeight();
   aimAtFishingPool(zone);
+}
+
+function resolvePlayerCollisions() {
+  if (!env?.collisions) return;
+  correctRigFromEye(player, camera, env.collisions, WORLD_BOUNDS);
 }
 
 ui = initUI(fishing, {
@@ -839,8 +862,9 @@ const WORLD_BOUNDS = 45;
 
 function updateDesktopMovement(dt) {
   if (inVR) return;
+  player.rotation.y = mouseX;
   camera.rotation.order = "YXZ";
-  camera.rotation.y = mouseX;
+  camera.rotation.y = 0;
   camera.rotation.x = mouseY;
 
   const dir = new THREE.Vector3();
@@ -874,20 +898,19 @@ function updateDesktopMovement(dt) {
     dir.normalize();
     dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), mouseX));
     const delta = dir.multiplyScalar(moveSpeed * dt);
+    const feet = new THREE.Vector3(player.position.x, 0, player.position.z);
     if (env?.collisions) {
-      camera.position.copy(moveWithCollisions(camera.position, delta, env.collisions));
+      const moved = moveWithCollisions(feet, delta, env.collisions);
+      player.position.x = moved.x;
+      player.position.z = moved.z;
     } else {
-      camera.position.add(delta);
+      player.position.x += delta.x;
+      player.position.z += delta.z;
     }
-    if (env?.collisions) {
-      camera.position.copy(env.collisions.resolve(camera.position));
-    }
-    camera.position.x = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.x));
-    camera.position.z = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.z));
+    player.position.x = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, player.position.x));
+    player.position.z = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, player.position.z));
     applyGroundEyeHeight();
-    if (env?.collisions) {
-      camera.position.copy(env.collisions.resolve(camera.position));
-    }
+    resolvePlayerCollisions();
     if (fishing.state === FishingState.WAITING) {
       fishing.addLureMotion(dt * 0.35);
     }
@@ -896,10 +919,11 @@ function updateDesktopMovement(dt) {
   }
 
   // Slight right bias, mostly forward — first-person rod hold in front of chest
+  const eye = getWorldEye();
   const rodOffset = new THREE.Vector3(0.14, -0.34, -0.64).applyQuaternion(camera.quaternion);
   fishing.updateRodTransform(
     {
-      position: camera.position.clone().add(rodOffset),
+      position: eye.clone().add(rodOffset),
       quaternion: camera.quaternion,
       pitch: mouseY,
     },
@@ -1000,10 +1024,11 @@ renderer.setAnimationLoop(() => {
   updateVrFishing(dt);
   updateDesktopMovement(dt);
   applyGroundEyeHeight();
+  resolvePlayerCollisions();
   updateBoatInteractTarget();
   checkZoneTeleports();
 
-  env.campground?.update(time, camera.position, (event) => {
+  env.campground?.update(time, getWorldEye(), (event) => {
     if (event === "enter") {
       ui?.showToast("Inside the cabin — look at items and press E to interact");
     } else if (event === "exit") {
@@ -1061,22 +1086,30 @@ window.addEventListener("resize", () => {
 
 if (new URLSearchParams(location.search).has("playtest")) {
   window.__setPlaytestCamera = (x, y, z, lx, ly, lz) => {
-    camera.position.set(x, y, z);
+    player.position.set(x, 0, z);
+    camera.position.y = y;
     camera.lookAt(lx, ly, lz);
     const dx = lx - x;
     const dz = lz - z;
     const dy = ly - y;
     mouseX = Math.atan2(dx, dz);
     mouseY = Math.atan2(dy, Math.hypot(dx, dz));
+    player.rotation.y = mouseX;
+    camera.rotation.order = "YXZ";
+    camera.rotation.y = 0;
+    camera.rotation.x = mouseY;
   };
 
   window.__playtest = {
     getFishingState: () => fishing.state,
-    getCamera: () => ({ x: camera.position.x, y: camera.position.y, z: camera.position.z }),
+    getCamera: () => {
+      const eye = getWorldEye();
+      return { x: eye.x, y: eye.y, z: eye.z };
+    },
     moveTo: (x, z) => {
-      camera.position.x = x;
-      camera.position.z = z;
-      if (env?.collisions) camera.position.copy(env.collisions.resolve(camera.position));
+      player.position.x = x;
+      player.position.z = z;
+      resolvePlayerCollisions();
     },
     cast: (power = 0.85) => {
       const aim = getAimDirection();
@@ -1146,29 +1179,35 @@ if (new URLSearchParams(location.search).has("playtest")) {
         if (dir.lengthSq() > 0) dir.normalize();
         dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), mouseX));
         const delta = dir.multiplyScalar(moveSpeed * dt);
+        const feet = new THREE.Vector3(player.position.x, 0, player.position.z);
         if (env?.collisions) {
-          camera.position.copy(moveWithCollisions(camera.position, delta, env.collisions));
+          const moved = moveWithCollisions(feet, delta, env.collisions);
+          player.position.x = moved.x;
+          player.position.z = moved.z;
         } else {
-          camera.position.add(delta);
+          player.position.x += delta.x;
+          player.position.z += delta.z;
         }
-        camera.position.y = 1.6;
-        const walkY = env?.getDockWalkEyeHeight?.(camera.position.x, camera.position.z);
-        if (walkY != null) camera.position.y = walkY;
+        applyGroundEyeHeight();
+        resolvePlayerCollisions();
+        const eye = getWorldEye();
+        const walkY = env?.getDockWalkEyeHeight?.(player.position.x, player.position.z);
         trace.push({
-          x: camera.position.x,
-          y: camera.position.y,
-          z: camera.position.z,
+          x: eye.x,
+          y: eye.y,
+          z: eye.z,
           onStairs: walkY != null,
         });
       }
       return trace;
     },
     getStairsInfo: () => {
-      const walkY = env?.getDockWalkEyeHeight?.(camera.position.x, camera.position.z) ?? null;
+      const walkY = env?.getDockWalkEyeHeight?.(player.position.x, player.position.z) ?? null;
+      const eye = getWorldEye();
       return {
         onStairs: walkY != null,
         eyeY: walkY,
-        camera: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        camera: { x: eye.x, y: eye.y, z: eye.z },
       };
     },
     waitFrames: (n) => new Promise((resolve) => {

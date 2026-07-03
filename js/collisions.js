@@ -28,9 +28,9 @@ export class CollisionSystem {
     return this.addBox(cx - halfX, cx + halfX, cz - halfZ, cz + halfZ);
   }
 
-  resolve(position, playerRadius = 0.38) {
+  resolve(position, playerRadius = 0.42) {
     const p = position.clone();
-    for (let pass = 0; pass < 3; pass++) {
+    for (let pass = 0; pass < 4; pass++) {
       for (const box of this.boxes) {
         this.pushOutOfBox(p, box, playerRadius);
       }
@@ -57,15 +57,15 @@ export class CollisionSystem {
     const insideZ = p.z > box.minZ && p.z < box.maxZ;
 
     if (insideX && insideZ) {
-      const spansCenter = box.minX < 0 && box.maxX > 0;
-      if (spansCenter) {
-        if (p.z - box.minZ <= box.maxZ - p.z) p.z = box.minZ - radius;
-        else p.z = box.maxZ + radius;
-      } else if (box.minX >= 0) {
-        p.x = box.minX - radius;
-      } else {
-        p.x = box.maxX + radius;
-      }
+      const overlapLeft = p.x - box.minX;
+      const overlapRight = box.maxX - p.x;
+      const overlapFront = p.z - box.minZ;
+      const overlapBack = box.maxZ - p.z;
+      const minOverlap = Math.min(overlapLeft, overlapRight, overlapFront, overlapBack);
+      if (minOverlap === overlapLeft) p.x = box.minX - radius;
+      else if (minOverlap === overlapRight) p.x = box.maxX + radius;
+      else if (minOverlap === overlapFront) p.z = box.minZ - radius;
+      else p.z = box.maxZ + radius;
       return;
     }
 
@@ -83,10 +83,23 @@ export class CollisionSystem {
 }
 
 /** Slide along walls by resolving X and Z movement separately. */
-export function moveWithCollisions(position, delta, collisionSystem, playerRadius = 0.38) {
+export function moveWithCollisions(position, delta, collisionSystem, playerRadius = 0.42) {
   _tmp.copy(position);
   _tmp.x += delta.x;
   _tmp.copy(collisionSystem.resolve(_tmp, playerRadius));
   _tmp.z += delta.z;
   return collisionSystem.resolve(_tmp, playerRadius);
+}
+
+/** Apply collision correction to a player rig from the camera's world position. */
+export function correctRigFromEye(rig, camera, collisionSystem, worldBounds = 45, playerRadius = 0.42) {
+  if (!rig || !camera || !collisionSystem) return;
+  const eye = _tmp;
+  camera.getWorldPosition(eye);
+  const resolved = collisionSystem.resolve(eye, playerRadius);
+  resolved.x = Math.max(-worldBounds, Math.min(worldBounds, resolved.x));
+  resolved.z = Math.max(-worldBounds, Math.min(worldBounds, resolved.z));
+  const fixed = collisionSystem.resolve(resolved, playerRadius);
+  rig.position.x += fixed.x - eye.x;
+  rig.position.z += fixed.z - eye.z;
 }

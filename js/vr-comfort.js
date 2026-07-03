@@ -1,13 +1,11 @@
 import * as THREE from "three";
 
-const _fwd = new THREE.Vector3();
-
 /**
  * VR comfort: snap turn on thumbstick, optional teleport arcs.
  */
 export class VRComfort {
-  constructor(camera, getSettings) {
-    this.camera = camera;
+  constructor(rig, getSettings) {
+    this.rig = rig;
     this.getSettings = getSettings;
     this.yawOffset = 0;
     this.snapCooldown = 0;
@@ -19,12 +17,11 @@ export class VRComfort {
     this.yawOffset = 0;
     this.snapCooldown = 0;
     this.lastStickX = 0;
+    if (this.rig) this.rig.rotation.y = 0;
   }
 
   applyBaseRotation() {
-    this.camera.rotation.order = "YXZ";
-    this.camera.rotation.y = this.yawOffset;
-    this.camera.rotation.x = 0;
+    if (this.rig) this.rig.rotation.y = this.yawOffset;
   }
 
   update(dt, leftController, rightController) {
@@ -55,19 +52,6 @@ export class VRComfort {
     }
     this.lastStickX = stickX;
     this.applyBaseRotation();
-  }
-
-  /** Teleport player rig to a world position (XZ), keeping head height. */
-  teleportTo(position, rig) {
-    if (!rig || this.teleportCooldown > 0) return false;
-    const dy = this.camera.position.y - rig.position.y;
-    rig.position.x = position.x;
-    rig.position.z = position.z;
-    this.camera.position.x = position.x;
-    this.camera.position.z = position.z;
-    this.camera.position.y = rig.position.y + dy;
-    this.teleportCooldown = 0.5;
-    return true;
   }
 
   tick(dt) {
