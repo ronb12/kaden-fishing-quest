@@ -1,4 +1,40 @@
-:root {
+.asset-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 26, 36, 0.92);
+  transition: opacity 0.4s;
+}
+
+.asset-loading.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.asset-loading-card {
+  width: min(360px, 90vw);
+  padding: 28px;
+  border-radius: 20px;
+  background: var(--panel);
+  text-align: center;
+}
+
+.asset-loading-card h2 {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+  color: var(--sun);
+}
+
+.asset-loading-card p {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
   --ink: #0c1f2f;
   --deep: #0d4f73;
   --lake: #0f86a8;

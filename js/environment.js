@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { ZONES } from "./data.js";
+import { getAssets, cloneModel, updateModelAnimations } from "./asset-loader.js";
 
 const WATER_VERT = `
   uniform float uTime;
@@ -127,26 +128,32 @@ export class LakeEnvironment {
   buildCoveZoneExtras() {
     const group = new THREE.Group();
     group.name = "North Cove";
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x6a6a6a, roughness: 0.95, flatShading: true });
+    const assets = getAssets();
+    const rockKeys = ["Rock_1", "Rock_2", "Rock_3"];
     const rockPositions = [
       [-22, -8], [-14, -12], [-24, -16], [-12, -18], [-20, -22],
     ];
-    rockPositions.forEach(([x, z]) => {
-      const rock = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(0.8 + Math.random() * 1.2, 0),
-        rockMat
-      );
-      rock.position.set(x, 0.35, z);
-      rock.rotation.set(Math.random(), Math.random(), Math.random());
-      rock.scale.y = 0.6 + Math.random() * 0.5;
-      rock.castShadow = true;
-      group.add(rock);
+    rockPositions.forEach(([x, z], i) => {
+      const key = rockKeys[i % rockKeys.length];
+      const gltf = assets?.env?.[key];
+      if (gltf) {
+        const rock = cloneModel(gltf, { scale: 1.8 + Math.random() * 0.8, rotationY: Math.random() * Math.PI });
+        rock.position.set(x, 0, z);
+        group.add(rock);
+      } else {
+        const rock = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(1, 0),
+          new THREE.MeshStandardMaterial({ color: 0x6a6a6a, flatShading: true })
+        );
+        rock.position.set(x, 0.35, z);
+        group.add(rock);
+      }
     });
-    const pierMat = new THREE.MeshStandardMaterial({ color: 0x7a4a2a, roughness: 0.85 });
-    for (let i = 0; i < 5; i++) {
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 0.4), pierMat);
-      plank.position.set(-18, 0.12, -2 - i * 0.5);
-      group.add(plank);
+    const pierGltf = assets?.env?.Dock_Long;
+    if (pierGltf) {
+      const pier = cloneModel(pierGltf, { scale: 0.35, rotationY: Math.PI / 2 });
+      pier.position.set(-18, 0, -4);
+      group.add(pier);
     }
     group.visible = false;
     this.scene.add(group);
@@ -156,29 +163,25 @@ export class LakeEnvironment {
   buildDeepWaterExtras() {
     const group = new THREE.Group();
     group.name = "Deep Water";
-    const buoyMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.4 });
-    const buoy = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.9, 12), buoyMat);
-    buoy.position.set(26, 0.5, -20);
-    group.add(buoy);
-    const stripe = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.36, 0.41, 0.15, 12),
-      new THREE.MeshStandardMaterial({ color: 0xffffff })
-    );
-    stripe.position.set(26, 0.65, -20);
-    group.add(stripe);
-    const dropMat = new THREE.MeshStandardMaterial({
-      color: 0x043a52,
-      transparent: true,
-      opacity: 0.55,
-    });
+    const assets = getAssets();
+    const boatGltf = assets?.env?.Boat;
+    if (boatGltf) {
+      const buoy = cloneModel(boatGltf, { scale: 0.45, rotationY: 0 });
+      buoy.position.set(26, 0.05, -20);
+      group.add(buoy);
+    } else {
+      const buoy = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.35, 0.4, 0.9, 12),
+        new THREE.MeshStandardMaterial({ color: 0xcc2222 })
+      );
+      buoy.position.set(26, 0.5, -20);
+      group.add(buoy);
+    }
+    const dropMat = new THREE.MeshStandardMaterial({ color: 0x043a52, transparent: true, opacity: 0.55 });
     const drop = new THREE.Mesh(new THREE.PlaneGeometry(18, 14), dropMat);
     drop.rotation.x = -Math.PI / 2;
     drop.position.set(22, -0.12, -32);
     group.add(drop);
-    const markerMat = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0xff6600, emissiveIntensity: 0.4 });
-    const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.5), markerMat);
-    marker.position.set(22, 0.75, -10);
-    group.add(marker);
     group.visible = false;
     this.scene.add(group);
     this.zoneDressing["Deep Water"] = group;
@@ -212,57 +215,55 @@ export class LakeEnvironment {
   }
 
   buildDock() {
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a34, roughness: 0.85 });
+    const assets = getAssets();
+    const dockGltf = assets?.env?.Dock_Wide;
     const dockGroup = new THREE.Group();
 
-    for (let i = 0; i < 12; i++) {
-      const plank = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 0.5), woodMat);
-      plank.position.set(0, 0.15, -i * 0.55);
-      plank.castShadow = true;
-      plank.receiveShadow = true;
-      dockGroup.add(plank);
-    }
-
-    for (let side of [-1.4, 1.4]) {
-      for (let i = 0; i < 6; i++) {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.8), woodMat);
-        post.position.set(side, -0.5, -i * 1.1);
-        post.castShadow = true;
-        dockGroup.add(post);
+    if (dockGltf) {
+      const dock = cloneModel(dockGltf, { scale: 0.4, rotationY: Math.PI });
+      dock.position.set(0, 0, -2);
+      dockGroup.add(dock);
+    } else {
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a34, roughness: 0.85 });
+      for (let i = 0; i < 12; i++) {
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 0.5), woodMat);
+        plank.position.set(0, 0.15, -i * 0.55);
+        dockGroup.add(plank);
       }
     }
 
-    const railMat = new THREE.MeshStandardMaterial({ color: 0xbd8551 });
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.08), railMat);
-    rail.position.set(0, 0.55, -3);
-    dockGroup.add(rail);
-
-    dockGroup.position.set(0, 0.1, 6);
+    dockGroup.position.set(0, 0, 6);
     this.scene.add(dockGroup);
     this.dockGroup = dockGroup;
   }
 
   buildTrees() {
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d6b3a, roughness: 0.8 });
-
+    const assets = getAssets();
+    const treeKeys = ["BirchTree_1", "BirchTree_2", "BirchTree_3"];
     const positions = [
       [-12, 8], [-8, 14], [10, 12], [14, 6], [-16, -4], [18, -2],
       [-6, 18], [8, 18], [-20, 10], [20, 8], [-14, 16], [16, 14],
     ];
 
-    positions.forEach(([x, z]) => {
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 2.5), trunkMat);
-      trunk.position.y = 1.25;
-      trunk.castShadow = true;
-      const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.8, 4, 8), leafMat);
-      leaves.position.y = 4;
-      leaves.castShadow = true;
-      tree.add(trunk, leaves);
-      tree.position.set(x, 0, z);
-      tree.scale.setScalar(0.8 + Math.random() * 0.6);
-      this.scene.add(tree);
+    positions.forEach(([x, z], i) => {
+      const key = treeKeys[i % treeKeys.length];
+      const gltf = assets?.env?.[key];
+      if (gltf) {
+        const tree = cloneModel(gltf, { scale: 0.55 + Math.random() * 0.2, rotationY: Math.random() * Math.PI * 2 });
+        tree.position.set(x, 0, z);
+        this.scene.add(tree);
+      } else {
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22 });
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d6b3a });
+        const tree = new THREE.Group();
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 2.5), trunkMat);
+        trunk.position.y = 1.25;
+        const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.8, 4, 8), leafMat);
+        leaves.position.y = 4;
+        tree.add(trunk, leaves);
+        tree.position.set(x, 0, z);
+        this.scene.add(tree);
+      }
     });
   }
 
@@ -338,28 +339,26 @@ export class LakeEnvironment {
   }
 
   spawnAmbientFish() {
-    const colors = [0x4a90c4, 0x3d6b4f, 0xe8a030, 0xc47a5a];
-    for (let i = 0; i < 24; i++) {
-      const fish = new THREE.Group();
-      const body = new THREE.Mesh(
-        new THREE.SphereGeometry(0.15, 8, 6),
-        new THREE.MeshStandardMaterial({
-          color: colors[i % colors.length],
-          transparent: true,
-          opacity: 0.55,
-        })
-      );
-      body.scale.set(2, 0.6, 0.8);
-      const tail = new THREE.Mesh(
-        new THREE.ConeGeometry(0.08, 0.2, 4),
-        new THREE.MeshStandardMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.5 })
-      );
-      tail.rotation.z = Math.PI / 2;
-      tail.position.x = -0.35;
-      fish.add(body, tail);
+    const assets = getAssets();
+    const fishKeys = ["Clownfish", "Goldfish", "Betta", "Tuna"];
+    for (let i = 0; i < 16; i++) {
+      const key = fishKeys[i % fishKeys.length];
+      const gltf = assets?.fish?.[key];
+      let fish;
+      if (gltf) {
+        fish = cloneModel(gltf, { scale: 0.25, rotationY: -Math.PI / 2, animate: true });
+      } else {
+        fish = new THREE.Group();
+        const body = new THREE.Mesh(
+          new THREE.SphereGeometry(0.15, 8, 6),
+          new THREE.MeshStandardMaterial({ color: 0x4a90c4, transparent: true, opacity: 0.55 })
+        );
+        body.scale.set(2, 0.6, 0.8);
+        fish.add(body);
+      }
       fish.position.set(
         (Math.random() - 0.5) * 60,
-        -0.3 - Math.random() * 0.8,
+        -0.15 - Math.random() * 0.4,
         -10 - Math.random() * 40
       );
       fish.userData = {
@@ -399,7 +398,7 @@ export class LakeEnvironment {
     }
   }
 
-  update(time) {
+  update(time, dt = 0.016) {
     this.waterUniforms.uTime.value = time;
     if (this.campFire) {
       const flame = this.campFire.children[4];
@@ -416,6 +415,7 @@ export class LakeEnvironment {
         Math.cos(time * d.speed + d.phase),
         -Math.sin(time * d.speed * 0.7 + d.phase)
       );
+      updateModelAnimations(fish, dt);
     });
     this.zoneMarkers.forEach((m, i) => {
       m.children[0].material.opacity = 0.5 + Math.sin(time * 2 + i) * 0.2;

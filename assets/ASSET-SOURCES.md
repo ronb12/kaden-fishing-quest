@@ -1,13 +1,21 @@
 # Kaden Fishing Quest Asset Sources
 
-- `lake-fishing-scene.jpg`
-  - Source: https://pixy.org/4797959/
-  - Direct file used: https://pixy.org/src/479/4797959.jpg
-  - Site labels the image as free public domain / CC0 style content. Verify before commercial release.
+## 3D Models (CC0) — Quaternius Animated Cute Fish Pack
 
-- `fish-blue.png`, `fish-brown.png`, `fish-orange.png`
-  - Source: Kenney Fish Pack via OpenGameArt.
-  - Source page: https://opengameart.org/content/fish-pack-0
-  - Local license file: `kenney-fish-pack-license.txt`
-  - These were downloaded during prototyping but removed from the active scene because the current direction is realistic imagery instead of cartoon sprites.
-  - Keep this license file with the project if these assets are used again later.
+Bundled GLB models in `assets/models/` sourced from the [Quaternius Animated Cute Fish Pack](https://quaternius.com/packs/cutefish.html) (CC0 / Public Domain).
+
+Models mirrored from [trebeljahr/quaternius-showcase](https://github.com/trebeljahr/quaternius-showcase) for reliable hosting.
+
+| Category | Models |
+|----------|--------|
+| Fish | Goldfish, Sunfish, RedSnapper, Koi, ArmoredCatfish, Swordfish, Shark, Clownfish, Betta, Tuna |
+| Rod | FishingRod_Lvl1–5 |
+| Bait | Worm, Lure_1–6 |
+| Environment | Dock_Wide, Dock_Long, Boat, BirchTree_1–3, Rock_1–3 |
+
+Credit: [Quaternius](https://quaternius.com) — not required (CC0) but appreciated.
+
+## 2D Reference (not used in 3D scene)
+
+- `lake-fishing-scene.jpg` — https://pixy.org/4797959/
+- Kenney Fish Pack sprites — https://opengameart.org/content/fish-pack-0 (see `kenney-fish-pack-license.txt`)

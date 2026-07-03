@@ -17,6 +17,7 @@ import {
 import { BAITS, ZONES } from "./data.js";
 import * as audio from "./audio.js";
 import { initTouchControls } from "./touch-controls.js";
+import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
 
 let ui = null;
 let touch = { active: false };
@@ -33,10 +34,23 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(0, 1.6, 8);
 
-const env = new LakeEnvironment(scene);
+let env = null;
+let fishing = null;
+
+const loadingEl = document.getElementById("asset-loading");
+const loadingFill = document.getElementById("asset-loading-fill");
+const loadingLabel = document.getElementById("asset-loading-label");
+
+await loadGameAssets((progress, name) => {
+  if (loadingFill) loadingFill.style.width = `${Math.round(progress * 100)}%`;
+  if (loadingLabel) loadingLabel.textContent = name ? `Loading ${name.replace(/_/g, " ")}…` : "Loading assets…";
+});
+loadingEl?.classList.add("hidden");
+
+env = new LakeEnvironment(scene);
 env.applyZone(getState().zone);
 
-const fishing = new FishingSystem(scene, env, onFishingEvent);
+fishing = new FishingSystem(scene, env, onFishingEvent);
 
 const controllerModelFactory = new XRControllerModelFactory();
 const controllers = [];
@@ -470,7 +484,7 @@ renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   const time = clock.elapsedTime;
 
-  env.update(time);
+  env.update(time, dt);
   updateDesktopMovement(dt);
   checkZoneTeleports();
 
@@ -489,6 +503,7 @@ renderer.setAnimationLoop(() => {
   prevReelHeld = reelHeld && isReeling;
 
   fishing.update(dt, time);
+  if (fishing.biteFish) updateModelAnimations(fishing.biteFish, dt);
 
   renderer.render(scene, camera);
 });
