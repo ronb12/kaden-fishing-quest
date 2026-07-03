@@ -12,7 +12,7 @@ export const ZONES = {
     id: "Lake Dock",
     label: "Lake Dock",
     description: "Calm shallows perfect for beginners.",
-    teleport: { x: 0, y: 0, z: 4 },
+    teleport: { x: 0, y: 0, z: 5 },
     lookAt: { x: 0, y: 0, z: -8 },
     castCenter: { x: 0, z: -12 },
     castRadius: 8,

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { getAssets, cloneModel } from "./asset-loader.js";
+import { DOCK_SHORE } from "./dock-layout.js";
 
 export const CAMP_ORIGIN = { x: -14, z: 20 };
 export const CABIN_SIZE = { width: 6.2, depth: 5.4, height: 3.1, wall: 0.18 };
@@ -44,13 +45,13 @@ export class Campground {
   buildPathFromDock() {
     const assets = getAssets();
     const pathPoints = [
-      { x: 1.5, z: 8.5, rot: 0 },
-      { x: 0.5, z: 10.5, rot: 0.15 },
-      { x: -1.5, z: 12.5, rot: 0.35 },
-      { x: -4.5, z: 14.5, rot: 0.55 },
-      { x: -7.5, z: 16.2, rot: 0.75 },
-      { x: -10.5, z: 17.5, rot: 0.9 },
-      { x: -13, z: 18.5, rot: 1.05 },
+      { x: DOCK_SHORE.x, z: DOCK_SHORE.z, rot: -0.2 },
+      { x: -0.5, z: DOCK_SHORE.z + 1.8, rot: 0.05 },
+      { x: -1.8, z: DOCK_SHORE.z + 3.5, rot: 0.28 },
+      { x: -4.2, z: DOCK_SHORE.z + 5.2, rot: 0.48 },
+      { x: -7.2, z: DOCK_SHORE.z + 6.5, rot: 0.68 },
+      { x: -10.2, z: DOCK_SHORE.z + 7.2, rot: 0.88 },
+      { x: -13, z: CAMP_ORIGIN.z - 1.5, rot: 1.05 },
     ];
 
     const woodPath = assets?.kenney?.path_wood;
@@ -72,13 +73,6 @@ export class Campground {
       tile.position.set(pt.x, 0, pt.z);
       this.group.add(tile);
     });
-
-    const boardwalk = assets?.env?.Dock_Long_NoRope || assets?.env?.Dock_Long;
-    if (boardwalk) {
-      const seg = cloneModel(boardwalk, { scale: 0.22, rotationY: Math.PI / 2 });
-      seg.position.set(2.2, 0, 7.8);
-      this.group.add(seg);
-    }
   }
 
   buildClearedGround() {
@@ -353,13 +347,13 @@ export class Campground {
   buildSigns() {
     const postMat = woodMat(0x6a4a28);
     const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.6), postMat);
-    signPost.position.set(0.5, 0.8, 9.5);
+    signPost.position.set(DOCK_SHORE.x + 0.5, 0.8, DOCK_SHORE.z + 0.6);
     this.group.add(signPost);
     const sign = new THREE.Mesh(
       new THREE.BoxGeometry(1.4, 0.5, 0.08),
       woodMat(0x9a7048)
     );
-    sign.position.set(0.5, 1.5, 9.5);
+    sign.position.set(DOCK_SHORE.x + 0.5, 1.5, DOCK_SHORE.z + 0.6);
     this.group.add(sign);
 
     const cabinSign = sign.clone();

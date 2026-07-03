@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations } from "./asset-loader.js";
 import { Campground } from "./campground.js";
+import { DOCK_GROUP } from "./dock-layout.js";
 
 const WATER_VERT = `
   uniform float uTime;
@@ -157,17 +158,11 @@ export class LakeEnvironment {
         group.add(lily);
       }
     }
-    const stairsGltf = assets?.env?.Dock_Stairs;
-    if (stairsGltf) {
-      const stairs = cloneModel(stairsGltf, { scale: 0.35, rotationY: Math.PI });
-      stairs.position.set(2.5, 0, 4);
-      group.add(stairs);
-    }
     const sign = new THREE.Mesh(
       new THREE.BoxGeometry(1.2, 0.6, 0.08),
       new THREE.MeshStandardMaterial({ color: 0x8b5a34 })
     );
-    sign.position.set(1.5, 1.2, 5);
+    sign.position.set(1.5, 1.2, 11.5);
     group.add(sign);
     group.visible = true;
     this.scene.add(group);
@@ -279,15 +274,18 @@ export class LakeEnvironment {
 
   buildDock() {
     const assets = getAssets();
-    const dockGltf = assets?.env?.Dock_Wide;
     const dockGroup = new THREE.Group();
+    dockGroup.name = "Dock";
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a34, roughness: 0.85 });
+    const plankMat = new THREE.MeshStandardMaterial({ color: 0x9a7048, roughness: 0.82 });
+    const longGltf = assets?.env?.Dock_Long_NoRope || assets?.env?.Dock_Long;
 
+    const dockGltf = assets?.env?.Dock_Wide;
     if (dockGltf) {
       const dock = cloneModel(dockGltf, { scale: 0.4, rotationY: Math.PI });
-      dock.position.set(0, 0, -2);
+      dock.position.set(0, 0, -1.8);
       dockGroup.add(dock);
     } else {
-      const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a34, roughness: 0.85 });
       for (let i = 0; i < 12; i++) {
         const plank = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 0.5), woodMat);
         plank.position.set(0, 0.15, -i * 0.55);
@@ -295,7 +293,47 @@ export class LakeEnvironment {
       }
     }
 
-    dockGroup.position.set(0, 0, 6);
+    const bridgeZ = [0.8, 2.8, 4.8, 6.8, 8.8];
+    if (longGltf) {
+      bridgeZ.forEach((z) => {
+        const seg = cloneModel(longGltf, { scale: 0.38, rotationY: Math.PI / 2 });
+        seg.position.set(0, 0.05, z);
+        dockGroup.add(seg);
+      });
+    } else {
+      bridgeZ.forEach((z) => {
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 1.1), woodMat);
+        plank.position.set(0, 0.12, z);
+        dockGroup.add(plank);
+      });
+    }
+
+    const stairsGltf = assets?.env?.Dock_Stairs;
+    if (stairsGltf) {
+      const stairs = cloneModel(stairsGltf, { scale: 0.38, rotationY: 0 });
+      stairs.position.set(0, 0.02, 10.2);
+      dockGroup.add(stairs);
+    } else {
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 2.4), woodMat);
+      ramp.position.set(0, 0.16, 10.2);
+      ramp.rotation.x = -0.14;
+      dockGroup.add(ramp);
+    }
+
+    const shoreDeck = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.1, 3.4), plankMat);
+    shoreDeck.position.set(0, 0.14, 12.2);
+    shoreDeck.receiveShadow = true;
+    dockGroup.add(shoreDeck);
+
+    const shoreBerm = new THREE.Mesh(
+      new THREE.BoxGeometry(11, 0.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 })
+    );
+    shoreBerm.position.set(0, 0.06, 13.8);
+    shoreBerm.receiveShadow = true;
+    dockGroup.add(shoreBerm);
+
+    dockGroup.position.set(DOCK_GROUP.x, 0, DOCK_GROUP.z);
     this.scene.add(dockGroup);
     this.dockGroup = dockGroup;
   }
