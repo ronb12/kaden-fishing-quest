@@ -124,6 +124,79 @@ function getVrAimDirection() {
   return aim.normalize();
 }
 
+let cabinInteractTarget = null;
+
+function handleCabinInteraction(id) {
+  const cg = env?.campground;
+  if (!cg) return;
+  const state = getState();
+  audio.resumeAudio();
+
+  switch (id) {
+    case "tackle-box":
+      ui?.openPanel("bait");
+      ui?.showToast("Tackle box — pick your bait");
+      break;
+    case "gear-locker":
+      ui?.openPanel("gear");
+      ui?.showToast("Gear locker — upgrade rod & boat");
+      break;
+    case "dresser":
+      ui?.openPanel("codex");
+      ui?.showToast("Fish journal — your catches");
+      break;
+    case "zone-map":
+      ui?.openPanel("zones");
+      ui?.showToast("Lake map — choose a fishing spot");
+      break;
+    case "lantern":
+      ui?.showToast(cg.toggleLantern());
+      break;
+    case "fireplace":
+      ui?.showToast(cg.toggleFireplace());
+      break;
+    case "trophy": {
+      const count = Object.keys(state.codex).length;
+      ui?.showToast(
+        count > 0 ? `Trophy wall — ${count} species logged` : "Empty trophy wall — go catch some fish!"
+      );
+      break;
+    }
+    case "coffee":
+      ui?.showToast("Warm coffee — perfect before dawn fishing");
+      break;
+    case "kettle":
+      ui?.showToast("Kettle's hot — tea ready for the camp");
+      break;
+    case "stove":
+      ui?.showToast("Camp stove packed — cook after a long day");
+      break;
+    case "rod-rack":
+      ui?.showToast(`Rod rack — your level ${state.rodLevel} rod is equipped`);
+      break;
+    case "coat-rack":
+      ui?.showToast("Waterproof jacket — hangs dry by the door");
+      break;
+    case "boots":
+      ui?.showToast("Muddy fishing boots — ready for the dock");
+      break;
+    case "radio":
+      ui?.showToast("Soft radio static… lake forecast sounds calm");
+      break;
+    default:
+      break;
+  }
+}
+
+function tryCabinInteract() {
+  const target = env?.campground?.pickInteractable(camera);
+  if (target) {
+    handleCabinInteraction(target.id);
+    return true;
+  }
+  return false;
+}
+
 function performCast(power, aimDir = null) {
   const aim = aimDir || (inVR ? getVrAimDirection() : getAimDirection());
   fishing.startCast(power, aim);
@@ -138,6 +211,7 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Digit3") switchZone("Deep Water");
   if (e.code === "KeyM") ui?.toggleMenu();
   if (e.code === "KeyB") ui?.openPanel?.("bait");
+  if (e.code === "KeyE") tryCabinInteract();
   const baitKeyMap = { Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5 };
   if (baitKeyMap[e.code] !== undefined) {
     const bait = BAITS[baitKeyMap[e.code]];
@@ -161,8 +235,11 @@ document.addEventListener("keyup", (e) => {
 });
 
 canvas.addEventListener("click", () => {
-  if (!inVR && !pointerLocked && !touch.active) canvas.requestPointerLock();
   audio.resumeAudio();
+  if (!inVR && !touch.active) {
+    if (env?.campground?.insideCabin && tryCabinInteract()) return;
+    if (!pointerLocked) canvas.requestPointerLock();
+  }
 });
 document.addEventListener("pointerlockchange", () => {
   pointerLocked = document.pointerLockElement === canvas;
@@ -181,6 +258,13 @@ function onSelect(i) {
     return;
   }
   if (i !== 1) return;
+  if (inVR && env?.campground?.insideCabin) {
+    const target = env.campground.pickInteractable(camera);
+    if (target) {
+      handleCabinInteraction(target.id);
+      return;
+    }
+  }
   handleFishingAction();
 }
 function onSelectEnd(i) {
@@ -555,11 +639,20 @@ renderer.setAnimationLoop(() => {
 
   env.campground?.update(time, camera.position, (event) => {
     if (event === "enter") {
-      ui?.showToast("Inside the fishing cabin — explore the shelves and rod rack!");
+      ui?.showToast("Inside the cabin — look at items and press E to interact");
     } else if (event === "exit") {
       ui?.showToast("Back at the campground");
     }
   });
+
+  if (!inVR && env?.campground?.insideCabin && fishing.state === FishingState.IDLE) {
+    cabinInteractTarget = env.campground.pickInteractable(camera);
+    if (cabinInteractTarget) {
+      ui?.setStatus(`[E] ${cabinInteractTarget.label}`);
+    }
+  } else {
+    cabinInteractTarget = null;
+  }
 
   if (inVR) {
     if (fishing.state !== FishingState.REELING) {

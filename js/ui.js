@@ -118,6 +118,7 @@ export function initUI(fishing, callbacks) {
         <li><strong>Hold R</strong> — Reel in (watch tension!)</li>
         <li><strong>Mouse</strong> — Look and aim cast</li>
         <li><strong>WASD</strong> — Move · walk to gold rings to change zones</li>
+        <li><strong>E</strong> — Interact with cabin items (inside the cabin)</li>
         <li><strong>B</strong> — Bait menu · <strong>4–9</strong> — Quick-select bait</li>
       </ul>
       <h3>Touch / iPhone</h3>
