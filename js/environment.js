@@ -59,7 +59,7 @@ const WATER_FRAG = `
     }
     float foam = smoothstep(0.08, 0.14, vWave) * 0.15;
     col += vec3(foam);
-    gl_FragColor = vec4(col, 0.9);
+    gl_FragColor = vec4(col, 0.82);
   }
 `;
 
@@ -101,9 +101,9 @@ export class LakeEnvironment {
     if (this.envMaps?.background) {
       this.scene.background = this.envMaps.background;
       this.scene.environment = this.envMaps.envMap;
-      this.scene.fog = new THREE.Fog(0x8ab0a8, 35, 140);
+      this.scene.fog = new THREE.Fog(0x8ab0a8, 48, 150);
     } else {
-      this.scene.fog = new THREE.Fog(0x8ec4d8, 30, 120);
+      this.scene.fog = new THREE.Fog(0x8ec4d8, 48, 150);
       this.scene.background = new THREE.Color(0xc9edf9);
     }
 
@@ -129,6 +129,7 @@ export class LakeEnvironment {
     this.buildTrees();
     this.buildMountains();
     this.buildZoneMarkers();
+    this.buildFishingPoolMarkers();
     this.campground = new Campground(this.scene, this.collisions);
     this.campFire = this.campground.campFire;
     this.buildZoneDressing();
@@ -494,6 +495,80 @@ export class LakeEnvironment {
     });
   }
 
+  buildFishingPoolMarkers() {
+    this.fishingPoolMarkers = {};
+    Object.values(ZONES).forEach((zone) => {
+      const group = new THREE.Group();
+      group.name = `FishingPool-${zone.id}`;
+
+      const fill = new THREE.Mesh(
+        new THREE.CircleGeometry(zone.castRadius, 72),
+        new THREE.MeshBasicMaterial({
+          color: 0x5ad4f0,
+          transparent: true,
+          opacity: 0.1,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      );
+      fill.rotation.x = -Math.PI / 2;
+      fill.position.set(zone.castCenter.x, 0.055, zone.castCenter.z);
+      fill.renderOrder = 2;
+      group.add(fill);
+
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(zone.castRadius - 0.18, zone.castRadius, 72),
+        new THREE.MeshBasicMaterial({
+          color: 0x9ae8ff,
+          transparent: true,
+          opacity: 0.55,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(zone.castCenter.x, 0.065, zone.castCenter.z);
+      ring.renderOrder = 3;
+      group.add(ring);
+
+      const innerRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.35, 0.55, 32),
+        new THREE.MeshBasicMaterial({
+          color: 0xffd37a,
+          transparent: true,
+          opacity: 0.35,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      );
+      innerRing.rotation.x = -Math.PI / 2;
+      innerRing.position.set(zone.castCenter.x, 0.06, zone.castCenter.z);
+      innerRing.renderOrder = 3;
+      group.add(innerRing);
+
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const bx = zone.castCenter.x + Math.cos(angle) * zone.castRadius;
+        const bz = zone.castCenter.z + Math.sin(angle) * zone.castRadius;
+        const buoy = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.12, 0.32, 8),
+          new THREE.MeshStandardMaterial({
+            color: i % 2 === 0 ? 0xe85a4a : 0xf4f4f4,
+            emissive: i % 2 === 0 ? 0x661811 : 0x222222,
+            emissiveIntensity: 0.25,
+            roughness: 0.45,
+          })
+        );
+        buoy.position.set(bx, 0.16, bz);
+        group.add(buoy);
+      }
+
+      group.visible = false;
+      this.scene.add(group);
+      this.fishingPoolMarkers[zone.id] = group;
+    });
+  }
+
   spawnAmbientFish() {
     const assets = getAssets();
     const fishKeys = [
@@ -548,6 +623,11 @@ export class LakeEnvironment {
     });
     if (this.dockGroup) this.dockGroup.visible = zoneId === "Lake Dock";
     if (this.campground?.group) this.campground.group.visible = zoneId === "Lake Dock";
+    if (this.fishingPoolMarkers) {
+      Object.entries(this.fishingPoolMarkers).forEach(([id, group]) => {
+        group.visible = id === zoneId;
+      });
+    }
   }
 
   setQuality(quality) {

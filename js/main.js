@@ -38,7 +38,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.xr.enabled = true;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, 280);
 camera.position.set(DOCK_SPAWN.x, 1.6, DOCK_SPAWN.z);
 
 let env = null;
@@ -63,6 +63,7 @@ loadingEl?.classList.add("hidden");
 
 env = new LakeEnvironment(scene, envMaps);
 env.applyZone(getState().zone);
+aimAtFishingPool(ZONES[getState().zone]);
 
 fishing = new FishingSystem(scene, env, onFishingEvent);
 
@@ -454,15 +455,28 @@ function switchZone(zoneId) {
   ui?.showToast(`Now at ${zoneId}`);
 }
 
+function aimAtFishingPool(zone) {
+  if (!zone) return;
+  const look = new THREE.Vector3(
+    zone.lookAt?.x ?? zone.castCenter.x,
+    zone.lookAt?.y ?? 0.4,
+    zone.lookAt?.z ?? zone.castCenter.z
+  );
+  camera.lookAt(look);
+  const dx = look.x - camera.position.x;
+  const dz = look.z - camera.position.z;
+  const dy = look.y - camera.position.y;
+  mouseX = Math.atan2(dx, dz);
+  mouseY = Math.atan2(dy, Math.hypot(dx, dz));
+  mouseY = Math.max(-1.2, Math.min(1.2, mouseY));
+}
+
 function teleportToZone(zoneId) {
   const zone = ZONES[zoneId];
   if (!zone) return;
   const offset = new THREE.Vector3(zone.teleport.x, zone.teleport.y + 1.6, zone.teleport.z);
   camera.position.copy(offset);
-  const look = new THREE.Vector3(zone.lookAt.x, 1.6, zone.lookAt.z);
-  camera.lookAt(look);
-  mouseX = Math.atan2(look.x - camera.position.x, look.z - camera.position.z);
-  mouseY = 0;
+  aimAtFishingPool(zone);
 }
 
 ui = initUI(fishing, {

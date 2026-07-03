@@ -131,7 +131,7 @@ export function initUI(fishing, callbacks) {
         <li><strong>Hold Cast</strong> — Charge power, release to cast</li>
         <li><strong>HOOK!</strong> when fish bites · <strong>Hold Reel</strong> after hooking</li>
       </ul>
-      <p class="help-tip">Watch for nibbles and a shadow under the bobber. Reel in the green tension zone when the fish tires — ease off during runs or your line will snap!</p>
+      <p class="help-tip">The glowing ring on the water marks the fishing pool — cast inside it. Watch for nibbles and fish shadows. Reel in the green tension zone when the fish tires!</p>
     `;
   }
 
