@@ -1,0 +1,23 @@
+{
+  "name": "Kaden VR Fishing Quest",
+  "short_name": "Kaden Fishing",
+  "description": "Cast, hook, and reel in a lakeside VR fishing adventure.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a1a24",
+  "theme_color": "#0d4f73",
+  "icons": [
+    {
+      "src": "./app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./app-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
