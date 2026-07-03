@@ -60,6 +60,7 @@ export class FishingSystem {
     this.legendaryEvent = false;
     this.failReason = "default";
     this.baseRodRotation = { x: -0.55, y: 0.18, z: -0.08 };
+    this.desktopRodRotation = { x: -0.5, y: 0, z: -0.05 };
     this.rodBend = 0;
     this.castStartPos = new THREE.Vector3();
     this.vrWindupBend = 0;
@@ -141,10 +142,12 @@ export class FishingSystem {
     return pos;
   }
 
-  updateRodTransform(controller, vrMotion = null) {
+  updateRodTransform(controller, vrMotion = null, mode = "vr") {
     if (!controller) return;
     this.rodGroup.position.copy(controller.position);
     this.rodGroup.quaternion.copy(controller.quaternion);
+    const rot = mode === "desktop" ? this.desktopRodRotation : this.baseRodRotation;
+    const pitchAdjust = mode === "desktop" ? (controller.pitch ?? 0) * 0.4 : 0;
     const windupBend = vrMotion?.swingVisual ?? this.vrWindupBend ?? 0;
     const castPhase = this.state === FishingState.CASTING ? Math.sin(this.castAnim * Math.PI) : 0;
     const castSwing =
@@ -158,9 +161,9 @@ export class FishingSystem {
       : 0;
     const biteBend = this.state === FishingState.BITING ? 0.12 : 0;
     this.rodBend += ((fightBend + biteBend) - this.rodBend) * 0.12;
-    this.rodGroup.rotateX(this.baseRodRotation.x - castSwing + this.rodBend, true);
-    this.rodGroup.rotateY(this.baseRodRotation.y, true);
-    this.rodGroup.rotateZ(this.baseRodRotation.z + castTwist, true);
+    this.rodGroup.rotateX(rot.x - castSwing + this.rodBend + pitchAdjust, true);
+    this.rodGroup.rotateY(rot.y, true);
+    this.rodGroup.rotateZ(rot.z + castTwist, true);
   }
 
   setVrWindup(amount) {

@@ -667,11 +667,17 @@ function updateDesktopMovement(dt) {
     fishing.addLureMotion(dt * 0.12);
   }
 
-  const rodOffset = new THREE.Vector3(0.42, -0.22, -0.52).applyQuaternion(camera.quaternion);
-  fishing.updateRodTransform({
-    position: camera.position.clone().add(rodOffset),
-    quaternion: camera.quaternion,
-  });
+  // Slight right bias, mostly forward — first-person rod hold in front of chest
+  const rodOffset = new THREE.Vector3(0.14, -0.34, -0.64).applyQuaternion(camera.quaternion);
+  fishing.updateRodTransform(
+    {
+      position: camera.position.clone().add(rodOffset),
+      quaternion: camera.quaternion,
+      pitch: mouseY,
+    },
+    null,
+    "desktop"
+  );
 }
 
 function updateVrFishing(dt) {
