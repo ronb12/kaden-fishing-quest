@@ -478,14 +478,20 @@ export function initUI(fishing, callbacks) {
       biteAlert?.classList.toggle("visible", false);
       if (reelHint) reelHint.textContent = reelHintText();
     },
-    showCatch(catchData, onCastAgain) {
+    showCatch(catchData, onCastAgain, onDismiss) {
       if (!catchOverlay) return;
       const newBadge = catchData.isNewSpecies
         ? '<p class="catch-new">New codex entry!</p>'
         : "";
       const legendary = catchData.rarity === "legendary" ? " legendary" : "";
+      const fishColor = catchData.color || "#4a90c4";
       catchOverlay.innerHTML = `
         <div class="catch-card rarity-${catchData.rarity}${legendary}">
+          <div class="catch-fish-visual" style="--fish-color: ${fishColor}" aria-hidden="true">
+            <span class="catch-fish-body"></span>
+            <span class="catch-fish-tail"></span>
+            <span class="catch-fish-fin"></span>
+          </div>
           <p class="catch-label">${catchData.rarity === "legendary" ? "LEGENDARY CATCH!" : "Caught!"}</p>
           <h2>${catchData.name}</h2>
           <p>${catchData.weight} lb · ${catchData.rarity}${catchData.baitUsed ? ` · ${catchData.baitUsed}` : ""}</p>
@@ -499,13 +505,17 @@ export function initUI(fishing, callbacks) {
         </div>
       `;
       catchOverlay.classList.add("show");
-      document.getElementById("catch-cast-again")?.addEventListener("click", () => {
+      const dismiss = () => {
         catchOverlay.classList.remove("show");
+        onDismiss?.();
+      };
+      document.getElementById("catch-cast-again")?.addEventListener("click", () => {
+        dismiss();
         onCastAgain?.();
         callbacks.onCastAgain?.();
       });
       document.getElementById("catch-view-codex")?.addEventListener("click", () => {
-        catchOverlay.classList.remove("show");
+        dismiss();
         activePanel = "codex";
         document.querySelectorAll("[data-panel]").forEach((t) =>
           t.classList.toggle("active", t.dataset.panel === "codex")
@@ -514,7 +524,7 @@ export function initUI(fishing, callbacks) {
         renderPanel(getState());
       });
       setTimeout(() => {
-        if (catchOverlay.classList.contains("show")) catchOverlay.classList.remove("show");
+        if (catchOverlay.classList.contains("show")) dismiss();
       }, 6000);
     },
     toggleMenu() {

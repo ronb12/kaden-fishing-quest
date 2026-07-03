@@ -73,6 +73,9 @@ export class FishingSystem {
     this.fishPull = new THREE.Vector2();
     this.lineShake = 0;
     this.castAccuracy = 0.5;
+    this.castSplashDone = false;
+    this.catchRigPos = new THREE.Vector3();
+    this.catchSplashDone = false;
     this.fightPhaseLabel = "";
     this.lureActivity = 0;
     this.lureMotionDecay = 0;
@@ -143,10 +146,13 @@ export class FishingSystem {
     this.rodGroup.position.copy(controller.position);
     this.rodGroup.quaternion.copy(controller.quaternion);
     const windupBend = vrMotion?.swingVisual ?? this.vrWindupBend ?? 0;
+    const castPhase = this.state === FishingState.CASTING ? Math.sin(this.castAnim * Math.PI) : 0;
     const castSwing =
       this.state === FishingState.CASTING
-        ? Math.sin(this.castAnim * Math.PI) * 0.55
+        ? castPhase * (0.72 + this.castPower * 0.42)
         : windupBend * 0.38;
+    const castTwist =
+      this.state === FishingState.CASTING ? Math.sin(this.castAnim * Math.PI * 1.6) * 0.1 * this.castPower : 0;
     const fightBend = this.state === FishingState.REELING
       ? this.tension * 0.22 + Math.hypot(this.fishPull.x, this.fishPull.y) * 0.14
       : 0;
@@ -154,7 +160,7 @@ export class FishingSystem {
     this.rodBend += ((fightBend + biteBend) - this.rodBend) * 0.12;
     this.rodGroup.rotateX(this.baseRodRotation.x - castSwing + this.rodBend, true);
     this.rodGroup.rotateY(this.baseRodRotation.y, true);
-    this.rodGroup.rotateZ(this.baseRodRotation.z, true);
+    this.rodGroup.rotateZ(this.baseRodRotation.z + castTwist, true);
   }
 
   setVrWindup(amount) {
@@ -234,7 +240,9 @@ export class FishingSystem {
       segments.push(...linePointsWithSag(tip, end, 8, 0.05));
     }
 
-    updateFishingLineMesh(this.line, segments, fighting ? 0.012 : 0.01);
+    const casting = this.state === FishingState.CASTING;
+    const lineRadius = fighting ? 0.012 : casting ? 0.011 : 0.01;
+    updateFishingLineMesh(this.line, segments, lineRadius);
     if (this.line.material) {
       const rod = getRodStats(getState().rodLevel);
       const zone = tensionZone(this.tension, rod);
@@ -271,25 +279,38 @@ export class FishingSystem {
       return;
     }
 
-    this.bobber.visible = active && (usesBobber || this.state === FishingState.CASTING);
-    this.hookGroup.visible = active || this.state === FishingState.CASTING;
+    this.bobber.visible = active && usesBobber;
+    this.hookGroup.visible = active;
   }
 
   updateCastFlight(time) {
     const t = Math.min(1, this.castAnim);
     const start = this.castStartPos;
     const end = this.castTarget;
-    const arc = 1.1 + this.castPower * 2.4;
+    const bait = getSelectedBait();
+    const usesBobber = isFloatPresentation(bait);
+    const endSurface = this.surfaceY(end.x, end.z, time);
+    const endY = endSurface + (usesBobber ? 0.04 : -0.02);
+    const arc = 0.85 + this.castPower * 2.8;
     const midX = (start.x + end.x) * 0.5;
     const midZ = (start.z + end.z) * 0.5;
-    const midY = Math.max(start.y, end.y) + arc;
+    const midY = Math.max(start.y, endY) + arc;
     const u = 1 - t;
     const flyX = u * u * start.x + 2 * u * t * midX + t * t * end.x;
-    const flyY = u * u * start.y + 2 * u * t * midY + t * t * end.y;
+    const flyY = u * u * start.y + 2 * u * t * midY + t * t * endY;
     const flyZ = u * u * start.z + 2 * u * t * midZ + t * t * end.z;
     this.hookGroup.position.set(flyX, flyY - 0.05, flyZ);
     this.hookGroup.visible = true;
-    this.bobber.position.set(flyX, flyY, flyZ);
+    if (usesBobber) {
+      this.bobber.position.set(flyX, flyY + 0.03, flyZ);
+      this.bobber.visible = true;
+    } else {
+      this.bobber.visible = false;
+    }
+    if (t > 0.82 && !this.castSplashDone) {
+      this.castSplashDone = true;
+      this.spawnSplashAt(flyX, endSurface, flyZ);
+    }
   }
 
   startCast(power = 0.7, aimDir = null) {
@@ -302,8 +323,10 @@ export class FishingSystem {
     this.castPower = Math.min(1, Math.max(0.2, power));
     this.state = FishingState.CASTING;
     this.castAnim = 0;
+    this.castSplashDone = false;
     this.castStartPos.copy(this.getRodTipWorld());
     this.hookGroup.visible = false;
+    this.bobber.visible = false;
     audio.playCast();
 
     const dist = zone.castRadius * this.castPower * 0.55 + zone.castRadius * 0.25;
@@ -337,13 +360,16 @@ export class FishingSystem {
     const bait = getSelectedBait();
     const zone = ZONES[s.zone];
     const depthMatch = baitDepthMatch(bait, zone?.depth ?? 0.3);
+    const surface = this.surfaceY(this.castTarget.x, this.castTarget.z, 0);
+    const usesBobber = isFloatPresentation(bait);
     this.bobber.position.copy(this.castTarget);
-    this.bobber.position.y = 0.08;
-    this.bobber.visible = isFloatPresentation(bait);
+    this.bobber.position.y = surface + 0.05;
+    this.bobber.visible = usesBobber;
     this.hookGroup.position.copy(this.castTarget);
     const sink = bait.sinkSpeed ?? 0.2;
-    this.hookGroup.position.y = 0.02 - sink * 0.04;
+    this.hookGroup.position.y = surface - 0.02 - sink * 0.06;
     this.hookGroup.visible = true;
+    this.spawnSplashAt(this.castTarget.x, surface, this.castTarget.z);
     audio.playSplash();
     this.state = FishingState.WAITING;
     this.preBiteWarned = false;
@@ -379,7 +405,12 @@ export class FishingSystem {
     this.updateLine();
     if (this.baitMesh) updateBaitAnimation(this.baitMesh, time);
 
-    if (this.bobber.visible && this.state !== FishingState.IDLE && this.state !== FishingState.CAUGHT) {
+    if (
+      this.bobber.visible &&
+      this.state !== FishingState.IDLE &&
+      this.state !== FishingState.CAUGHT &&
+      this.state !== FishingState.CASTING
+    ) {
       const waterY = this.surfaceY(this.bobber.position.x, this.bobber.position.z, time);
       let bobY = waterY + Math.sin(time * 3) * 0.015;
 
@@ -504,18 +535,18 @@ export class FishingSystem {
     this.clearProspectFish();
     const s = getState();
     const preview = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, false);
-    this.prospectFish = buildDetailedFish(preview, 0.85);
+    this.prospectFish = buildDetailedFish(preview, 1.05);
     this.prospectFish.traverse((c) => {
       if (c.isMesh && c.material) {
         c.material = c.material.clone();
         c.material.transparent = true;
-        c.material.opacity = 0.92;
+        c.material.opacity = 0.78;
         c.material.depthWrite = false;
         c.material.emissive = new THREE.Color(preview?.color ?? 0x2a6080);
-        c.material.emissiveIntensity = 0.55;
+        c.material.emissiveIntensity = 0.85;
       }
     });
-    this.prospectFish.renderOrder = 8;
+    this.prospectFish.renderOrder = 6;
     this.prospectFish.frustumCulled = false;
     this.prospectAngle = Math.random() * Math.PI * 2;
     this.scene.add(this.prospectFish);
@@ -534,14 +565,16 @@ export class FishingSystem {
     const radius = 1.15 - this.nibbleIndex * 0.12 + Math.sin(time * 0.7) * 0.15;
     const fx = bx + Math.cos(this.prospectAngle) * radius;
     const fz = bz + Math.sin(this.prospectAngle) * radius;
-    const fishY = surface + 0.08 + Math.sin(time * 1.8) * 0.04;
+    const swimDepth = 0.16 + this.nibbleIndex * 0.02;
+    const fishY = surface - swimDepth + Math.sin(time * 1.8) * 0.03;
     this.prospectFish.position.set(fx, fishY, fz);
-    this.prospectFish.lookAt(bx, surface - 0.04, bz);
+    this.prospectFish.lookAt(bx, surface - swimDepth - 0.06, bz);
+    this.prospectFish.rotation.z = Math.sin(time * 2.4) * 0.08;
     if (this.prospectFishShadow) {
-      this.prospectFishShadow.position.set(fx, surface + 0.02, fz);
-      const pulse = 0.9 + Math.sin(time * 2.2 + this.nibbleIndex) * 0.12;
-      this.prospectFishShadow.scale.setScalar(0.75 * pulse);
-      this.prospectFishShadow.material.opacity = 0.35 + this.nibbleIndex * 0.08;
+      this.prospectFishShadow.position.set(fx, surface + 0.015, fz);
+      const pulse = 0.95 + Math.sin(time * 2.2 + this.nibbleIndex) * 0.14;
+      this.prospectFishShadow.scale.setScalar(0.9 * pulse);
+      this.prospectFishShadow.material.opacity = 0.42 + this.nibbleIndex * 0.1;
     }
   }
 
@@ -576,12 +609,12 @@ export class FishingSystem {
   spawnBiteFish() {
     this.clearBiteFish();
     this.biteFish = buildBiteFish(this.pendingFish);
-    this.biteFish.scale.setScalar(this.legendaryEvent ? 1.55 : 1.35);
+    this.biteFish.scale.setScalar(this.legendaryEvent ? 1.65 : 1.45);
     const pos = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
     const surface = this.surfaceY(pos.x, pos.z, 0);
-    this.biteFish.position.set(pos.x + 0.32, surface + 0.22, pos.z + 0.22);
-    this.biteFish.lookAt(pos.x, surface + 0.12, pos.z);
-    this.biteFish.renderOrder = 9;
+    this.biteFish.position.set(pos.x + 0.28, surface + 0.18, pos.z + 0.2);
+    this.biteFish.lookAt(pos.x, surface + 0.08, pos.z);
+    this.biteFish.renderOrder = 10;
     this.biteFish.frustumCulled = false;
     this.biteLunge = 0;
     this.scene.add(this.biteFish);
@@ -624,30 +657,42 @@ export class FishingSystem {
   }
 
   updateCatchAnim(dt, time) {
-    if (!this.biteFish) {
+    if (!this.biteFish && this.pendingFish) {
       this.biteFish = buildBiteFish(this.pendingFish);
-      this.biteFish.position.copy(this.bobber.position);
+      this.biteFish.scale.setScalar(this.legendaryEvent ? 1.85 : 1.65);
+      this.biteFish.position.copy(this.catchRigPos);
+      this.biteFish.renderOrder = 12;
       this.scene.add(this.biteFish);
     }
+    if (!this.biteFish) return;
     this.catchAnim += dt;
     const t = this.catchAnim;
-    const bx = this.bobber.position.x;
-    const bz = this.bobber.position.z;
+    const bx = this.catchRigPos.x;
+    const bz = this.catchRigPos.z;
     const surface = this.surfaceY(bx, bz, time);
-    const jump = Math.sin(Math.min(1, t * 0.9) * Math.PI) * 1.4;
-    const sway = Math.sin(t * 4) * 0.2;
-    this.biteFish.position.set(bx + sway, surface + 0.15 + jump, bz + Math.cos(t * 3) * 0.15);
-    this.biteFish.rotation.y += dt * 3.5;
-    this.biteFish.rotation.z = Math.sin(t * 10) * 0.45;
-    if (t > 0.15 && t < 0.35) this.spawnSplash();
-    if (t >= 2.8) this.reset();
+    const jump = Math.sin(Math.min(1, t * 0.75) * Math.PI) * 1.55;
+    const sway = Math.sin(t * 4) * 0.22;
+    this.biteFish.position.set(bx + sway, surface + 0.18 + jump, bz + Math.cos(t * 3) * 0.18);
+    this.biteFish.rotation.y += dt * 3.8;
+    this.biteFish.rotation.z = Math.sin(t * 10) * 0.5;
+    if (t > 0.15 && t < 0.45 && !this.catchSplashDone) {
+      this.catchSplashDone = true;
+      this.spawnSplashAt(bx, surface, bz);
+    }
+  }
+
+  spawnSplashAt(x, surfaceY, z) {
+    const prev = this.bobber.position.clone();
+    this.bobber.position.set(x, surfaceY + 0.04, z);
+    this.spawnSplash();
+    this.bobber.position.copy(prev);
   }
 
   spawnSplash() {
     for (let i = 0; i < 3; i++) {
       const ring = buildSplashRing();
       ring.position.copy(this.bobber.position);
-      ring.position.y = 0.04;
+      ring.position.y = this.bobber.position.y;
       ring.userData = { age: i * 0.15, maxAge: 0.9 };
       this.scene.add(ring);
       this.splashRings.push(ring);
@@ -806,9 +851,21 @@ export class FishingSystem {
     else audio.playCatch();
     this.state = FishingState.CAUGHT;
     this.catchAnim = 0;
+    this.catchSplashDone = false;
+    const rig = this.bobber.visible ? this.bobber.position : this.hookGroup.position;
+    this.catchRigPos.copy(rig);
     this.bobber.visible = false;
-    this.spawnSplash();
-    this.spawnSplash();
+    if (this.biteFish) {
+      this.biteFish.scale.setScalar(catchData.rarity === "legendary" ? 1.9 : 1.7);
+      this.biteFish.traverse((c) => {
+        if (c.isMesh && c.material?.emissiveIntensity != null) {
+          c.material.emissiveIntensity = 0.75;
+        }
+      });
+    }
+    const splashY = this.surfaceY(rig.x, rig.z, 0);
+    this.spawnSplashAt(rig.x, splashY, rig.z);
+    this.spawnSplashAt(rig.x, splashY, rig.z);
     this.onEvent?.("caught", catchData);
   }
 
@@ -833,6 +890,8 @@ export class FishingSystem {
     this.catchAnim = 0;
     this.resetTimer = 0;
     this.castAnim = 0;
+    this.castSplashDone = false;
+    this.catchSplashDone = false;
     this.preBiteWarned = false;
     this.escapeTimer = 0;
     this.legendaryEvent = false;

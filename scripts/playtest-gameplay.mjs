@@ -106,6 +106,8 @@ try {
   const fishDetail = await page.evaluate(() => window.__playtest.getFishDetail?.() || null);
   if (fishDetail?.prospect) pass("prospect fish spawned in water");
   else fail("prospect fish spawned in water", JSON.stringify(fishDetail));
+  if (fishDetail?.prospectSubmerged) pass("prospect fish swims below surface");
+  else if (fishDetail?.prospect) fail("prospect fish swims below surface", JSON.stringify(fishDetail));
 
   await page.evaluate(() => window.__playtest.forceBite());
   await page.waitForFunction(() => window.__playtest.getFishingState() === "biting", { timeout: 8000 });

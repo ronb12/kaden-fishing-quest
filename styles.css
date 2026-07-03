@@ -729,6 +729,57 @@ body > button {
   animation: catchPop 0.4s ease;
 }
 
+.catch-fish-visual {
+  position: relative;
+  width: 120px;
+  height: 56px;
+  margin: 0 auto 14px;
+}
+
+.catch-fish-body {
+  position: absolute;
+  left: 18px;
+  top: 10px;
+  width: 72px;
+  height: 36px;
+  border-radius: 50% 45% 45% 50% / 55% 55% 45% 45%;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--fish-color) 85%, white), var(--fish-color));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--fish-color) 45%, transparent);
+}
+
+.catch-fish-tail {
+  position: absolute;
+  left: 2px;
+  top: 16px;
+  width: 0;
+  height: 0;
+  border-top: 14px solid transparent;
+  border-bottom: 14px solid transparent;
+  border-right: 22px solid var(--fish-color);
+  filter: brightness(0.92);
+}
+
+.catch-fish-fin {
+  position: absolute;
+  left: 52px;
+  top: 2px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 16px solid color-mix(in srgb, var(--fish-color) 80%, #1a3040);
+  opacity: 0.85;
+}
+
+.catch-card.legendary .catch-fish-visual {
+  animation: catchFishBob 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes catchFishBob {
+  from { transform: translateY(0) rotate(-2deg); }
+  to { transform: translateY(-6px) rotate(2deg); }
+}
+
 @keyframes catchPop {
   0% { transform: scale(0.7); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }

@@ -341,6 +341,7 @@ export function rollWeight(species) {
 export function formatCatch(species, weight, zone, rodLevel = 1) {
   const base = species.value * (1 + weight * 0.08);
   const rodBonus = 1 + (getRodStats(rodLevel).reelMult - 0.88) * 0.35;
+  const colorHex = `#${(species.color ?? 0x4a90c4).toString(16).padStart(6, "0")}`;
   return {
     speciesId: species.id,
     name: species.name,
@@ -350,6 +351,8 @@ export function formatCatch(species, weight, zone, rodLevel = 1) {
     value: Math.round(base * rodBonus),
     timestamp: Date.now(),
     isNewSpecies: false,
+    color: colorHex,
+    modelKey: species.modelKey,
   };
 }
 

@@ -460,7 +460,14 @@ function onFishingEvent(type, data) {
     case "caught":
       ui?.setBiteAlert(false);
       ui?.setReelAlert(false);
-      ui?.showCatch(data, () => performCast(0.75));
+      ui?.showCatch(
+        data,
+        () => {
+          fishing.reset();
+          performCast(0.75);
+        },
+        () => fishing.reset()
+      );
       ui?.setTension(0, 0, false);
       ui?.setStatus(fishing.getStatusText());
       break;
@@ -660,7 +667,7 @@ function updateDesktopMovement(dt) {
     fishing.addLureMotion(dt * 0.12);
   }
 
-  const rodOffset = new THREE.Vector3(0.45, -0.24, -0.55).applyQuaternion(camera.quaternion);
+  const rodOffset = new THREE.Vector3(0.42, -0.22, -0.52).applyQuaternion(camera.quaternion);
   fishing.updateRodTransform({
     position: camera.position.clone().add(rodOffset),
     quaternion: camera.quaternion,
@@ -836,15 +843,26 @@ if (new URLSearchParams(location.search).has("playtest")) {
       prospectPos: fishing.prospectFish
         ? { x: fishing.prospectFish.position.x, y: fishing.prospectFish.position.y, z: fishing.prospectFish.position.z }
         : null,
+      prospectSubmerged: (() => {
+        if (!fishing.prospectFish) return false;
+        const bx = fishing.bobber?.visible ? fishing.bobber.position.x : fishing.hookGroup?.position.x;
+        const bz = fishing.bobber?.visible ? fishing.bobber.position.z : fishing.hookGroup?.position.z;
+        if (bx == null) return false;
+        const surface = fishing.surfaceY(bx, bz, performance.now() * 0.001);
+        return fishing.prospectFish.position.y < surface - 0.04;
+      })(),
       prospectShadow: Boolean(fishing.prospectFishShadow?.visible),
       biteFish: Boolean(fishing.biteFish),
       biteFishVisible: Boolean(fishing.biteFish?.visible),
+      catchFish: fishing.state === "caught" && Boolean(fishing.biteFish),
       bitePos: fishing.biteFish
         ? { x: fishing.biteFish.position.x, y: fishing.biteFish.position.y, z: fishing.biteFish.position.z }
         : null,
       bobberPos: fishing.bobber?.visible
         ? { x: fishing.bobber.position.x, y: fishing.bobber.position.y, z: fishing.bobber.position.z }
         : null,
+      casting: fishing.state === "casting",
+      castAnim: fishing.castAnim,
     }),
     getPoolMarkerVisible: () => {
       const zone = getState().zone;

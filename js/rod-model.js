@@ -207,36 +207,39 @@ export function updateBaitAnimation(baitMesh, time) {
 export function buildBobber() {
   const group = new THREE.Group();
   const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.003, 0.003, 0.09, 8),
+    new THREE.CylinderGeometry(0.0035, 0.0035, 0.1, 8),
     mat(0xffffff, { roughness: 0.35, metalness: 0.05 })
   );
   stem.position.y = -0.02;
   group.add(stem);
 
   const top = new THREE.Mesh(
-    new THREE.SphereGeometry(0.028, 16, 12),
-    mat(0xf4f4f4, { roughness: 0.32, metalness: 0.04 })
+    new THREE.SphereGeometry(0.032, 16, 12),
+    mat(0xf8f8f8, { roughness: 0.28, metalness: 0.06, emissive: 0x222222, emissiveIntensity: 0.15 })
   );
   top.scale.y = 0.75;
-  top.position.y = 0.02;
+  top.position.y = 0.024;
   group.add(top);
 
   const bottom = new THREE.Mesh(
-    new THREE.SphereGeometry(0.024, 16, 12),
-    mat(0xcc2222, { roughness: 0.38, metalness: 0.05 })
+    new THREE.SphereGeometry(0.028, 16, 12),
+    mat(0xd42020, { roughness: 0.35, metalness: 0.05 })
   );
   bottom.scale.y = 1.1;
-  bottom.position.y = -0.045;
+  bottom.position.y = -0.05;
   group.add(bottom);
 
   const band = new THREE.Mesh(
-    new THREE.TorusGeometry(0.026, 0.003, 8, 20),
+    new THREE.TorusGeometry(0.03, 0.0035, 8, 20),
     mat(0xffffff, { roughness: 0.4 })
   );
   band.rotation.x = Math.PI / 2;
-  band.position.y = 0.005;
+  band.position.y = 0.006;
   group.add(band);
 
+  group.traverse((c) => {
+    if (c.isMesh) c.renderOrder = 11;
+  });
   return group;
 }
 
@@ -258,7 +261,7 @@ export function buildHook() {
 }
 
 export function buildBiteFish(species) {
-  const fish = buildDetailedFish(species, 1.35);
+  const fish = buildDetailedFish(species, 1.45);
   fish.traverse((c) => {
     if (c.isMesh && c.material) {
       c.material = c.material.clone();
@@ -266,7 +269,7 @@ export function buildBiteFish(species) {
       c.material.opacity = 1;
       c.material.depthWrite = false;
       c.material.emissive = new THREE.Color(species?.color ?? 0x4a90c4);
-      c.material.emissiveIntensity = 0.45;
+      c.material.emissiveIntensity = 0.62;
     }
   });
   return fish;
@@ -316,17 +319,17 @@ export function updateFishingLineMesh(lineMesh, points, radius = 0.0022) {
 
 export function buildFishSilhouette() {
   const mesh = new THREE.Mesh(
-    new THREE.CircleGeometry(0.55, 24),
+    new THREE.CircleGeometry(0.62, 24),
     new THREE.MeshBasicMaterial({
-      color: 0x143848,
+      color: 0x0e3040,
       transparent: true,
-      opacity: 0.62,
+      opacity: 0.68,
       depthWrite: false,
       side: THREE.DoubleSide,
     })
   );
   mesh.rotation.x = -Math.PI / 2;
-  mesh.renderOrder = 5;
+  mesh.renderOrder = 4;
   mesh.visible = false;
   return mesh;
 }
