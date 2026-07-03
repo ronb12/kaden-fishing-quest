@@ -1,14 +1,40 @@
-import { FISH_SPECIES, GEAR_COSTS, QUESTS, ZONES, BAITS, isBaitUnlocked } from "./data.js";
-import { getState, subscribe, setZone, upgradeGear, claimQuest, canAccessZone, resetProgress, setBait, getSelectedBait } from "./state.js";
+import {
+  FISH_SPECIES,
+  QUESTS,
+  ZONES,
+  BAITS,
+  isBaitUnlocked,
+  GEAR_MAX,
+  getGearCost,
+  getRodDescription,
+  getBoatDescription,
+  getBaitKitDescription,
+} from "./data.js";
+import {
+  getState,
+  subscribe,
+  setZone,
+  upgradeGear,
+  claimQuest,
+  canAccessZone,
+  resetProgress,
+  setBait,
+  getSelectedBait,
+  setDisplayName,
+  updateSettings,
+  getSyncStatus,
+} from "./state.js";
 import { fetchLeaderboard, getPlayerId } from "./api.js";
+import * as audio from "./audio.js";
 
 let activePanel = "hud";
+let leaderboardSort = "fish";
 
 export function initUI(fishing, callbacks) {
   const hud = document.getElementById("hud");
   const menu = document.getElementById("vr-menu");
   const toast = document.getElementById("toast");
-  const enterVrBtn = document.getElementById("enterVrBtn");
+  const syncIndicator = document.getElementById("sync-indicator");
   const panelContent = document.getElementById("panel-content");
   const tensionBar = document.getElementById("tension-bar");
   const tensionFill = document.getElementById("tension-fill");
@@ -26,6 +52,14 @@ export function initUI(fishing, callbacks) {
     setTimeout(() => toast.classList.remove("show"), 2200);
   }
 
+  function updateSyncStatus() {
+    if (!syncIndicator) return;
+    const status = getSyncStatus();
+    syncIndicator.textContent =
+      status === "synced" ? "☁ Saved" : status === "saving" ? "☁ Saving…" : status === "offline" ? "☁ Offline" : "☁ Local";
+    syncIndicator.className = `sync-indicator sync-${status}`;
+  }
+
   function renderHUD(state) {
     document.getElementById("hud-fish").textContent = state.fish;
     document.getElementById("hud-coins").textContent = state.coins;
@@ -35,6 +69,7 @@ export function initUI(fishing, callbacks) {
     const bait = getSelectedBait();
     const baitEl = document.getElementById("hud-bait");
     if (baitEl) baitEl.textContent = `${bait.icon} ${bait.name}`;
+    updateSyncStatus();
   }
 
   function renderPanel(state) {
@@ -55,6 +90,9 @@ export function initUI(fishing, callbacks) {
       case "quests":
         panelContent.innerHTML = renderQuests(state);
         break;
+      case "settings":
+        panelContent.innerHTML = renderSettings(state);
+        break;
       case "leaderboard":
         renderLeaderboard();
         return;
@@ -69,27 +107,24 @@ export function initUI(fishing, callbacks) {
       <h3>VR Controls</h3>
       <ul class="help-list">
         <li><strong>Right Trigger</strong> — Cast / Hook / Reel</li>
-        <li><strong>Menu buttons</strong> — Zones, Codex, Gear, Quests</li>
-        <li><strong>Teleport rings</strong> — Walk to colored rings in-world</li>
+        <li><strong>Left Trigger on zone pad</strong> — Teleport to zone</li>
+        <li><strong>Left Grip</strong> — Open menu</li>
       </ul>
       <h3>Desktop Controls</h3>
       <ul class="help-list">
-        <li><strong>Space</strong> — Cast / Hook</li>
-        <li><strong>Hold R</strong> — Reel in</li>
-        <li><strong>Mouse</strong> — Look around</li>
-        <li><strong>WASD</strong> — Move</li>
-        <li><strong>1–3</strong> — Switch zones</li>
+        <li><strong>Hold Space</strong> — Charge cast power, release to cast</li>
+        <li><strong>Hold R</strong> — Reel in (watch tension!)</li>
+        <li><strong>Mouse</strong> — Look and aim cast</li>
+        <li><strong>WASD</strong> — Move · walk to gold rings to change zones</li>
         <li><strong>B</strong> — Bait menu · <strong>4–9</strong> — Quick-select bait</li>
       </ul>
       <h3>Touch / iPhone</h3>
       <ul class="help-list">
-        <li><strong>Drag right side</strong> — Look around</li>
-        <li><strong>Left joystick</strong> — Move</li>
-        <li><strong>Cast / HOOK!</strong> — Tap action button</li>
-        <li><strong>Hold Reel</strong> — After hooking a fish</li>
-        <li><strong>🪱 Bait</strong> — Open bait picker</li>
+        <li><strong>Drag right side</strong> — Look and aim</li>
+        <li><strong>Hold Cast</strong> — Charge power, release to cast</li>
+        <li><strong>HOOK!</strong> when fish bites · <strong>Hold Reel</strong> after hooking</li>
       </ul>
-      <p class="help-tip">Cast, wait for the bobber to dunk and a fish to strike, press Space/trigger to HOOK, then hold R/trigger to REEL while watching tension.</p>
+      <p class="help-tip">Watch the bobber dip before a bite. Keep tension in the green zone while reeling — stop reeling if it gets too high!</p>
     `;
   }
 
@@ -114,31 +149,31 @@ export function initUI(fishing, callbacks) {
       return `<p class="empty">No fish logged yet. Cast a line to start your codex!</p>`;
     }
     return entries
-      .map(([id, e]) => {
-        const species = FISH_SPECIES.find((f) => f.id === id);
-        return `
+      .map(([id, e]) => `
           <div class="codex-entry rarity-${e.rarity}">
             <strong>${e.name}</strong>
             <span>${e.count} caught · Best ${e.bestWeight} lb · ${e.rarity}</span>
           </div>
-        `;
-      })
+        `)
       .join("");
   }
 
   function renderGear(state) {
+    const rodMax = state.rodLevel >= GEAR_MAX.rod;
+    const boatMax = state.boatLevel >= GEAR_MAX.boat;
+    const baitMax = state.baitKit >= GEAR_MAX.bait;
     return `
       <div class="gear-row">
-        <div><strong>Rod Lvl ${state.rodLevel}</strong><span>+${state.rodLevel * 2} coin bonus</span></div>
-        <button data-upgrade="rod">Upgrade (${GEAR_COSTS.rod}c)</button>
+        <div><strong>Rod Lvl ${state.rodLevel}${rodMax ? " (MAX)" : ""}</strong><span>${getRodDescription(state.rodLevel)}</span></div>
+        <button data-upgrade="rod" ${rodMax ? "disabled" : ""}>${rodMax ? "Maxed" : `Upgrade (${getGearCost("rod", state.rodLevel)}c)`}</button>
       </div>
       <div class="gear-row">
-        <div><strong>Boat Lvl ${state.boatLevel}</strong><span>Unlocks deep water</span></div>
-        <button data-upgrade="boat">Upgrade (${GEAR_COSTS.boat}c)</button>
+        <div><strong>Boat Lvl ${state.boatLevel}${boatMax ? " (MAX)" : ""}</strong><span>${getBoatDescription(state.boatLevel)}</span></div>
+        <button data-upgrade="boat" ${boatMax ? "disabled" : ""}>${boatMax ? "Maxed" : `Upgrade (${getGearCost("boat", state.boatLevel)}c)`}</button>
       </div>
       <div class="gear-row">
-        <div><strong>Bait Kit ${state.baitKit}</strong><span>Unlocks advanced baits</span></div>
-        <button data-upgrade="bait">Upgrade (${GEAR_COSTS.bait}c)</button>
+        <div><strong>Bait Kit ${state.baitKit}${baitMax ? " (MAX)" : ""}</strong><span>${getBaitKitDescription(state.baitKit)}</span></div>
+        <button data-upgrade="bait" ${baitMax ? "disabled" : ""}>${baitMax ? "Maxed" : `Upgrade (${getGearCost("bait", state.baitKit)}c)`}</button>
       </div>
     `;
   }
@@ -166,23 +201,25 @@ export function initUI(fishing, callbacks) {
 
   function renderQuests(state) {
     return QUESTS.map((q) => {
-      const { current, target } = (() => {
-        const p = state.questProgress;
-        switch (q.id) {
-          case "lakeFish": return { current: p.lakeFish, target: q.target };
-          case "visitCove": return { current: p.visitedCove ? 1 : 0, target: 1 };
-          case "rodUpgraded": return { current: p.rodUpgraded ? 1 : 0, target: 1 };
-          case "rareCatch": return { current: p.rareCatch || 0, target: 1 };
-          default: return { current: 0, target: q.target };
-        }
-      })();
-      const done = current >= target;
+      const p = state.questProgress;
+      const codexCount = Object.keys(state.codex).length;
+      let current = 0;
+      switch (q.id) {
+        case "lakeFish": current = p.lakeFish; break;
+        case "visitCove": current = p.visitedCove ? 1 : 0; break;
+        case "rodUpgraded": current = p.rodUpgraded ? 1 : 0; break;
+        case "rareCatch": current = p.rareCatch || 0; break;
+        case "deepWaterFish": current = p.deepWaterFish || 0; break;
+        case "legendaryCatch": current = p.legendaryCatch || 0; break;
+        case "codexHalf": current = codexCount; break;
+      }
+      const done = current >= q.target;
       const claimed = state.claimedQuests?.includes(q.id);
       return `
         <div class="quest-row ${done ? "done" : ""}">
           <div>
             <strong>${q.label}</strong>
-            <span>${Math.min(current, target)}/${target} · Reward ${q.reward}c</span>
+            <span>${Math.min(current, q.target)}/${q.target} · Reward ${q.reward}c</span>
           </div>
           ${done && !claimed ? `<button data-claim="${q.id}">Claim</button>` : claimed ? "<span class='claimed'>Claimed</span>" : ""}
         </div>
@@ -190,30 +227,89 @@ export function initUI(fishing, callbacks) {
     }).join("");
   }
 
+  function renderSettings(state) {
+    const s = state.settings || {};
+    return `
+      <div class="settings-section">
+        <label>Angler name (leaderboard)</label>
+        <div class="settings-row">
+          <input id="display-name-input" type="text" maxlength="20" placeholder="Your name" value="${state.displayName || ""}" />
+          <button id="save-name-btn" type="button">Save</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <label class="settings-toggle">
+          <input type="checkbox" data-setting="music" ${s.music !== false ? "checked" : ""} />
+          Ambient lake audio
+        </label>
+        <label class="settings-toggle">
+          <input type="checkbox" data-setting="sfx" ${s.sfx !== false ? "checked" : ""} />
+          Sound effects
+        </label>
+      </div>
+      <div class="settings-section">
+        <label>Graphics quality</label>
+        <select id="quality-select">
+          <option value="high" ${s.quality !== "low" ? "selected" : ""}>High</option>
+          <option value="low" ${s.quality === "low" ? "selected" : ""}>Low (mobile)</option>
+        </select>
+      </div>
+      <p class="help-tip">Player ID: ${getPlayerId().slice(0, 8)}…</p>
+    `;
+  }
+
   async function renderLeaderboard() {
-    panelContent.innerHTML = `<p class="empty">Loading leaderboard...</p>`;
-    const rows = await fetchLeaderboard();
+    panelContent.innerHTML = `
+      <div class="leaderboard-tabs">
+        <button class="lb-tab ${leaderboardSort === "fish" ? "active" : ""}" data-lb-sort="fish">Fish</button>
+        <button class="lb-tab ${leaderboardSort === "coins" ? "active" : ""}" data-lb-sort="coins">Coins</button>
+        <button class="lb-tab ${leaderboardSort === "weight" ? "active" : ""}" data-lb-sort="weight">Best Catch</button>
+        <button class="lb-tab ${leaderboardSort === "codex" ? "active" : ""}" data-lb-sort="codex">Codex</button>
+      </div>
+      <p class="empty">Loading leaderboard...</p>
+    `;
+    panelContent.querySelectorAll("[data-lb-sort]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        leaderboardSort = btn.dataset.lbSort;
+        renderLeaderboard();
+      });
+    });
+    const rows = await fetchLeaderboard(leaderboardSort);
     if (!rows.length) {
-      panelContent.innerHTML = `<p class="empty">No anglers on the board yet. Be the first!</p>`;
+      panelContent.querySelector(".empty").textContent = "No anglers on the board yet. Be the first!";
       return;
     }
-    panelContent.innerHTML = `
-      <p class="help-tip">Synced via Neon · Your ID: ${getPlayerId().slice(0, 8)}…</p>
-      ${rows.map((r, i) => `
-        <div class="leaderboard-row">
-          <span class="rank">#${i + 1}</span>
-          <div>
-            <strong>${r.display_name || r.player_id.slice(0, 8)}</strong>
-            <span>${r.fish_count} fish · ${r.coins} coins</span>
+    const sortLabel = { fish: "fish", coins: "coins", weight: "lb best", codex: "species" };
+    panelContent.querySelector(".empty")?.remove();
+    const list = document.createElement("div");
+    list.innerHTML = rows
+      .map((r, i) => {
+        const name = r.display_name || r.player_id?.slice(0, 8) || "Angler";
+        let detail = `${r.fish_count} fish · ${r.coins} coins`;
+        if (leaderboardSort === "weight" && r.best_catch) {
+          detail = `${r.best_catch.name || "Fish"} · ${r.best_catch.weight} lb`;
+        }
+        if (leaderboardSort === "codex" && r.codex_count != null) {
+          detail = `${r.codex_count} species logged`;
+        }
+        return `
+          <div class="leaderboard-row">
+            <span class="rank">#${i + 1}</span>
+            <div>
+              <strong>${name}</strong>
+              <span>${detail}</span>
+            </div>
           </div>
-        </div>
-      `).join("")}
-    `;
+        `;
+      })
+      .join("");
+    panelContent.appendChild(list);
   }
 
   function bindPanelEvents() {
     panelContent?.querySelectorAll("[data-zone]").forEach((btn) => {
       btn.addEventListener("click", () => {
+        audio.playUIClick();
         const zone = btn.dataset.zone;
         if (canAccessZone(zone)) {
           setZone(zone);
@@ -224,15 +320,18 @@ export function initUI(fishing, callbacks) {
     });
     panelContent?.querySelectorAll("[data-upgrade]").forEach((btn) => {
       btn.addEventListener("click", () => {
+        audio.playUIClick();
         const result = upgradeGear(btn.dataset.upgrade);
         showToast(result.ok ? result.message : result.message);
-        if (result.ok && btn.dataset.upgrade === "rod") {
-          callbacks.onRodUpgrade?.();
+        if (result.ok) {
+          audio.playUpgrade();
+          if (btn.dataset.upgrade === "rod") callbacks.onRodUpgrade?.();
         }
       });
     });
     panelContent?.querySelectorAll("[data-bait]").forEach((btn) => {
       btn.addEventListener("click", () => {
+        audio.playUIClick();
         const result = setBait(btn.dataset.bait);
         showToast(result.message);
         if (result.ok) callbacks.onBaitChange?.();
@@ -241,13 +340,33 @@ export function initUI(fishing, callbacks) {
     panelContent?.querySelectorAll("[data-claim]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const reward = claimQuest(btn.dataset.claim);
-        if (reward) showToast(`Quest complete! +${reward} coins`);
+        if (reward) {
+          audio.playQuestComplete();
+          showToast(`Quest complete! +${reward} coins`);
+        }
       });
+    });
+    panelContent?.querySelectorAll("[data-setting]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const key = input.dataset.setting;
+        updateSettings({ [key]: input.checked });
+        callbacks.onSettingsChange?.(getState().settings);
+      });
+    });
+    document.getElementById("quality-select")?.addEventListener("change", (e) => {
+      updateSettings({ quality: e.target.value });
+      callbacks.onSettingsChange?.(getState().settings);
+    });
+    document.getElementById("save-name-btn")?.addEventListener("click", () => {
+      const input = document.getElementById("display-name-input");
+      const result = setDisplayName(input?.value);
+      showToast(result.message);
     });
   }
 
   document.querySelectorAll("[data-panel]").forEach((tab) => {
     tab.addEventListener("click", () => {
+      audio.playUIClick();
       activePanel = tab.dataset.panel;
       document.querySelectorAll("[data-panel]").forEach((t) =>
         t.classList.toggle("active", t.dataset.panel === activePanel)
@@ -264,11 +383,10 @@ export function initUI(fishing, callbacks) {
   });
 
   document.getElementById("menu-toggle")?.addEventListener("click", () => {
+    audio.playUIClick();
     menu?.classList.toggle("open");
     if (menu?.classList.contains("open")) renderPanel(getState());
   });
-
-  enterVrBtn?.addEventListener("click", () => callbacks.onEnterVR?.());
 
   subscribe((state) => {
     renderHUD(state);
@@ -280,6 +398,7 @@ export function initUI(fishing, callbacks) {
 
   return {
     showToast,
+    updateSyncStatus,
     setStatus(text) {
       if (statusText) statusText.textContent = text;
     },
@@ -298,18 +417,43 @@ export function initUI(fishing, callbacks) {
       reelAlert?.classList.toggle("visible", visible);
       biteAlert?.classList.toggle("visible", false);
     },
-    showCatch(catchData) {
+    showCatch(catchData, onCastAgain) {
       if (!catchOverlay) return;
+      const newBadge = catchData.isNewSpecies
+        ? '<p class="catch-new">New codex entry!</p>'
+        : "";
+      const legendary = catchData.rarity === "legendary" ? " legendary" : "";
       catchOverlay.innerHTML = `
-        <div class="catch-card rarity-${catchData.rarity}">
-          <p class="catch-label">Caught!</p>
+        <div class="catch-card rarity-${catchData.rarity}${legendary}">
+          <p class="catch-label">${catchData.rarity === "legendary" ? "LEGENDARY CATCH!" : "Caught!"}</p>
           <h2>${catchData.name}</h2>
           <p>${catchData.weight} lb · ${catchData.rarity}${catchData.baitUsed ? ` · ${catchData.baitUsed}` : ""}</p>
           <p class="catch-value">+${catchData.value} coins</p>
+          ${newBadge}
+          <div class="catch-actions">
+            <button id="catch-cast-again" type="button">Cast Again</button>
+            <button id="catch-view-codex" type="button">View Codex</button>
+          </div>
         </div>
       `;
       catchOverlay.classList.add("show");
-      setTimeout(() => catchOverlay.classList.remove("show"), 2400);
+      document.getElementById("catch-cast-again")?.addEventListener("click", () => {
+        catchOverlay.classList.remove("show");
+        onCastAgain?.();
+        callbacks.onCastAgain?.();
+      });
+      document.getElementById("catch-view-codex")?.addEventListener("click", () => {
+        catchOverlay.classList.remove("show");
+        activePanel = "codex";
+        document.querySelectorAll("[data-panel]").forEach((t) =>
+          t.classList.toggle("active", t.dataset.panel === "codex")
+        );
+        menu?.classList.add("open");
+        renderPanel(getState());
+      });
+      setTimeout(() => {
+        if (catchOverlay.classList.contains("show")) catchOverlay.classList.remove("show");
+      }, 6000);
     },
     toggleMenu() {
       menu?.classList.toggle("open");

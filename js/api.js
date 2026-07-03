@@ -20,7 +20,9 @@ export async function loadCloudSave() {
     if (!res.ok) return null;
     const data = await res.json();
     if (data.found && data.save?.state) {
-      return typeof data.save.state === "string" ? JSON.parse(data.save.state) : data.save.state;
+      const state = typeof data.save.state === "string" ? JSON.parse(data.save.state) : data.save.state;
+      if (data.save.updated_at) state.lastSaved = new Date(data.save.updated_at).getTime();
+      return state;
     }
   } catch {
     /* offline — use local save */
@@ -34,7 +36,11 @@ export async function saveCloudSave(state) {
     const res = await fetch(`${API_BASE}/progress`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playerId, state }),
+      body: JSON.stringify({
+        playerId,
+        state,
+        displayName: state.displayName || null,
+      }),
     });
     return res.ok;
   } catch {
@@ -42,14 +48,17 @@ export async function saveCloudSave(state) {
   }
 }
 
-export function scheduleCloudSave(state) {
+export function scheduleCloudSave(state, onComplete) {
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => saveCloudSave(state), 1200);
+  syncTimer = setTimeout(async () => {
+    const ok = await saveCloudSave(state);
+    onComplete?.(ok);
+  }, 1200);
 }
 
-export async function fetchLeaderboard() {
+export async function fetchLeaderboard(sort = "fish") {
   try {
-    const res = await fetch(`${API_BASE}/leaderboard`);
+    const res = await fetch(`${API_BASE}/leaderboard?sort=${encodeURIComponent(sort)}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.leaderboard || [];

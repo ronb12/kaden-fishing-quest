@@ -1,5 +1,12 @@
 export const STORAGE_KEY = "kaden-vr-fishing-v1";
 
+export const GEAR_MAX = { rod: 5, boat: 3, bait: 3 };
+const GEAR_BASE_COST = { rod: 25, boat: 40, bait: 18 };
+
+export function getGearCost(type, currentLevel) {
+  return Math.round(GEAR_BASE_COST[type] * Math.pow(1.45, currentLevel - 1));
+}
+
 export const ZONES = {
   "Lake Dock": {
     id: "Lake Dock",
@@ -58,8 +65,6 @@ export const FISH_SPECIES = [
   { id: "night-pike", name: "Night Pike", weight: [4.0, 8.5], rarity: "rare", zones: ["Deep Water"], color: 0x2a4a3a, value: 55 },
   { id: "lunker-bass", name: "Lunker Bass", weight: [5.0, 9.0], rarity: "legendary", zones: ["Deep Water"], color: 0x1a3a2a, value: 90 },
 ];
-
-export const GEAR_COSTS = { rod: 25, boat: 40, bait: 18 };
 
 export const BAITS = [
   {
@@ -144,11 +149,21 @@ export const DEFAULT_STATE = {
   baitKit: 1,
   selectedBait: "worm",
   zone: "Lake Dock",
-  questProgress: { lakeFish: 0, visitedCove: false, rodUpgraded: false },
+  displayName: "",
+  questProgress: {
+    lakeFish: 0,
+    visitedCove: false,
+    rodUpgraded: false,
+    deepWaterFish: 0,
+    rareCatch: 0,
+    legendaryCatch: 0,
+  },
   codex: {},
   totalWeight: 0,
   bestCatch: null,
-  settings: { music: true, sfx: true },
+  claimedQuests: [],
+  settings: { music: true, sfx: true, quality: "high" },
+  lastSaved: 0,
 };
 
 export const QUESTS = [
@@ -156,6 +171,9 @@ export const QUESTS = [
   { id: "visitCove", label: "Fish at North Cove", target: 1, reward: 25 },
   { id: "rodUpgraded", label: "Upgrade your rod", target: 1, reward: 20 },
   { id: "rareCatch", label: "Catch a rare fish", target: 1, reward: 50 },
+  { id: "deepWaterFish", label: "Catch 3 fish in Deep Water", target: 3, reward: 40 },
+  { id: "legendaryCatch", label: "Land a legendary fish", target: 1, reward: 100 },
+  { id: "codexHalf", label: "Log 4 species in the codex", target: 4, reward: 35 },
 ];
 
 export const RARITY_WEIGHTS = {
@@ -165,13 +183,14 @@ export const RARITY_WEIGHTS = {
   legendary: 3,
 };
 
-export function pickFish(zone, rodLevel, baitKit, baitId = "worm") {
+export function pickFish(zone, rodLevel, baitKit, baitId = "worm", legendaryBoost = false) {
   const zoneFish = FISH_SPECIES.filter((f) => f.zones.includes(zone));
   const bait = BAITS.find((b) => b.id === baitId) || BAITS[0];
   const bonus = (rodLevel - 1) * 0.04 + (baitKit - 1) * 0.03 + bait.rarityBonus;
   const weights = zoneFish.map((f) => {
     let w = RARITY_WEIGHTS[f.rarity] || 10;
     if (f.rarity !== "common") w *= 1 + bonus;
+    if (f.rarity === "legendary" && legendaryBoost) w *= 3;
     if (bait.speciesBoost.includes(f.id)) w *= 1.8;
     return w;
   });
@@ -197,14 +216,31 @@ export function rollWeight(species) {
   return min + Math.random() * (max - min);
 }
 
-export function formatCatch(species, weight, zone) {
+export function formatCatch(species, weight, zone, rodLevel = 1) {
+  const base = species.value * (1 + weight * 0.08);
+  const rodBonus = 1 + (rodLevel - 1) * 0.08;
   return {
     speciesId: species.id,
     name: species.name,
     weight: Math.round(weight * 10) / 10,
     rarity: species.rarity,
     zone,
-    value: Math.round(species.value * (1 + weight * 0.08)),
+    value: Math.round(base * rodBonus),
     timestamp: Date.now(),
+    isNewSpecies: false,
   };
+}
+
+export function getRodDescription(level) {
+  const coinPct = Math.round((level - 1) * 8);
+  return `+${coinPct}% coin value · wider hook window · faster reel`;
+}
+
+export function getBoatDescription(level) {
+  if (level >= 2) return "Deep Water unlocked · faster zone travel";
+  return "Unlocks North Cove";
+}
+
+export function getBaitKitDescription(level) {
+  return `Unlocks tier-${level} baits · +${Math.round((level - 1) * 3)}% rare fish odds`;
 }

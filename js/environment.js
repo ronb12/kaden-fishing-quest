@@ -61,6 +61,8 @@ export class LakeEnvironment {
     this.zoneMarkers = [];
     this.ambientFish = [];
     this.waterMesh = null;
+    this.zoneDressing = {};
+    this.currentZoneId = "Lake Dock";
     this.build();
   }
 
@@ -91,7 +93,95 @@ export class LakeEnvironment {
     this.buildMountains();
     this.buildZoneMarkers();
     this.buildCamp();
+    this.buildZoneDressing();
     this.spawnAmbientFish();
+  }
+
+  buildZoneDressing() {
+    this.buildDockZoneExtras();
+    this.buildCoveZoneExtras();
+    this.buildDeepWaterExtras();
+  }
+
+  buildDockZoneExtras() {
+    const group = new THREE.Group();
+    group.name = "Lake Dock";
+    const padMat = new THREE.MeshStandardMaterial({ color: 0x3d8a4a, roughness: 0.9 });
+    for (let i = 0; i < 8; i++) {
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.03, 8), padMat);
+      pad.position.set(-4 + (i % 4) * 2.5, 0.02, -4 - Math.floor(i / 4) * 2);
+      pad.rotation.x = Math.PI / 2;
+      group.add(pad);
+    }
+    const sign = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.6, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x8b5a34 })
+    );
+    sign.position.set(1.5, 1.2, 5);
+    group.add(sign);
+    group.visible = true;
+    this.scene.add(group);
+    this.zoneDressing["Lake Dock"] = group;
+  }
+
+  buildCoveZoneExtras() {
+    const group = new THREE.Group();
+    group.name = "North Cove";
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x6a6a6a, roughness: 0.95, flatShading: true });
+    const rockPositions = [
+      [-22, -8], [-14, -12], [-24, -16], [-12, -18], [-20, -22],
+    ];
+    rockPositions.forEach(([x, z]) => {
+      const rock = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.8 + Math.random() * 1.2, 0),
+        rockMat
+      );
+      rock.position.set(x, 0.35, z);
+      rock.rotation.set(Math.random(), Math.random(), Math.random());
+      rock.scale.y = 0.6 + Math.random() * 0.5;
+      rock.castShadow = true;
+      group.add(rock);
+    });
+    const pierMat = new THREE.MeshStandardMaterial({ color: 0x7a4a2a, roughness: 0.85 });
+    for (let i = 0; i < 5; i++) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 0.4), pierMat);
+      plank.position.set(-18, 0.12, -2 - i * 0.5);
+      group.add(plank);
+    }
+    group.visible = false;
+    this.scene.add(group);
+    this.zoneDressing["North Cove"] = group;
+  }
+
+  buildDeepWaterExtras() {
+    const group = new THREE.Group();
+    group.name = "Deep Water";
+    const buoyMat = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.4 });
+    const buoy = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.9, 12), buoyMat);
+    buoy.position.set(26, 0.5, -20);
+    group.add(buoy);
+    const stripe = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.36, 0.41, 0.15, 12),
+      new THREE.MeshStandardMaterial({ color: 0xffffff })
+    );
+    stripe.position.set(26, 0.65, -20);
+    group.add(stripe);
+    const dropMat = new THREE.MeshStandardMaterial({
+      color: 0x043a52,
+      transparent: true,
+      opacity: 0.55,
+    });
+    const drop = new THREE.Mesh(new THREE.PlaneGeometry(18, 14), dropMat);
+    drop.rotation.x = -Math.PI / 2;
+    drop.position.set(22, -0.12, -32);
+    group.add(drop);
+    const markerMat = new THREE.MeshStandardMaterial({ color: 0xffaa44, emissive: 0xff6600, emissiveIntensity: 0.4 });
+    const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.5), markerMat);
+    marker.position.set(22, 0.75, -10);
+    group.add(marker);
+    group.visible = false;
+    this.scene.add(group);
+    this.zoneDressing["Deep Water"] = group;
   }
 
   buildGround() {
@@ -195,19 +285,26 @@ export class LakeEnvironment {
     Object.values(ZONES).forEach((zone) => {
       const group = new THREE.Group();
       const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.8, 1.1, 32),
+        new THREE.RingGeometry(1.0, 1.4, 32),
         new THREE.MeshBasicMaterial({ color: 0xffd37a, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
       );
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.05;
       const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.06, 2),
-        new THREE.MeshStandardMaterial({ color: 0x0d4f73, emissive: 0x0d4f73, emissiveIntensity: 0.3 })
+        new THREE.CylinderGeometry(0.08, 0.08, 2.2),
+        new THREE.MeshStandardMaterial({ color: 0x0d4f73, emissive: 0x0d4f73, emissiveIntensity: 0.4 })
       );
-      pillar.position.y = 1;
-      group.add(ring, pillar);
+      pillar.position.y = 1.1;
+      const pad = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.5, 1.5, 0.06, 24),
+        new THREE.MeshStandardMaterial({ color: 0x0d4f73, transparent: true, opacity: 0.35 })
+      );
+      pad.rotation.x = Math.PI / 2;
+      pad.position.y = 0.03;
+      group.add(ring, pillar, pad);
       group.position.set(zone.teleport.x, 0, zone.teleport.z + 2);
       group.userData.zoneId = zone.id;
+      group.userData.zoneLabel = zone.label;
       this.scene.add(group);
       this.zoneMarkers.push(group);
     });
@@ -279,12 +376,27 @@ export class LakeEnvironment {
   applyZone(zoneId) {
     const zone = ZONES[zoneId];
     if (!zone) return;
+    this.currentZoneId = zoneId;
     this.scene.fog.color.setHex(zone.fogColor);
     this.scene.fog.near = zone.fogNear;
     this.scene.fog.far = zone.fogFar;
     this.scene.background.setHex(zone.skyTint);
     this.waterUniforms.uDeepColor.value.setHSL(0.55, 0.5, 0.25 + zone.depth * 0.15);
     this.waterUniforms.uShallowColor.value.setHSL(0.52, 0.55, 0.45 + zone.depth * 0.1);
+    Object.entries(this.zoneDressing).forEach(([id, group]) => {
+      group.visible = id === zoneId;
+    });
+    if (this.dockGroup) this.dockGroup.visible = zoneId === "Lake Dock";
+    if (this.campFire) this.campFire.visible = zoneId === "Lake Dock";
+  }
+
+  setQuality(quality) {
+    const low = quality === "low";
+    if (this.waterMesh) {
+      this.waterMesh.geometry.dispose();
+      const segs = low ? 48 : 128;
+      this.waterMesh.geometry = new THREE.PlaneGeometry(120, 120, segs, segs);
+    }
   }
 
   update(time) {

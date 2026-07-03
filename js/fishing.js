@@ -39,6 +39,12 @@ export class FishingSystem {
     this.biteLunge = 0;
     this.catchAnim = 0;
     this.resetTimer = 0;
+    this.castAnim = 0;
+    this.preBiteWarned = false;
+    this.escapeTimer = 0;
+    this.legendaryEvent = false;
+    this.failReason = "default";
+    this.baseRodRotation = { x: -Math.PI / 3.2, y: 0.14, z: -0.06 };
     this.rebuildRod();
     scene.add(this.rodGroup);
   }
@@ -107,9 +113,10 @@ export class FishingSystem {
     if (!controller) return;
     this.rodGroup.position.copy(controller.position);
     this.rodGroup.quaternion.copy(controller.quaternion);
-    this.rodGroup.rotateX(-Math.PI / 3.2, true);
-    this.rodGroup.rotateY(0.14, true);
-    this.rodGroup.rotateZ(-0.06, true);
+    const castSwing = this.state === FishingState.CASTING ? Math.sin(this.castAnim * Math.PI) * 0.35 : 0;
+    this.rodGroup.rotateX(this.baseRodRotation.x - castSwing, true);
+    this.rodGroup.rotateY(this.baseRodRotation.y, true);
+    this.rodGroup.rotateZ(this.baseRodRotation.z, true);
   }
 
   surfaceY(x, z, time) {
@@ -145,10 +152,14 @@ export class FishingSystem {
     this.hookGroup.position.copy(tip);
     this.hookGroup.position.y -= 0.04;
     this.hookGroup.visible = this.state === FishingState.IDLE;
-    this.bobber.visible = this.state !== FishingState.IDLE && this.state !== FishingState.CAUGHT && this.state !== FishingState.FAILED;
+    this.bobber.visible =
+      this.state !== FishingState.IDLE &&
+      this.state !== FishingState.CAUGHT &&
+      this.state !== FishingState.FAILED &&
+      this.state !== FishingState.CASTING;
   }
 
-  startCast(power = 0.7) {
+  startCast(power = 0.7, aimDir = null) {
     if (this.state !== FishingState.IDLE) return false;
     const s = getState();
     const zone = ZONES[s.zone];
@@ -157,43 +168,71 @@ export class FishingSystem {
     const bait = getSelectedBait();
     this.castPower = Math.min(1, Math.max(0.2, power));
     this.state = FishingState.CASTING;
+    this.castAnim = 0;
     this.hookGroup.visible = false;
     audio.playCast();
 
-    const angle = Math.random() * Math.PI * 2;
-    const dist = zone.castRadius * this.castPower * 0.5 + zone.castRadius * 0.3;
-    this.castTarget.set(
-      zone.castCenter.x + Math.cos(angle) * dist,
-      0,
-      zone.castCenter.z + Math.sin(angle) * dist
-    );
-
-    setTimeout(() => {
-      this.bobber.position.copy(this.castTarget);
-      this.bobber.position.y = 0.08;
-      this.bobber.visible = true;
-      this.hookGroup.position.copy(this.castTarget);
-      this.hookGroup.position.y = 0.02;
-      this.hookGroup.visible = true;
-      audio.playSplash();
-      this.state = FishingState.WAITING;
-      const waitTime = Math.max(0.8, 1.5 + Math.random() * 4 - s.baitKit * 0.2 - bait.waitBonus);
-      this.biteTimer = waitTime;
-      this.onEvent?.("cast", { target: this.castTarget.clone(), bait });
-    }, 400);
+    let angle;
+    const dist = zone.castRadius * this.castPower * 0.55 + zone.castRadius * 0.25;
+    if (aimDir && aimDir.lengthSq() > 0.01) {
+      this.castTarget.set(
+        zone.castCenter.x + aimDir.x * dist,
+        0,
+        zone.castCenter.z + aimDir.z * dist
+      );
+    } else {
+      angle = Math.random() * Math.PI * 2;
+      this.castTarget.set(
+        zone.castCenter.x + Math.cos(angle) * dist,
+        0,
+        zone.castCenter.z + Math.sin(angle) * dist
+      );
+    }
 
     return true;
   }
 
+  finishCast() {
+    const s = getState();
+    const bait = getSelectedBait();
+    this.bobber.position.copy(this.castTarget);
+    this.bobber.position.y = 0.08;
+    this.bobber.visible = true;
+    this.hookGroup.position.copy(this.castTarget);
+    this.hookGroup.position.y = 0.02;
+    this.hookGroup.visible = true;
+    audio.playSplash();
+    this.state = FishingState.WAITING;
+    this.preBiteWarned = false;
+    const waitTime = Math.max(0.8, 1.5 + Math.random() * 4 - s.baitKit * 0.2 - bait.waitBonus);
+    this.biteTimer = waitTime;
+    this.onEvent?.("cast", { target: this.castTarget.clone(), bait });
+  }
+
   update(dt, time) {
+    if (this.state === FishingState.CASTING) {
+      this.castAnim += dt * 2.5;
+      if (this.castAnim >= 1) this.finishCast();
+    }
+
     this.showRigAtTip();
     this.updateLine();
 
     if (this.bobber.visible && this.state !== FishingState.IDLE && this.state !== FishingState.CAUGHT) {
       const waterY = this.surfaceY(this.bobber.position.x, this.bobber.position.z, time);
       this.bobber.position.y = waterY + Math.sin(time * 3) * 0.015;
+
+      if (this.state === FishingState.WAITING && this.biteTimer < 0.9 && !this.preBiteWarned) {
+        this.preBiteWarned = true;
+        this.onEvent?.("preBite", {});
+      }
+      if (this.state === FishingState.WAITING && this.preBiteWarned && this.biteTimer > 0) {
+        this.bobber.position.y -= 0.04 + Math.sin(time * 16) * 0.025;
+      }
+
       this.hookGroup.position.copy(this.bobber.position);
       this.hookGroup.position.y -= 0.05;
+
       if (this.state === FishingState.BITING) {
         this.bobber.position.y += Math.sin(time * 12) * 0.05;
         this.bobber.rotation.z = Math.sin(time * 14) * 0.18;
@@ -228,31 +267,36 @@ export class FishingSystem {
         species: this.pendingFish,
       });
       if (this.biteWindow <= 0) {
-        this.failCatch("Fish got away — hook it faster next time!");
+        this.failReason = "missed";
+        this.failCatch("Missed the hook — fish got away!");
       }
-    }
-
-    if (this.state === FishingState.REELING) {
-      this.reelProgress += dt * (0.15 + getState().rodLevel * 0.03);
-      if (this.reelProgress >= 1) this.completeCatch();
     }
   }
 
   triggerBite() {
     const s = getState();
-    this.pendingFish = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait);
+    this.legendaryEvent = Math.random() < 0.04 && s.zone === "Deep Water";
+    this.pendingFish = pickFish(s.zone, s.rodLevel, s.baitKit, s.selectedBait, this.legendaryEvent);
     this.state = FishingState.BITING;
     this.biteWindow = 2.5 + s.rodLevel * 0.2;
     this.biteWindowMax = this.biteWindow;
     this.spawnBiteFish();
     this.spawnSplash();
     audio.playBite();
-    this.onEvent?.("bite", { species: this.pendingFish });
+    this.onEvent?.("bite", { species: this.pendingFish, legendary: this.legendaryEvent });
   }
 
   spawnBiteFish() {
     this.clearBiteFish();
     this.biteFish = buildBiteFish(this.pendingFish);
+    if (this.legendaryEvent) {
+      this.biteFish.scale.setScalar(1.35);
+      this.biteFish.traverse((c) => {
+        if (c.isMesh && c.material) {
+          c.material.emissiveIntensity = 0.45;
+        }
+      });
+    }
     const pos = this.bobber.position;
     const surface = this.surfaceY(pos.x, pos.z, 0);
     this.biteFish.position.set(pos.x + 0.55, surface - 0.06, pos.z + 0.35);
@@ -357,24 +401,56 @@ export class FishingSystem {
     this.state = FishingState.REELING;
     this.tension = 0.3;
     this.reelProgress = 0;
-    this.onEvent?.("hooked", { species: this.pendingFish });
+    this.escapeTimer = 0;
+    this.onEvent?.("hooked", { species: this.pendingFish, legendary: this.legendaryEvent });
     return true;
+  }
+
+  updateReelIdle(dt) {
+    if (this.state !== FishingState.REELING) return;
+    audio.stopReelLoop();
+    const fight =
+      (this.pendingFish?.rarity === "legendary" ? 0.07 : this.pendingFish?.rarity === "rare" ? 0.05 : 0.035) *
+      dt *
+      60;
+    this.tension += fight * 0.4;
+    this.tension = Math.min(1, this.tension);
+    this.escapeTimer += dt;
+    const escapeLimit = this.pendingFish?.rarity === "legendary" ? 3 : 4.5;
+    if (this.escapeTimer >= escapeLimit) {
+      this.failReason = "escape";
+      this.failCatch("Fish got away — keep reeling!");
+      return;
+    }
+    if (this.tension >= 0.95) {
+      this.failReason = "snap";
+      this.failCatch("Line snapped — ease up on the tension!");
+      return;
+    }
+    this.onEvent?.("reeling", { tension: this.tension, progress: this.reelProgress });
   }
 
   reel(dt, intensity = 1) {
     if (this.state !== FishingState.REELING) return;
-    audio.playReel();
+    audio.startReelLoop();
+    audio.updateReelLoop(this.tension);
+    this.escapeTimer = 0;
     const s = getState();
-    const fishFight = (this.pendingFish?.rarity === "legendary" ? 0.08 : 0.05) * dt * 60;
-    this.tension += intensity * 0.12 - fishFight;
+    const fishFight =
+      (this.pendingFish?.rarity === "legendary" ? 0.09 : this.pendingFish?.rarity === "rare" ? 0.06 : 0.04) *
+      dt *
+      60;
+    this.tension += intensity * 0.11 - fishFight;
     this.tension = Math.max(0, Math.min(1, this.tension));
-    this.reelProgress += dt * (0.08 + s.rodLevel * 0.02) * intensity;
+    this.reelProgress += dt * (0.1 + s.rodLevel * 0.025) * intensity;
 
     if (this.tension >= 0.95) {
+      this.failReason = "snap";
       this.failCatch("Line snapped — ease up on the tension!");
       return;
     }
-    if (this.tension < 0.1) {
+    if (this.tension < 0.08 && this.reelProgress > 0.15) {
+      this.failReason = "escape";
       this.failCatch("Fish shook the hook — keep reeling!");
       return;
     }
@@ -382,15 +458,21 @@ export class FishingSystem {
     this.onEvent?.("reeling", { tension: this.tension, progress: this.reelProgress });
   }
 
+  stopReeling() {
+    audio.stopReelLoop();
+  }
+
   completeCatch() {
     if (!this.pendingFish || this.state === FishingState.CAUGHT) return;
     const s = getState();
     const bait = getSelectedBait();
     const weight = rollWeight(this.pendingFish);
-    const catchData = formatCatch(this.pendingFish, weight, s.zone);
+    const catchData = formatCatch(this.pendingFish, weight, s.zone, s.rodLevel);
     catchData.baitUsed = bait.name;
     recordCatch(catchData);
-    audio.playCatch();
+    audio.stopReelLoop();
+    if (catchData.rarity === "legendary") audio.playLegendaryCatch();
+    else audio.playCatch();
     this.state = FishingState.CAUGHT;
     this.catchAnim = 0;
     this.bobber.visible = false;
@@ -401,10 +483,12 @@ export class FishingSystem {
 
   failCatch(message) {
     if (this.state === FishingState.FAILED || this.state === FishingState.CAUGHT) return;
-    audio.playFail();
+    audio.playFail(this.failReason);
+    audio.stopReelLoop();
     this.state = FishingState.FAILED;
     this.resetTimer = 2;
-    this.onEvent?.("failed", { message });
+    this.onEvent?.("failed", { message, reason: this.failReason });
+    this.failReason = "default";
   }
 
   reset() {
@@ -417,6 +501,10 @@ export class FishingSystem {
     this.biteTimer = 0;
     this.catchAnim = 0;
     this.resetTimer = 0;
+    this.castAnim = 0;
+    this.preBiteWarned = false;
+    this.escapeTimer = 0;
+    this.legendaryEvent = false;
     this.bobber.rotation.z = 0;
     this.clearBiteFish();
     this.splashRings.forEach((ring) => {
@@ -425,6 +513,7 @@ export class FishingSystem {
       ring.material?.dispose();
     });
     this.splashRings = [];
+    audio.stopReelLoop();
     this.onEvent?.("reset");
   }
 
@@ -447,15 +536,17 @@ export class FishingSystem {
     const bait = getSelectedBait();
     switch (this.state) {
       case FishingState.IDLE:
-        return `Ready — ${bait.name} on hook · cast (trigger / Space)`;
+        return `Ready — ${bait.name} on hook · aim and cast`;
       case FishingState.CASTING:
         return "Casting...";
       case FishingState.WAITING:
-        return `Waiting with ${bait.name}...`;
+        return this.preBiteWarned
+          ? `Something's near the ${bait.name}... get ready!`
+          : `Waiting with ${bait.name}...`;
       case FishingState.BITING:
-        return `BITE! ${this.pendingFish?.name || "Fish"} — hook now (Space / trigger)`;
+        return `BITE! ${this.pendingFish?.name || "Fish"} — hook now!`;
       case FishingState.REELING:
-        return `Hooked! Hold R / trigger to reel — watch tension`;
+        return `Hooked! Hold reel — watch tension bar`;
       case FishingState.CAUGHT:
         return "Nice catch!";
       case FishingState.FAILED:

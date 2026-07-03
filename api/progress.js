@@ -51,10 +51,16 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { playerId, state } = req.body || {};
+      const { playerId, state, displayName } = req.body || {};
       if (!playerId || !state) return res.status(400).json({ error: "playerId and state required" });
 
       await ensurePlayer(playerId, db);
+      if (displayName) {
+        await db`
+          UPDATE players SET display_name = ${displayName.slice(0, 20)}
+          WHERE id = ${playerId}
+        `;
+      }
       await db`
         INSERT INTO saves (player_id, state, fish_count, coins, best_catch)
         VALUES (

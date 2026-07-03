@@ -1,9 +1,19 @@
-import { DEFAULT_STATE, GEAR_COSTS, QUESTS, STORAGE_KEY, BAITS, getBait, isBaitUnlocked } from "./data.js";
+import {
+  DEFAULT_STATE,
+  QUESTS,
+  STORAGE_KEY,
+  BAITS,
+  getBait,
+  isBaitUnlocked,
+  GEAR_MAX,
+  getGearCost,
+} from "./data.js";
 import { loadCloudSave, saveCloudSave, scheduleCloudSave } from "./api.js";
 
 let state = loadLocal();
 const listeners = new Set();
 let cloudReady = false;
+let syncStatus = "local";
 
 function loadLocal() {
   try {
@@ -16,12 +26,18 @@ function loadLocal() {
 }
 
 export async function initState() {
+  const local = { ...state };
   const cloud = await loadCloudSave();
   if (cloud) {
-    state = { ...DEFAULT_STATE, ...cloud };
+    const localTime = local.lastSaved || 0;
+    const cloudTime = cloud.lastSaved || 0;
+    state = cloudTime >= localTime ? { ...DEFAULT_STATE, ...cloud } : { ...DEFAULT_STATE, ...local };
     if (!state.selectedBait) state.selectedBait = "worm";
+    if (!state.questProgress) state.questProgress = { ...DEFAULT_STATE.questProgress };
+    if (!state.settings) state.settings = { ...DEFAULT_STATE.settings };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     listeners.forEach((fn) => fn(state));
+    syncStatus = "synced";
   }
   cloudReady = true;
   return state;
@@ -31,15 +47,40 @@ export function getState() {
   return state;
 }
 
+export function getSyncStatus() {
+  return syncStatus;
+}
+
 export function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
 function notify() {
+  state.lastSaved = Date.now();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   listeners.forEach((fn) => fn(state));
-  if (cloudReady) scheduleCloudSave(state);
+  if (cloudReady) {
+    syncStatus = "saving";
+    listeners.forEach((fn) => fn(state));
+    scheduleCloudSave(state, (ok) => {
+      syncStatus = ok ? "synced" : "offline";
+      listeners.forEach((fn) => fn(state));
+    });
+  }
+}
+
+export function setDisplayName(name) {
+  const trimmed = (name || "").trim().slice(0, 20);
+  if (!trimmed) return { ok: false, message: "Enter a name (1–20 characters)." };
+  state.displayName = trimmed;
+  notify();
+  return { ok: true, message: `Angler name set to ${trimmed}.` };
+}
+
+export function updateSettings(partial) {
+  state.settings = { ...state.settings, ...partial };
+  notify();
 }
 
 export function setZone(zone) {
@@ -63,6 +104,7 @@ export function getSelectedBait() {
 }
 
 export function recordCatch(catchData) {
+  const wasNew = !state.codex[catchData.speciesId];
   state.fish += 1;
   state.coins += catchData.value;
   state.totalWeight += catchData.weight;
@@ -82,16 +124,24 @@ export function recordCatch(catchData) {
       firstZone: catchData.zone,
     };
   }
+  catchData.isNewSpecies = wasNew;
   if (catchData.zone === "Lake Dock") state.questProgress.lakeFish += 1;
+  if (catchData.zone === "Deep Water") state.questProgress.deepWaterFish += 1;
   if (catchData.rarity === "rare" || catchData.rarity === "legendary") {
     state.questProgress.rareCatch = (state.questProgress.rareCatch || 0) + 1;
+  }
+  if (catchData.rarity === "legendary") {
+    state.questProgress.legendaryCatch = (state.questProgress.legendaryCatch || 0) + 1;
   }
   notify();
   return catchData;
 }
 
 export function upgradeGear(type) {
-  const cost = GEAR_COSTS[type];
+  const max = GEAR_MAX[type];
+  const current = type === "rod" ? state.rodLevel : type === "boat" ? state.boatLevel : state.baitKit;
+  if (current >= max) return { ok: false, message: `${type} is max level (${max}).` };
+  const cost = getGearCost(type, current);
   if (state.coins < cost) return { ok: false, message: `Need ${cost} coins.` };
   state.coins -= cost;
   if (type === "rod") {
@@ -101,7 +151,7 @@ export function upgradeGear(type) {
   if (type === "boat") state.boatLevel += 1;
   if (type === "bait") state.baitKit += 1;
   notify();
-  return { ok: true, message: `${type} upgraded!` };
+  return { ok: true, message: `${type} upgraded to level ${current + 1}!` };
 }
 
 export function claimQuest(questId) {
@@ -118,6 +168,7 @@ export function claimQuest(questId) {
 
 export function getQuestProgress(quest) {
   const p = state.questProgress;
+  const codexCount = Object.keys(state.codex).length;
   switch (quest.id) {
     case "lakeFish":
       return { current: p.lakeFish, target: quest.target };
@@ -127,6 +178,12 @@ export function getQuestProgress(quest) {
       return { current: p.rodUpgraded ? 1 : 0, target: 1 };
     case "rareCatch":
       return { current: p.rareCatch || 0, target: 1 };
+    case "deepWaterFish":
+      return { current: p.deepWaterFish || 0, target: quest.target };
+    case "legendaryCatch":
+      return { current: p.legendaryCatch || 0, target: 1 };
+    case "codexHalf":
+      return { current: codexCount, target: quest.target };
     default:
       return { current: 0, target: quest.target };
   }

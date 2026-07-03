@@ -33,6 +33,7 @@
         <span>⛵ Boat <strong id="hud-boat">1</strong></span>
         <span>📍 <strong id="hud-zone">Lake Dock</strong></span>
         <span>🪱 <strong id="hud-bait">Nightcrawler</strong></span>
+        <span id="sync-indicator" class="sync-indicator sync-local">☁ Local</span>
       </div>
       <p id="status-text" class="status-text">Click lake to look · Space to cast</p>
     </div>
@@ -70,6 +71,7 @@
         <button type="button" data-panel="gear">Gear</button>
         <button type="button" data-panel="bait">Bait</button>
         <button type="button" data-panel="quests">Quests</button>
+        <button type="button" data-panel="settings">Settings</button>
         <button type="button" data-panel="leaderboard">Board</button>
       </nav>
       <div id="panel-content" class="panel-content"></div>
@@ -84,6 +86,7 @@
         <div id="touch-stick" class="touch-stick"></div>
       </div>
       <div class="touch-actions">
+        <button id="touch-menu" type="button" class="touch-btn touch-btn-small">☰ Menu</button>
         <button id="touch-bait" type="button" class="touch-btn touch-btn-small">🪱 Bait</button>
         <button id="touch-action" type="button" class="touch-btn touch-btn-action">Cast</button>
         <button id="touch-reel" type="button" class="touch-btn touch-btn-reel hidden">Hold Reel</button>
@@ -92,7 +95,7 @@
 
     <div class="loading-hint" id="loading-hint">
       <p>WebXR VR supported on Quest, Vision Pro, and desktop VR headsets.</p>
-      <p class="desktop-hint">Desktop: click to look · WASD move · Space cast · R reel · M menu · B bait</p>
+      <p class="desktop-hint">Desktop: click to look · hold Space to charge cast · hold R to reel · M menu</p>
       <p class="touch-hint">Touch: drag right to look · joystick to move · Cast / Hold Reel buttons</p>
     </div>
 

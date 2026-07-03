@@ -475,7 +475,129 @@ body > button {
   transition: opacity 0.3s;
 }
 
-.catch-overlay.show { opacity: 1; }
+.catch-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.catch-card.legendary {
+  border-color: #ff6b35;
+  box-shadow: 0 0 40px rgba(255, 107, 53, 0.45);
+}
+
+.catch-new {
+  margin-top: 8px;
+  font-weight: 900;
+  color: #7ee8a0;
+  font-size: 0.9rem;
+}
+
+.catch-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.catch-actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  background: var(--lake);
+  color: white;
+}
+
+.catch-actions button:first-child {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+.sync-indicator {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.sync-synced { color: #7ee8a0; }
+.sync-saving { color: var(--sun); }
+.sync-offline { color: #ff9f9f; }
+.sync-local { color: #aaa; }
+
+.settings-section {
+  margin-bottom: 18px;
+}
+
+.settings-section label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.settings-row {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-row input {
+  flex: 1;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.25);
+  color: white;
+  font: inherit;
+}
+
+.settings-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-weight: 400 !important;
+  cursor: pointer;
+}
+
+.settings-section select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.25);
+  color: white;
+  font: inherit;
+}
+
+.leaderboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.lb-tab {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.8rem;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  cursor: pointer;
+}
+
+.lb-tab.active {
+  background: var(--lake);
+}
+
+.touch-btn-action.bite-mode {
+  background: var(--danger) !important;
+  animation: bitePulse 0.5s ease infinite alternate;
+}
+
 
 .catch-card {
   padding: 32px 48px;

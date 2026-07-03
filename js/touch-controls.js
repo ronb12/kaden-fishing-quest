@@ -20,6 +20,7 @@ export function initTouchControls(callbacks) {
   const actionBtn = document.getElementById("touch-action");
   const reelBtn = document.getElementById("touch-reel");
   const baitBtn = document.getElementById("touch-bait");
+  const menuBtn = document.getElementById("touch-menu");
 
   let moveVector = { x: 0, z: 0 };
   let reelHeld = false;
@@ -123,12 +124,19 @@ export function initTouchControls(callbacks) {
     { passive: true }
   );
 
-  actionBtn?.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    callbacks.onAction?.();
-    actionBtn.classList.add("pressed");
+  actionBtn?.addEventListener(
+    "touchstart",
+    (e) => {
+      e.preventDefault();
+      callbacks.onAction?.();
+      actionBtn.classList.add("pressed");
+    },
+    { passive: false }
+  );
+  actionBtn?.addEventListener("touchend", () => {
+    actionBtn.classList.remove("pressed");
+    callbacks.onActionEnd?.();
   });
-  actionBtn?.addEventListener("touchend", () => actionBtn.classList.remove("pressed"));
 
   reelBtn?.addEventListener(
     "touchstart",
@@ -155,6 +163,11 @@ export function initTouchControls(callbacks) {
     callbacks.onBait?.();
   });
 
+  menuBtn?.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    callbacks.onMenu?.();
+  });
+
   return {
     active: true,
     getMoveVector: () => moveVector,
@@ -164,5 +177,6 @@ export function initTouchControls(callbacks) {
     setActionEnabled: (enabled) => {
       if (actionBtn) actionBtn.disabled = !enabled;
     },
+    setBiteMode: (on) => actionBtn?.classList.toggle("bite-mode", on),
   };
 }
