@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations, groundAlign } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
-import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z } from "./dock-layout.js";
+import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, registerDockWalkCollisions } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
 const WATER_VERT = `
@@ -59,7 +59,7 @@ const WATER_FRAG = `
     }
     float foam = smoothstep(0.08, 0.14, vWave) * 0.15;
     col += vec3(foam);
-    gl_FragColor = vec4(col, 0.9);
+    gl_FragColor = vec4(col, 0.82);
   }
 `;
 
@@ -101,9 +101,9 @@ export class LakeEnvironment {
     if (this.envMaps?.background) {
       this.scene.background = this.envMaps.background;
       this.scene.environment = this.envMaps.envMap;
-      this.scene.fog = new THREE.Fog(0x8ab0a8, 35, 140);
+      this.scene.fog = new THREE.Fog(0x8ab0a8, 48, 150);
     } else {
-      this.scene.fog = new THREE.Fog(0x8ec4d8, 30, 120);
+      this.scene.fog = new THREE.Fog(0x8ec4d8, 48, 150);
       this.scene.background = new THREE.Color(0xc9edf9);
     }
 
@@ -129,17 +129,23 @@ export class LakeEnvironment {
     this.buildTrees();
     this.buildMountains();
     this.buildZoneMarkers();
+    this.buildFishingPoolMarkers();
     this.campground = new Campground(this.scene, this.collisions);
     this.campFire = this.campground.campFire;
     this.buildZoneDressing();
+    this.buildDockCollisions();
     this.buildEnvironmentCollisions();
     this.spawnAmbientFish();
   }
 
+  buildDockCollisions() {
+    registerDockWalkCollisions(this.collisions);
+  }
+
   buildEnvironmentCollisions() {
     const c = this.collisions;
-    // Dock zone sign.
-    c.addCircle(1.5, 11.5, 0.55);
+    // Dock zone sign (off the walkable center line).
+    c.addCircle(2.2, 11.5, 0.45);
     // North Cove rocks.
     for (const [x, z] of [
       [-22, -8], [-14, -12], [-24, -16], [-12, -18], [-20, -22],
@@ -188,7 +194,7 @@ export class LakeEnvironment {
       new THREE.BoxGeometry(1.2, 0.6, 0.08),
       new THREE.MeshStandardMaterial({ color: 0x8b5a34 })
     );
-    sign.position.set(1.5, 1.2, 11.5);
+    sign.position.set(2.2, 1.2, 11.5);
     group.add(sign);
     group.visible = true;
     this.scene.add(group);
@@ -358,13 +364,15 @@ export class LakeEnvironment {
     shoreDeck.receiveShadow = true;
     dockGroup.add(shoreDeck);
 
-    const shoreBerm = new THREE.Mesh(
-      new THREE.BoxGeometry(11, 0.2, 8),
-      new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 })
-    );
-    shoreBerm.position.set(0, 0.06, 13.8);
-    shoreBerm.receiveShadow = true;
-    dockGroup.add(shoreBerm);
+    const bermMat = new THREE.MeshStandardMaterial({ color: 0x4a7a4a, roughness: 0.95 });
+    const bermW = 3.4;
+    const bermD = 4.8;
+    for (const side of [-1, 1]) {
+      const berm = new THREE.Mesh(new THREE.BoxGeometry(bermW, 0.2, bermD), bermMat);
+      berm.position.set(side * 4.3, 0.06, 15.6);
+      berm.receiveShadow = true;
+      dockGroup.add(berm);
+    }
 
     dockGroup.position.set(DOCK_GROUP.x, 0, DOCK_GROUP.z);
     this.scene.add(dockGroup);
@@ -487,6 +495,84 @@ export class LakeEnvironment {
     });
   }
 
+  buildFishingPoolMarkers() {
+    this.fishingPoolMarkers = {};
+    Object.values(ZONES).forEach((zone) => {
+      const group = new THREE.Group();
+      group.name = `FishingPool-${zone.id}`;
+
+      const fill = new THREE.Mesh(
+        new THREE.CircleGeometry(zone.castRadius, 72),
+        new THREE.MeshBasicMaterial({
+          color: 0x5ad4f0,
+          transparent: true,
+          opacity: 0.1,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      );
+      fill.rotation.x = -Math.PI / 2;
+      fill.position.set(zone.castCenter.x, 0.055, zone.castCenter.z);
+      fill.userData.poolY = { x: zone.castCenter.x, z: zone.castCenter.z, base: 0.055 };
+      fill.renderOrder = 2;
+      group.add(fill);
+
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(zone.castRadius - 0.18, zone.castRadius, 72),
+        new THREE.MeshBasicMaterial({
+          color: 0x9ae8ff,
+          transparent: true,
+          opacity: 0.55,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(zone.castCenter.x, 0.065, zone.castCenter.z);
+      ring.userData.poolY = { x: zone.castCenter.x, z: zone.castCenter.z, base: 0.065 };
+      ring.renderOrder = 3;
+      group.add(ring);
+
+      const innerRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.35, 0.55, 32),
+        new THREE.MeshBasicMaterial({
+          color: 0xffd37a,
+          transparent: true,
+          opacity: 0.35,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        })
+      );
+      innerRing.rotation.x = -Math.PI / 2;
+      innerRing.position.set(zone.castCenter.x, 0.06, zone.castCenter.z);
+      innerRing.userData.poolY = { x: zone.castCenter.x, z: zone.castCenter.z, base: 0.06 };
+      innerRing.renderOrder = 3;
+      group.add(innerRing);
+
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const bx = zone.castCenter.x + Math.cos(angle) * zone.castRadius;
+        const bz = zone.castCenter.z + Math.sin(angle) * zone.castRadius;
+        const buoy = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.12, 0.32, 8),
+          new THREE.MeshStandardMaterial({
+            color: i % 2 === 0 ? 0xe85a4a : 0xf4f4f4,
+            emissive: i % 2 === 0 ? 0x661811 : 0x222222,
+            emissiveIntensity: 0.25,
+            roughness: 0.45,
+          })
+        );
+        buoy.position.set(bx, 0.16, bz);
+        buoy.userData.poolY = { x: bx, z: bz, base: 0.16 };
+        group.add(buoy);
+      }
+
+      group.visible = false;
+      this.scene.add(group);
+      this.fishingPoolMarkers[zone.id] = group;
+    });
+  }
+
   spawnAmbientFish() {
     const assets = getAssets();
     const fishKeys = [
@@ -541,6 +627,11 @@ export class LakeEnvironment {
     });
     if (this.dockGroup) this.dockGroup.visible = zoneId === "Lake Dock";
     if (this.campground?.group) this.campground.group.visible = zoneId === "Lake Dock";
+    if (this.fishingPoolMarkers) {
+      Object.entries(this.fishingPoolMarkers).forEach(([id, group]) => {
+        group.visible = id === zoneId;
+      });
+    }
   }
 
   setQuality(quality) {
@@ -555,6 +646,19 @@ export class LakeEnvironment {
   update(time, dt = 0.016, camera = null) {
     this.waterUniforms.uTime.value = time;
     if (camera) this.waterUniforms.uCameraPos.value.copy(camera.position);
+    if (this.sun) {
+      this.waterUniforms.uSunDir.value.copy(this.sun.position).normalize();
+    }
+    if (this.fishingPoolMarkers) {
+      Object.values(this.fishingPoolMarkers).forEach((group) => {
+        if (!group.visible) return;
+        group.traverse((child) => {
+          const py = child.userData?.poolY;
+          if (!py) return;
+          child.position.y = py.base + this.getWaterHeight(py.x, py.z, time);
+        });
+      });
+    }
     this.ambientFish.forEach((fish) => {
       const d = fish.userData;
       fish.position.x = d.origin.x + Math.sin(time * d.speed + d.phase) * d.radius;
@@ -577,7 +681,8 @@ export class LakeEnvironment {
       Math.sin(wx + time * 2.2) * 0.22 +
       Math.sin(wz * 1.3 - time * 1.7) * 0.16 +
       Math.sin((wx + wz) * 0.85 + time * 1.1) * 0.1 +
-      Math.sin(wx * 2.8 - time * 3.0) * 0.05
+      Math.sin(wx * 2.8 - time * 3.0) * 0.05 +
+      Math.sin(wz * 3.2 + time * 2.4) * 0.04
     );
   }
 }

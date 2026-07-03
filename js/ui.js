@@ -6,7 +6,6 @@ import {
   isBaitUnlocked,
   GEAR_MAX,
   getGearCost,
-  getRodDescription,
   getBoatDescription,
   getBaitKitDescription,
 } from "./data.js";
@@ -27,6 +26,7 @@ import {
 import { fetchLeaderboard, getPlayerId } from "./api.js";
 import * as audio from "./audio.js";
 import { tensionZone } from "./fish-fight.js";
+import { getRodStats, baitStatsLine } from "./gear-stats.js";
 
 let activePanel = "hud";
 let leaderboardSort = "fish";
@@ -45,9 +45,33 @@ export function initUI(fishing, callbacks) {
   const biteAlert = document.getElementById("bite-alert");
   const biteSpecies = document.getElementById("bite-species");
   const biteTimerFill = document.getElementById("bite-timer-fill");
+  const biteAlertAction = document.querySelector(".bite-alert-action");
   const reelAlert = document.getElementById("reel-alert");
+  const reelHint = document.querySelector(".reel-hint");
   const fightPhaseHint = document.getElementById("fight-phase-hint");
   const tensionZoneLabel = document.getElementById("tension-zone-label");
+
+  function inputMode() {
+    if (document.body.classList.contains("touch-mode")) return "touch";
+    if (callbacks.isVR?.()) return "vr";
+    return "desktop";
+  }
+
+  function biteActionText() {
+    switch (inputMode()) {
+      case "touch": return "Tap HOOK now!";
+      case "vr": return "Jerk rod up or pull trigger!";
+      default: return "Press Space or click HOOK!";
+    }
+  }
+
+  function reelHintText() {
+    switch (inputMode()) {
+      case "touch": return "Hold Reel in the green zone — ease off during runs";
+      case "vr": return "Crank your wrist to reel — ease off during runs";
+      default: return "Hold R to reel in the green zone — ease off during runs";
+    }
+  }
 
   function showToast(msg) {
     toast.textContent = msg;
@@ -66,7 +90,8 @@ export function initUI(fishing, callbacks) {
   function renderHUD(state) {
     document.getElementById("hud-fish").textContent = state.fish;
     document.getElementById("hud-coins").textContent = state.coins;
-    document.getElementById("hud-rod").textContent = state.rodLevel;
+    const rod = getRodStats(state.rodLevel);
+    document.getElementById("hud-rod").textContent = `${rod.name}`;
     document.getElementById("hud-zone").textContent = state.zone;
     document.getElementById("hud-boat").textContent = state.boatLevel;
     const bait = getSelectedBait();
@@ -122,7 +147,7 @@ export function initUI(fishing, callbacks) {
         <li><strong>Mouse</strong> — Look and aim cast</li>
         <li><strong>WASD</strong> — Move · walk to gold rings to change zones</li>
         <li><strong>E</strong> — Interact with cabin items (inside the cabin)</li>
-        <li><strong>B</strong> — Bait menu · <strong>4–9</strong> — Quick-select bait</li>
+        <li><strong>B</strong> — Bait menu · <strong>4–9, 0</strong> — Quick-select bait</li>
       </ul>
       <h3>Touch / iPhone</h3>
       <ul class="help-list">
@@ -130,7 +155,7 @@ export function initUI(fishing, callbacks) {
         <li><strong>Hold Cast</strong> — Charge power, release to cast</li>
         <li><strong>HOOK!</strong> when fish bites · <strong>Hold Reel</strong> after hooking</li>
       </ul>
-      <p class="help-tip">Watch for nibbles and a shadow under the bobber. Reel in the green tension zone when the fish tires — ease off during runs or your line will snap!</p>
+      <p class="help-tip">The glowing ring on the water marks the fishing pool — cast inside it. Watch for nibbles and fish shadows. Reel in the green tension zone when the fish tires!</p>
     `;
   }
 
@@ -168,9 +193,17 @@ export function initUI(fishing, callbacks) {
     const rodMax = state.rodLevel >= GEAR_MAX.rod;
     const boatMax = state.boatLevel >= GEAR_MAX.boat;
     const baitMax = state.baitKit >= GEAR_MAX.bait;
+    const rod = getRodStats(state.rodLevel);
+    const castPct = Math.round((rod.castMult - 0.85) * 100);
+    const linePct = Math.round((rod.lineStrength - 0.88) * 100);
+    const reelPct = Math.round((rod.reelMult - 0.85) * 100);
     return `
       <div class="gear-row">
-        <div><strong>Rod Lvl ${state.rodLevel}${rodMax ? " (MAX)" : ""}</strong><span>${getRodDescription(state.rodLevel)}</span></div>
+        <div>
+          <strong>${rod.name}${rodMax ? " (MAX)" : ""}</strong>
+          <span class="gear-tagline">${rod.tagline}</span>
+          <span>${rod.action} action · +${castPct}% cast · +${linePct}% line · +${reelPct}% reel · +${Math.round(rod.fightControl * 100)}% fight control</span>
+        </div>
         <button data-upgrade="rod" ${rodMax ? "disabled" : ""}>${rodMax ? "Maxed" : `Upgrade (${getGearCost("rod", state.rodLevel)}c)`}</button>
       </div>
       <div class="gear-row">
@@ -186,17 +219,19 @@ export function initUI(fishing, callbacks) {
 
   function renderBait(state) {
     return `
-      <p class="help-tip">Choose bait before casting. Each type attracts different fish.</p>
+      <p class="help-tip">Choose bait before casting. Float baits wait for nibbles; lures need rod motion to attract strikes.</p>
       <div class="bait-grid">
         ${BAITS.map((b) => {
           const unlocked = isBaitUnlocked(b, state.baitKit);
           const active = state.selectedBait === b.id;
+          const stats = unlocked ? baitStatsLine(b) : "";
           return `
             <button class="bait-card ${active ? "active" : ""} ${unlocked ? "" : "locked"}"
               data-bait="${b.id}" ${unlocked ? "" : "disabled"}>
               <span class="bait-icon">${b.icon}</span>
               <strong>${b.name}</strong>
               <span class="bait-desc">${unlocked ? b.description : `Requires Bait Kit Lvl ${b.unlockLevel}`}</span>
+              ${stats ? `<span class="bait-stats">${stats}</span>` : ""}
               ${active ? '<span class="bait-equipped">Equipped</span>' : ""}
             </button>
           `;
@@ -412,7 +447,7 @@ export function initUI(fishing, callbacks) {
       if (tensionBar) tensionBar.classList.toggle("visible", visible);
       if (tensionFill) {
         tensionFill.style.width = `${tension * 100}%`;
-        const zone = meta.zone || tensionZone(tension);
+        const zone = meta.zone || tensionZone(tension, getRodStats(getState().rodLevel));
         tensionFill.dataset.zone = zone;
         if (tensionZoneLabel) {
           const labels = {
@@ -436,10 +471,12 @@ export function initUI(fishing, callbacks) {
       reelAlert?.classList.toggle("visible", false);
       if (speciesName && biteSpecies) biteSpecies.textContent = speciesName;
       if (biteTimerFill) biteTimerFill.style.width = `${timerProgress * 100}%`;
+      if (biteAlertAction) biteAlertAction.textContent = biteActionText();
     },
     setReelAlert(visible) {
       reelAlert?.classList.toggle("visible", visible);
       biteAlert?.classList.toggle("visible", false);
+      if (reelHint) reelHint.textContent = reelHintText();
     },
     showCatch(catchData, onCastAgain) {
       if (!catchOverlay) return;
@@ -454,6 +491,7 @@ export function initUI(fishing, callbacks) {
           <p>${catchData.weight} lb · ${catchData.rarity}${catchData.baitUsed ? ` · ${catchData.baitUsed}` : ""}</p>
           <p class="catch-value">+${catchData.value} coins</p>
           ${newBadge}
+          <p class="catch-dismiss">Tap a button below or wait to continue</p>
           <div class="catch-actions">
             <button id="catch-cast-again" type="button">Cast Again</button>
             <button id="catch-view-codex" type="button">View Codex</button>

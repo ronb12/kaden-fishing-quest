@@ -49,7 +49,7 @@ export class VRFishingMotion {
 
   update(controller, head, rodGroup, dt, fishingState) {
     if (!controller) {
-      return { castRelease: null, reelIntensity: 0, hookSet: false, windup: 0, swingVisual: 0 };
+      return { castRelease: null, reelIntensity: 0, hookSet: false, windup: 0, swingVisual: 0, lureMotion: 0 };
     }
 
     this.castCooldown = Math.max(0, this.castCooldown - dt);
@@ -59,7 +59,7 @@ export class VRFishingMotion {
     if (!this.sampled) {
       this.prevPos.copy(_pos);
       this.sampled = true;
-      return { castRelease: null, reelIntensity: 0, hookSet: false, windup: this.windup, swingVisual: this.swingVisual };
+      return { castRelease: null, reelIntensity: 0, hookSet: false, windup: this.windup, swingVisual: this.swingVisual, lureMotion: 0 };
     }
 
     _vel.subVectors(_pos, this.prevPos).divideScalar(Math.max(dt, 0.001));
@@ -75,6 +75,7 @@ export class VRFishingMotion {
     const forwardSwing = _vel.dot(_headFwd);
     const upSwing = _vel.y;
     const headHeight = head.position.y;
+    const lureMotion = speed > 0.35 ? Math.min(1, speed * 0.35) : 0;
 
     let castRelease = null;
     let hookSet = false;
@@ -160,6 +161,7 @@ export class VRFishingMotion {
       hookSet,
       windup: this.windup,
       swingVisual: this.swingVisual,
+      lureMotion,
     };
   }
 }

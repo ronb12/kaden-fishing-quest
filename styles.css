@@ -46,8 +46,10 @@
   font-size: 0.65rem;
   opacity: 0.45;
   margin-left: 8px;
+  display: none;
 }
 
+:root {
   --ink: #0c1f2f;
   --deep: #0d4f73;
   --lake: #0f86a8;
@@ -129,6 +131,10 @@ body > button {
   font-size: 0.88rem;
   opacity: 0.9;
   font-weight: 700;
+  max-width: min(720px, 92vw);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tension-bar {
@@ -213,7 +219,7 @@ body > button {
 .reel-alert {
   position: fixed;
   left: 50%;
-  bottom: 120px;
+  bottom: 148px;
   z-index: 24;
   transform: translateX(-50%) translateY(20px);
   padding: 14px 22px;
@@ -536,6 +542,23 @@ body > button {
   line-height: 1.4;
 }
 
+.bait-card .bait-stats {
+  grid-column: 2;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sun);
+  opacity: 0.9;
+}
+
+.gear-tagline {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  margin: 2px 0 4px;
+}
+
 .bait-card.active {
   border-color: var(--sun);
   background: rgba(255,211,122,0.12);
@@ -729,6 +752,12 @@ body > button {
   font-size: 1.2rem;
   font-weight: 900;
   color: var(--sun);
+}
+
+.catch-dismiss {
+  margin-top: 14px;
+  font-size: 0.78rem;
+  opacity: 0.65;
 }
 
 .toast {

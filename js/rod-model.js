@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { getAssets, cloneModel, addRodTipMarker } from "./asset-loader.js";
+import { getRodStats } from "./gear-stats.js";
 
 const ROD_LEVEL_CONFIG = {
   1: { scale: 0.72, blank: 0x1c2428, accent: 0x8a9098 },
@@ -101,7 +102,8 @@ function buildProceduralRod(rodLevel = 1) {
 }
 
 export function buildRealisticRod(rodLevel = 1) {
-  const lvl = Math.min(5, Math.max(1, rodLevel));
+  const rodMeta = getRodStats(rodLevel);
+  const lvl = rodMeta.level;
   const cfg = ROD_LEVEL_CONFIG[lvl];
   const assets = getAssets();
   const gltf = assets?.rod?.[`FishingRod_Lvl${lvl}`];
@@ -110,11 +112,14 @@ export function buildRealisticRod(rodLevel = 1) {
     const rod = cloneModel(gltf, { scale: cfg.scale, rotationY: 0, animate: false });
     enhanceRodMaterials(rod, lvl);
     orientRodModel(rod);
+    rod.userData.rodName = rodMeta.name;
     const tip = addRodTipMarker(rod);
     return { rod, tip };
   }
 
-  return buildProceduralRod(lvl);
+  const built = buildProceduralRod(lvl);
+  built.rod.userData.rodName = rodMeta.name;
+  return built;
 }
 
 function buildProceduralFish(species, size = 1) {
@@ -151,15 +156,52 @@ export function buildBaitMesh(bait) {
   const assets = getAssets();
   const key = bait.modelKey;
   const gltf = key ? assets?.bait?.[key] : null;
+  const type = bait.meshType || "worm";
 
   if (gltf) {
-    const mesh = cloneModel(gltf, { scale: 0.12, rotationY: 0 });
+    const scale =
+      type === "worm" ? 0.14
+      : type === "minnow" || type === "crankbait" ? 0.16
+      : type === "jig" || type === "krill" ? 0.13
+      : type === "spinner" ? 0.15
+      : 0.12;
+    const mesh = cloneModel(gltf, { scale, rotationY: type === "minnow" ? Math.PI / 2 : 0 });
+    if (type === "worm") mesh.rotation.x = 0.4;
+    if (type === "jig") mesh.rotation.x = -0.5;
+    if (type === "popper") mesh.rotation.x = -0.2;
     group.add(mesh);
+
+    if (type === "spinner") {
+      const blade = new THREE.Mesh(
+        new THREE.CircleGeometry(0.018, 12),
+        mat(0xd8dce8, { metalness: 0.95, roughness: 0.1, side: THREE.DoubleSide })
+      );
+      blade.rotation.y = Math.PI / 2;
+      blade.position.set(0.02, 0, 0);
+      blade.name = "spinnerBlade";
+      group.add(blade);
+    }
+    if (type === "crankbait" || type === "popper") {
+      group.traverse((c) => {
+        if (c.isMesh && c.material?.color) c.material.color.lerp(new THREE.Color(bait.color), 0.35);
+      });
+    }
+    group.userData.baitType = type;
     return group;
   }
 
-  group.add(new THREE.Mesh(new THREE.SphereGeometry(0.01, 8, 8), mat(bait.color)));
+  const fallback = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), mat(bait.color));
+  group.add(fallback);
   return group;
+}
+
+export function updateBaitAnimation(baitMesh, time) {
+  if (!baitMesh) return;
+  const blade = baitMesh.getObjectByName("spinnerBlade");
+  if (blade) blade.rotation.z = time * 8;
+  if (baitMesh.userData.baitType === "worm") {
+    baitMesh.rotation.z = Math.sin(time * 3) * 0.08;
+  }
 }
 
 export function buildBobber() {
@@ -220,8 +262,11 @@ export function buildBiteFish(species) {
   fish.traverse((c) => {
     if (c.isMesh && c.material) {
       c.material = c.material.clone();
+      c.material.transparent = true;
+      c.material.opacity = 0.95;
+      c.material.depthWrite = false;
       c.material.emissive = new THREE.Color(species?.color ?? 0x4a90c4);
-      c.material.emissiveIntensity = 0.12;
+      c.material.emissiveIntensity = 0.28;
     }
   });
   return fish;
@@ -242,14 +287,48 @@ export function buildSplashRing() {
 }
 
 export function buildFishingLine() {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3));
-  const material = new THREE.LineBasicMaterial({
-    color: 0xc8ddd8,
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x1e2e2c,
+    emissive: 0x0a1818,
+    emissiveIntensity: 0.45,
+    roughness: 0.55,
+    metalness: 0.08,
     transparent: true,
-    opacity: 0.88,
+    opacity: 0.94,
+    depthWrite: false,
   });
-  return new THREE.Line(geometry, material);
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 12;
+  mesh.name = "fishingLine";
+  return mesh;
+}
+
+/** Rebuild a visible braided line from rod tip to rig (TubeGeometry — WebGL lines are 1px). */
+export function updateFishingLineMesh(lineMesh, points, radius = 0.0022) {
+  if (!lineMesh || points.length < 2) return;
+  const curve = new THREE.CatmullRomCurve3(points);
+  const segments = Math.max(12, points.length * 3);
+  const geometry = new THREE.TubeGeometry(curve, segments, radius, 5, false);
+  if (lineMesh.geometry) lineMesh.geometry.dispose();
+  lineMesh.geometry = geometry;
+}
+
+export function buildFishSilhouette() {
+  const mesh = new THREE.Mesh(
+    new THREE.CircleGeometry(0.42, 20),
+    new THREE.MeshBasicMaterial({
+      color: 0x0a2838,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = 4;
+  mesh.visible = false;
+  return mesh;
 }
 
 export function linePointsWithSag(start, end, segments = 10, sag = 0.12) {

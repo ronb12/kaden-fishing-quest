@@ -1,8 +1,11 @@
 import { DOCK_SPAWN } from "./dock-layout.js";
+import { baitDepthMatch, baitZoneAffinity, getRodStats, getRodDescription, getBaitKitDescription } from "./gear-stats.js";
+
+export { getRodDescription, getBaitKitDescription };
 
 export const STORAGE_KEY = "kaden-vr-fishing-v1";
 
-export const GEAR_MAX = { rod: 5, boat: 3, bait: 3 };
+export const GEAR_MAX = { rod: 5, boat: 3, bait: 4 };
 const GEAR_BASE_COST = { rod: 25, boat: 40, bait: 18 };
 
 export function getGearCost(type, currentLevel) {
@@ -15,14 +18,14 @@ export const ZONES = {
     label: "Lake Dock",
     description: "Calm shallows perfect for beginners.",
     teleport: { x: DOCK_SPAWN.x, y: DOCK_SPAWN.y, z: DOCK_SPAWN.z },
-    lookAt: { x: 0, y: 0, z: -4 },
+    lookAt: { x: 0, y: 0.4, z: -12 },
     castCenter: { x: 0, z: -12 },
     castRadius: 8,
     depth: 0.3,
     skyTint: 0xc9edf9,
     fogColor: 0x8ec4d8,
-    fogNear: 30,
-    fogFar: 120,
+    fogNear: 48,
+    fogFar: 150,
     boatRequired: 1,
   },
   "North Cove": {
@@ -30,14 +33,14 @@ export const ZONES = {
     label: "North Cove",
     description: "Rocky cove with trout and rare carp.",
     teleport: { x: -18, y: 0, z: -6 },
-    lookAt: { x: -18, y: 0, z: -20 },
+    lookAt: { x: -18, y: 0.4, z: -22 },
     castCenter: { x: -18, z: -22 },
     castRadius: 10,
     depth: 0.55,
     skyTint: 0xb8dce8,
     fogColor: 0x7ab0c4,
-    fogNear: 25,
-    fogFar: 100,
+    fogNear: 42,
+    fogFar: 140,
     boatRequired: 1,
   },
   "Deep Water": {
@@ -45,14 +48,14 @@ export const ZONES = {
     label: "Deep Water",
     description: "Heavy fish lurk beyond the drop-off.",
     teleport: { x: 22, y: 0, z: -14 },
-    lookAt: { x: 22, y: 0, z: -28 },
+    lookAt: { x: 22, y: 0.4, z: -30 },
     castCenter: { x: 22, z: -30 },
     castRadius: 12,
     depth: 0.85,
     skyTint: 0xa8cce0,
     fogColor: 0x5a8aa0,
-    fogNear: 20,
-    fogFar: 90,
+    fogNear: 40,
+    fogFar: 130,
     boatRequired: 2,
   },
 };
@@ -73,79 +76,186 @@ export const BAITS = [
     id: "worm",
     name: "Nightcrawler",
     icon: "🪱",
-    description: "Classic all-rounder. Fast bites for panfish and bass.",
+    description: "Classic float bait — steady nibbles for panfish and bass.",
     color: 0xc46a3a,
     meshType: "worm",
     modelKey: "Worm",
+    presentation: "float",
+    depth: "shallow",
+    sinkSpeed: 0.15,
+    nibbleStyle: "frequent",
     waitBonus: 0.35,
     rarityBonus: 0,
     speciesBoost: ["bluegill", "sunfish", "bass"],
+    zoneAffinity: { "Lake Dock": 1.3, "North Cove": 0.95, "Deep Water": 0.65 },
     unlockLevel: 1,
   },
   {
     id: "cricket",
-    name: "Cricket",
+    name: "Grasshopper",
     icon: "🦗",
-    description: "Top choice for bluegill and sunfish in shallows.",
-    color: 0x6a5a3a,
+    description: "Topwater float bait — fast bites on bluegill and sunfish.",
+    color: 0x6a8a3a,
     meshType: "cricket",
     modelKey: "Lure_1",
-    waitBonus: 0.45,
+    presentation: "float",
+    depth: "surface",
+    sinkSpeed: 0,
+    nibbleStyle: "frequent",
+    waitBonus: 0.42,
     rarityBonus: 0,
     speciesBoost: ["bluegill", "sunfish"],
+    zoneAffinity: { "Lake Dock": 1.35, "North Cove": 0.85, "Deep Water": 0.5 },
     unlockLevel: 1,
-  },
-  {
-    id: "minnow",
-    name: "Live Minnow",
-    icon: "🐟",
-    description: "Predators love it. Great for bass and trout.",
-    color: 0x8ab4c4,
-    meshType: "minnow",
-    modelKey: "Lure_2",
-    waitBonus: 0.15,
-    rarityBonus: 0.06,
-    speciesBoost: ["bass", "trout", "night-pike"],
-    unlockLevel: 1,
-  },
-  {
-    id: "spinner",
-    name: "Spinner Lure",
-    icon: "✨",
-    description: "Flashy blade attracts aggressive strikes.",
-    color: 0xc0c0c0,
-    meshType: "spinner",
-    modelKey: "Lure_3",
-    waitBonus: 0,
-    rarityBonus: 0.1,
-    speciesBoost: ["bass", "trout", "lunker-bass"],
-    unlockLevel: 2,
   },
   {
     id: "dough",
     name: "Dough Ball",
     icon: "🟡",
-    description: "Carp and catfish can't resist dough.",
+    description: "Bottom float bait — carp and catfish patrol the floor.",
     color: 0xe8c840,
     meshType: "dough",
     modelKey: "Lure_4",
-    waitBonus: 0.2,
-    rarityBonus: 0.12,
+    presentation: "bottom",
+    depth: "shallow",
+    sinkSpeed: 0.55,
+    nibbleStyle: "slow",
+    waitBonus: 0.22,
+    rarityBonus: 0.1,
     speciesBoost: ["golden-carp", "catfish"],
+    zoneAffinity: { "Lake Dock": 0.9, "North Cove": 1.2, "Deep Water": 0.85 },
+    unlockLevel: 1,
+  },
+  {
+    id: "minnow",
+    name: "Live Shiner",
+    icon: "🐟",
+    description: "Mid-depth float bait — predators strike hard.",
+    color: 0x8ab4c4,
+    meshType: "minnow",
+    modelKey: "Lure_2",
+    presentation: "float",
+    depth: "mid",
+    sinkSpeed: 0.35,
+    nibbleStyle: "normal",
+    waitBonus: 0.12,
+    rarityBonus: 0.08,
+    speciesBoost: ["bass", "trout", "night-pike"],
+    zoneAffinity: { "Lake Dock": 0.95, "North Cove": 1.25, "Deep Water": 1.05 },
     unlockLevel: 2,
   },
   {
+    id: "spinner",
+    name: "Spinner Blade",
+    icon: "✨",
+    description: "Active lure — twitch the rod to flash the blade and draw strikes.",
+    color: 0xc0c0c0,
+    meshType: "spinner",
+    modelKey: "Lure_3",
+    presentation: "lure",
+    depth: "mid",
+    sinkSpeed: 0.4,
+    nibbleStyle: "strike",
+    waitBonus: -0.05,
+    rarityBonus: 0.12,
+    lureActivityNeed: 0.45,
+    speciesBoost: ["bass", "trout", "lunker-bass"],
+    zoneAffinity: { "Lake Dock": 1.0, "North Cove": 1.15, "Deep Water": 1.1 },
+    unlockLevel: 2,
+  },
+  {
+    id: "crankbait",
+    name: "Crankbait",
+    icon: "🐠",
+    description: "Diving lure — crank and pause for aggressive bass and pike.",
+    color: 0x2a6a8a,
+    meshType: "crankbait",
+    modelKey: "Lure_5",
+    presentation: "lure",
+    depth: "mid",
+    sinkSpeed: 0.65,
+    nibbleStyle: "strike",
+    waitBonus: -0.08,
+    rarityBonus: 0.14,
+    lureActivityNeed: 0.5,
+    speciesBoost: ["bass", "night-pike", "lunker-bass"],
+    zoneAffinity: { "Lake Dock": 0.85, "North Cove": 1.1, "Deep Water": 1.2 },
+    unlockLevel: 3,
+  },
+  {
+    id: "popper",
+    name: "Surface Popper",
+    icon: "💦",
+    description: "Topwater lure — stays on the surface; jerk to pop and attract.",
+    color: 0xe85a4a,
+    meshType: "popper",
+    modelKey: "Lure_1",
+    presentation: "lure",
+    depth: "surface",
+    sinkSpeed: 0,
+    nibbleStyle: "strike",
+    waitBonus: 0.05,
+    rarityBonus: 0.08,
+    lureActivityNeed: 0.4,
+    speciesBoost: ["bass", "sunfish", "bluegill"],
+    zoneAffinity: { "Lake Dock": 1.25, "North Cove": 0.9, "Deep Water": 0.55 },
+    unlockLevel: 3,
+  },
+  {
+    id: "softbait",
+    name: "Soft Plastic",
+    icon: "🟢",
+    description: "Slow-sink lure — versatile; works in most depths with a wiggle.",
+    color: 0x4a9a5a,
+    meshType: "softbait",
+    modelKey: "Lure_4",
+    presentation: "lure",
+    depth: "mid",
+    sinkSpeed: 0.3,
+    nibbleStyle: "normal",
+    waitBonus: 0.08,
+    rarityBonus: 0.1,
+    lureActivityNeed: 0.35,
+    speciesBoost: ["bass", "trout", "catfish", "golden-carp"],
+    zoneAffinity: { "Lake Dock": 1.05, "North Cove": 1.1, "Deep Water": 1.05 },
+    unlockLevel: 3,
+  },
+  {
     id: "jig",
-    name: "Deep Jig",
+    name: "Metal Jig",
     icon: "⚓",
-    description: "Heavy jig for deep water trophies.",
+    description: "Fast-sinking jig — drop deep for trophies and heavy fighters.",
     color: 0x3a5a6a,
     meshType: "jig",
     modelKey: "Lure_6",
-    waitBonus: -0.1,
-    rarityBonus: 0.18,
+    presentation: "jig",
+    depth: "deep",
+    sinkSpeed: 0.9,
+    nibbleStyle: "strike",
+    waitBonus: -0.15,
+    rarityBonus: 0.2,
+    lureActivityNeed: 0.55,
     speciesBoost: ["catfish", "night-pike", "lunker-bass"],
-    unlockLevel: 3,
+    zoneAffinity: { "Lake Dock": 0.6, "North Cove": 0.95, "Deep Water": 1.35 },
+    unlockLevel: 4,
+  },
+  {
+    id: "krill",
+    name: "Krill Cluster",
+    icon: "🦐",
+    description: "Mid-depth float bait — trout and rare cove species love it.",
+    color: 0xffa8a0,
+    meshType: "krill",
+    modelKey: "Lure_6",
+    presentation: "float",
+    depth: "mid",
+    sinkSpeed: 0.45,
+    nibbleStyle: "normal",
+    waitBonus: 0.18,
+    rarityBonus: 0.15,
+    speciesBoost: ["trout", "golden-carp", "bass"],
+    zoneAffinity: { "Lake Dock": 0.8, "North Cove": 1.3, "Deep Water": 1.0 },
+    unlockLevel: 4,
   },
 ];
 
@@ -194,12 +304,16 @@ export const RARITY_WEIGHTS = {
 export function pickFish(zone, rodLevel, baitKit, baitId = "worm", legendaryBoost = false) {
   const zoneFish = FISH_SPECIES.filter((f) => f.zones.includes(zone));
   const bait = BAITS.find((b) => b.id === baitId) || BAITS[0];
-  const bonus = (rodLevel - 1) * 0.04 + (baitKit - 1) * 0.03 + bait.rarityBonus;
+  const zoneData = ZONES[zone];
+  const depthMatch = baitDepthMatch(bait, zoneData?.depth ?? 0.3);
+  const zoneMatch = baitZoneAffinity(bait, zone);
+  const bonus =
+    (rodLevel - 1) * 0.04 + (baitKit - 1) * 0.03 + bait.rarityBonus + (depthMatch - 1) * 0.08 + (zoneMatch - 1) * 0.06;
   const weights = zoneFish.map((f) => {
     let w = RARITY_WEIGHTS[f.rarity] || 10;
     if (f.rarity !== "common") w *= 1 + bonus;
     if (f.rarity === "legendary" && legendaryBoost) w *= 3;
-    if (bait.speciesBoost.includes(f.id)) w *= 1.8;
+    if (bait.speciesBoost.includes(f.id)) w *= 1.85 * zoneMatch;
     return w;
   });
   const total = weights.reduce((a, b) => a + b, 0);
@@ -226,7 +340,7 @@ export function rollWeight(species) {
 
 export function formatCatch(species, weight, zone, rodLevel = 1) {
   const base = species.value * (1 + weight * 0.08);
-  const rodBonus = 1 + (rodLevel - 1) * 0.08;
+  const rodBonus = 1 + (getRodStats(rodLevel).reelMult - 0.88) * 0.35;
   return {
     speciesId: species.id,
     name: species.name,
@@ -239,16 +353,7 @@ export function formatCatch(species, weight, zone, rodLevel = 1) {
   };
 }
 
-export function getRodDescription(level) {
-  const coinPct = Math.round((level - 1) * 8);
-  return `+${coinPct}% coin value · wider hook window · faster reel`;
-}
-
 export function getBoatDescription(level) {
   if (level >= 2) return "Deep Water unlocked · faster zone travel";
   return "Unlocks North Cove";
-}
-
-export function getBaitKitDescription(level) {
-  return `Unlocks tier-${level} baits · +${Math.round((level - 1) * 3)}% rare fish odds`;
 }

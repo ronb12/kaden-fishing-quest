@@ -23,6 +23,8 @@ import { VRFishingMotion } from "./vr-fishing.js";
 import { moveWithCollisions } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
 import { DOCK_SPAWN } from "./dock-layout.js";
+import { tensionZone } from "./fish-fight.js";
+import { getRodStats } from "./gear-stats.js";
 
 let ui = null;
 let touch = { active: false };
@@ -38,7 +40,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.xr.enabled = true;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, 280);
 camera.position.set(DOCK_SPAWN.x, 1.6, DOCK_SPAWN.z);
 
 let env = null;
@@ -109,6 +111,40 @@ let castCharging = false;
 let castCharge = 0;
 let spaceWasDown = false;
 let prevReelHeld = false;
+let lastTensionZone = "sweet";
+let gameStarted = false;
+
+function dismissLoadingHint() {
+  if (gameStarted) return;
+  gameStarted = true;
+  document.querySelector(".loading-hint")?.classList.add("hidden");
+  audio.resumeAudio();
+  audio.startAmbient();
+}
+
+function refreshStatus() {
+  if (!ui || inVR) return;
+  if (cabinInteractTarget && fishing.state === FishingState.IDLE) {
+    ui.setStatus(`[E] ${cabinInteractTarget.label}`);
+    return;
+  }
+  if (castCharging && fishing.state === FishingState.IDLE) {
+    const pct = Math.round((0.35 + castCharge * 0.65) * 100);
+    ui.setStatus(`Charging cast… ${pct}% — release Space`);
+    return;
+  }
+  if (fishing.state !== FishingState.IDLE) {
+    ui.setStatus(fishing.getStatusText(inVR));
+    return;
+  }
+  if (touch.active) {
+    ui.setStatus("Hold Cast to charge · drag right to look · joystick to move");
+  } else if (pointerLocked) {
+    ui.setStatus("WASD move · hold Space to cast · hold R to reel · M menu");
+  } else {
+    ui.setStatus("Click to look · WASD to move · walk the boardwalk to the lake");
+  }
+}
 
 function getAimDirection() {
   const aim = new THREE.Vector3(0, 0, -1);
@@ -214,7 +250,10 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "KeyM") ui?.toggleMenu();
   if (e.code === "KeyB") ui?.openPanel?.("bait");
   if (e.code === "KeyE") tryCabinInteract();
-  const baitKeyMap = { Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5 };
+  const baitKeyMap = {
+    Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5, Digit0: 6,
+    Minus: 7, Equal: 8, Backquote: 9,
+  };
   if (baitKeyMap[e.code] !== undefined) {
     const bait = BAITS[baitKeyMap[e.code]];
     if (bait) {
@@ -237,6 +276,7 @@ document.addEventListener("keyup", (e) => {
 });
 
 canvas.addEventListener("click", () => {
+  dismissLoadingHint();
   audio.resumeAudio();
   if (!inVR && !touch.active) {
     if (env?.campground?.insideCabin && tryCabinInteract()) return;
@@ -245,6 +285,7 @@ canvas.addEventListener("click", () => {
 });
 document.addEventListener("pointerlockchange", () => {
   pointerLocked = document.pointerLockElement === canvas;
+  if (pointerLocked) dismissLoadingHint();
 });
 document.addEventListener("mousemove", (e) => {
   if (pointerLocked) {
@@ -310,7 +351,9 @@ function handleFishingAction() {
       return;
     }
     if (touch.active) {
-      performCast(0.75);
+      castCharging = true;
+      castCharge = 0;
+      updateTouchUI();
     } else {
       castCharging = true;
       castCharge = 0;
@@ -377,6 +420,7 @@ function onFishingEvent(type, data) {
       vibrate(12);
       break;
     case "preBite":
+      audio.playPreBite();
       ui?.setStatus(fishing.getStatusText());
       vibrate(30);
       break;
@@ -451,19 +495,33 @@ function switchZone(zoneId) {
   ui?.showToast(`Now at ${zoneId}`);
 }
 
+function aimAtFishingPool(zone) {
+  if (!zone) return;
+  const look = new THREE.Vector3(
+    zone.lookAt?.x ?? zone.castCenter.x,
+    zone.lookAt?.y ?? 0.4,
+    zone.lookAt?.z ?? zone.castCenter.z
+  );
+  camera.lookAt(look);
+  const dx = look.x - camera.position.x;
+  const dz = look.z - camera.position.z;
+  const dy = look.y - camera.position.y;
+  mouseX = Math.atan2(dx, dz);
+  mouseY = Math.atan2(dy, Math.hypot(dx, dz));
+  mouseY = Math.max(-1.2, Math.min(1.2, mouseY));
+}
+
 function teleportToZone(zoneId) {
   const zone = ZONES[zoneId];
   if (!zone) return;
   const offset = new THREE.Vector3(zone.teleport.x, zone.teleport.y + 1.6, zone.teleport.z);
   camera.position.copy(offset);
-  const look = new THREE.Vector3(zone.lookAt.x, 1.6, zone.lookAt.z);
-  camera.lookAt(look);
-  mouseX = Math.atan2(look.x - camera.position.x, look.z - camera.position.z);
-  mouseY = 0;
+  aimAtFishingPool(zone);
 }
 
 ui = initUI(fishing, {
   onEnterVR: () => {},
+  isVR: () => inVR,
   onZoneChange: (zone) => {
     teleportToZone(zone);
     env.applyZone(zone);
@@ -583,6 +641,11 @@ function updateDesktopMovement(dt) {
     if (env?.collisions) {
       camera.position.copy(env.collisions.resolve(camera.position));
     }
+    if (fishing.state === FishingState.WAITING) {
+      fishing.addLureMotion(dt * 0.35);
+    }
+  } else if (fishing.state === FishingState.WAITING && (Math.abs(mouseX) > 0.01 || Math.abs(mouseY) > 0.01)) {
+    fishing.addLureMotion(dt * 0.12);
   }
 
   const rodOffset = new THREE.Vector3(0.45, -0.24, -0.55).applyQuaternion(camera.quaternion);
@@ -629,6 +692,10 @@ function updateVrFishing(dt) {
   }
 
   fishing.updateRodTransform(controllers[1], motion);
+
+  if (fishing.state === FishingState.WAITING && motion.lureMotion > 0.02) {
+    fishing.addLureMotion(motion.lureMotion * dt * 2.5);
+  }
 }
 
 function checkZoneTeleports() {
@@ -667,9 +734,6 @@ renderer.setAnimationLoop(() => {
 
   if (!inVR && env?.campground?.insideCabin && fishing.state === FishingState.IDLE) {
     cabinInteractTarget = env.campground.pickInteractable(camera);
-    if (cabinInteractTarget) {
-      ui?.setStatus(`[E] ${cabinInteractTarget.label}`);
-    }
   } else {
     cabinInteractTarget = null;
   }
@@ -690,6 +754,18 @@ renderer.setAnimationLoop(() => {
   }
   prevReelHeld = reelHeld && isReeling;
 
+  if (isReeling && !inVR) {
+    const zone = tensionZone(fishing.tension, getRodStats(getState().rodLevel));
+    if ((zone === "warning" || zone === "snap") && zone !== lastTensionZone) {
+      audio.playTensionWarning();
+    }
+    lastTensionZone = zone;
+  } else if (!isReeling) {
+    lastTensionZone = "sweet";
+  }
+
+  refreshStatus();
+
   fishing.update(dt, time);
   if (fishing.biteFish) updateModelAnimations(fishing.biteFish, dt);
 
@@ -706,5 +782,49 @@ if (new URLSearchParams(location.search).has("playtest")) {
   window.__setPlaytestCamera = (x, y, z, lx, ly, lz) => {
     camera.position.set(x, y, z);
     camera.lookAt(lx, ly, lz);
+    const dx = lx - x;
+    const dz = lz - z;
+    const dy = ly - y;
+    mouseX = Math.atan2(dx, dz);
+    mouseY = Math.atan2(dy, Math.hypot(dx, dz));
+  };
+
+  window.__playtest = {
+    getFishingState: () => fishing.state,
+    getCamera: () => ({ x: camera.position.x, y: camera.position.y, z: camera.position.z }),
+    moveTo: (x, z) => {
+      camera.position.x = x;
+      camera.position.z = z;
+      if (env?.collisions) camera.position.copy(env.collisions.resolve(camera.position));
+    },
+    cast: (power = 0.85) => {
+      const aim = getAimDirection();
+      return fishing.startCast(power, aim);
+    },
+    forceBite: () => {
+      if (fishing.state === FishingState.WAITING) fishing.biteTimer = 0;
+    },
+    hook: () => {
+      if (fishing.state === FishingState.BITING) fishing.hookFish();
+    },
+    reel: (intensity = 1) => {
+      if (fishing.state === FishingState.REELING) fishing.reel(0.05, intensity);
+    },
+    getLineVisible: () => Boolean(fishing.line?.geometry?.attributes?.position?.count > 2),
+    getBobberVisible: () => Boolean(fishing.bobber?.visible),
+    getPoolMarkerVisible: () => {
+      const zone = getState().zone;
+      return Boolean(env?.fishingPoolMarkers?.[zone]?.visible);
+    },
+    getHudText: () => document.getElementById("status-text")?.textContent || "",
+    waitFrames: (n) => new Promise((resolve) => {
+      let left = n;
+      const tick = () => {
+        left -= 1;
+        if (left <= 0) resolve();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }),
   };
 }
