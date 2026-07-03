@@ -127,7 +127,7 @@ export class LakeEnvironment {
     this.buildTrees();
     this.buildMountains();
     this.buildZoneMarkers();
-    this.campground = new Campground(scene);
+    this.campground = new Campground(this.scene);
     this.campFire = this.campground.campFire;
     this.buildZoneDressing();
     this.spawnAmbientFish();
