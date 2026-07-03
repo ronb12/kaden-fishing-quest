@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations } from "./asset-loader.js";
-import { Campground } from "./campground.js";
+import { Campground, isClearOfCampground } from "./campground.js";
 import { DOCK_GROUP } from "./dock-layout.js";
 
 const WATER_VERT = `
@@ -346,10 +346,11 @@ export class LakeEnvironment {
     ];
     const positions = [
       [-12, 8], [-8, 14], [10, 12], [14, 6], [-16, -4], [18, -2],
-      [-6, 18], [8, 18], [-20, 10], [20, 8], [-14, 16], [16, 14],
+      [-6, 18], [8, 18], [-20, 10], [20, 8], [-22, 24], [16, 14],
     ];
 
     positions.forEach(([x, z], i) => {
+      if (!isClearOfCampground(x, z)) return;
       const useKenney = i % 2 === 0;
       const source = useKenney ? treeSources[0] : treeSources[1];
       const key = source.keys[i % source.keys.length];
@@ -381,6 +382,7 @@ export class LakeEnvironment {
       [-4, 11], [5, 10], [-10, 5], [12, 4], [-18, 2], [15, -1], [0, 12], [-8, 6],
     ];
     scatter.forEach(([x, z], i) => {
+      if (!isClearOfCampground(x, z)) return;
       const gltf = i % 2 === 0 ? grassGltf : bushGltf;
       if (!gltf) return;
       const prop = cloneModel(gltf, { scale: 2.0 + Math.random() * 0.8, rotationY: Math.random() * Math.PI });
