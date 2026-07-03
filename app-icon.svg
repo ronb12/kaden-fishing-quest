@@ -1,14 +1,55 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Kaden VR Fishing Quest">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="sky" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#0d4f73"/>
+      <stop offset="55%" stop-color="#0f86a8"/>
       <stop offset="100%" stop-color="#ffd37a"/>
     </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d5f0fa" stop-opacity=".98"/>
+      <stop offset="100%" stop-color="#7ec8e8" stop-opacity=".92"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0c1f2f" flood-opacity=".28"/>
+    </filter>
   </defs>
-  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
-  <path d="M48 150c24-20 58-32 92-32s68 12 68 32-34 46-68 46-92-26-92-46z" fill="#d5f0fa" fill-opacity=".92"/>
-  <path d="M72 150c14-20 32-32 54-32s40 12 52 32" fill="none" stroke="#0d4f73" stroke-width="10" stroke-linecap="round"/>
-  <path d="M150 74c0 24-6 44-22 64" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
-  <path d="M128 138c-18 0-34 8-46 22 12 14 28 22 46 22 20 0 38-10 52-28-14-10-32-16-52-16z" fill="#0f86a8" stroke="#0c1f2f" stroke-width="8"/>
-  <circle cx="144" cy="154" r="6" fill="#fff"/>
+
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+
+  <!-- distant hills -->
+  <path d="M0 250c70-40 150-55 230-45s170 35 282 20v262H0z" fill="#0a3d5c" fill-opacity=".35"/>
+
+  <!-- water -->
+  <path d="M48 300c56-46 136-74 208-74s152 28 208 74-136 92-208 92-152-46-208-92z" fill="url(#water)"/>
+  <path d="M88 300c36-24 84-38 136-38s100 14 152 38" fill="none" stroke="#0d4f73" stroke-width="12" stroke-linecap="round" opacity=".55"/>
+
+  <!-- fishing rod -->
+  <g filter="url(#soft)">
+    <path d="M350 92c0 72-18 132-66 188" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
+    <path d="M350 92c0 72-18 132-66 188" fill="none" stroke="#0c1f2f" stroke-width="8" stroke-linecap="round" opacity=".25"/>
+    <circle cx="350" cy="92" r="16" fill="#c49a6c" stroke="#0c1f2f" stroke-width="6"/>
+  </g>
+
+  <!-- bobber -->
+  <g filter="url(#soft)">
+    <rect x="276" y="248" width="14" height="34" rx="4" fill="#fff"/>
+    <ellipse cx="283" cy="266" rx="18" ry="14" fill="#fff"/>
+    <path d="M265 266h36" fill="none" stroke="#0d4f73" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="283" cy="278" rx="18" ry="14" fill="#e84545"/>
+  </g>
+
+  <!-- fish -->
+  <g filter="url(#soft)">
+    <path d="M228 318c-36 0-68 16-92 44 24 28 56 44 92 44 40 0 76-20 104-56-28-20-64-32-104-32z" fill="#0f86a8" stroke="#0c1f2f" stroke-width="16" stroke-linejoin="round"/>
+    <path d="M136 362l-44 28 12-52z" fill="#0f86a8" stroke="#0c1f2f" stroke-width="12" stroke-linejoin="round"/>
+    <circle cx="252" cy="346" r="12" fill="#fff"/>
+    <circle cx="256" cy="346" r="5" fill="#0c1f2f"/>
+    <path d="M300 330c18 10 28 24 32 40" fill="none" stroke="#7ee8ff" stroke-width="10" stroke-linecap="round" opacity=".75"/>
+  </g>
+
+  <!-- VR badge -->
+  <g transform="translate(92 92)">
+    <rect width="112" height="56" rx="28" fill="#0c1f2f" fill-opacity=".72"/>
+    <text x="56" y="38" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="28" font-weight="900" fill="#ffd37a">VR</text>
+  </g>
 </svg>
