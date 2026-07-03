@@ -1,47 +1,118 @@
 import * as THREE from "three";
 import { getAssets, cloneModel, addRodTipMarker } from "./asset-loader.js";
 
+const ROD_LEVEL_CONFIG = {
+  1: { scale: 0.72, blank: 0x1c2428, accent: 0x8a9098 },
+  2: { scale: 0.74, blank: 0x182228, accent: 0x9aa4b0 },
+  3: { scale: 0.76, blank: 0x141c22, accent: 0xa8b8c8 },
+  4: { scale: 0.78, blank: 0x101820, accent: 0xc0a050 },
+  5: { scale: 0.8, blank: 0x0c1418, accent: 0xd4af37 },
+};
+
 function mat(color, opts = {}) {
   return new THREE.MeshStandardMaterial({
     color,
     roughness: opts.roughness ?? 0.55,
     metalness: opts.metalness ?? 0.1,
+    envMapIntensity: opts.envMapIntensity ?? 1,
     ...opts,
   });
 }
 
+function enhanceRodMaterials(rod, level = 1) {
+  const cfg = ROD_LEVEL_CONFIG[level] || ROD_LEVEL_CONFIG[1];
+  rod.traverse((child) => {
+    if (!child.isMesh?.material) return;
+    const apply = (m) => {
+      const next = m.clone();
+      const name = (next.name || "").toLowerCase();
+      if (name.includes("metal")) {
+        next.metalness = 0.9;
+        next.roughness = 0.18;
+        next.envMapIntensity = 1.6;
+        if (level >= 4) next.color.setHex(cfg.accent);
+      } else {
+        next.metalness = 0.62;
+        next.roughness = 0.28;
+        next.envMapIntensity = 1.1;
+        next.color.setHex(cfg.blank);
+      }
+      return next;
+    };
+    child.material = Array.isArray(child.material)
+      ? child.material.map(apply)
+      : apply(child.material);
+  });
+}
+
+function orientRodModel(rod) {
+  rod.rotation.set(0.12, -Math.PI / 2, 0.04);
+}
+
 function buildProceduralRod(rodLevel = 1) {
+  const cfg = ROD_LEVEL_CONFIG[Math.min(5, Math.max(1, rodLevel))] || ROD_LEVEL_CONFIG[1];
   const rod = new THREE.Group();
-  const carbon = mat(0x1a2420, { metalness: 0.35, roughness: 0.28 });
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.032, 0.35, 12), mat(0xbf9b5e));
+  const carbon = mat(cfg.blank, { metalness: 0.55, roughness: 0.26, envMapIntensity: 1.1 });
+  const metal = mat(cfg.accent, { metalness: 0.92, roughness: 0.16, envMapIntensity: 1.5 });
+  const cork = mat(0xc49a6c, { roughness: 0.88, metalness: 0.02 });
+
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.038, 0.42, 16), cork);
   handle.rotation.x = Math.PI / 2;
-  handle.position.z = 0.1;
+  handle.position.set(0.42, 0, 0);
   rod.add(handle);
-  const blank = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.004, 1.8, 10), carbon);
+
+  const reelSeat = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.03, 0.12, 12), metal);
+  reelSeat.rotation.x = Math.PI / 2;
+  reelSeat.position.set(0.18, 0, 0);
+  rod.add(reelSeat);
+
+  const reelBody = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.07, 16), metal);
+  reelBody.rotation.z = Math.PI / 2;
+  reelBody.position.set(0.12, -0.05, 0);
+  rod.add(reelBody);
+
+  const blank = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.0035, 1.95, 12), carbon);
   blank.rotation.x = Math.PI / 2;
-  blank.position.set(0, 0.08, -0.85);
+  blank.position.set(-0.72, 0.04, 0);
   rod.add(blank);
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 8), mat(0xffffff));
-  tip.position.set(0, 0.08, -1.75);
-  tip.name = "rodTip";
+
+  for (let i = 0; i < 5; i++) {
+    const guide = new THREE.Mesh(new THREE.TorusGeometry(0.009, 0.0018, 6, 12), metal);
+    guide.rotation.y = Math.PI / 2;
+    guide.position.set(0.28 - i * 0.38, 0.04, 0);
+    rod.add(guide);
+  }
+
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.001, 0.04, 6), mat(0xeeeeee));
+  tip.rotation.x = Math.PI / 2;
+  tip.position.set(-1.72, 0.04, 0);
   rod.add(tip);
-  rod.scale.setScalar(1.1 + (rodLevel - 1) * 0.05);
-  return { rod, tip };
+
+  const tipMarker = new THREE.Object3D();
+  tipMarker.position.set(-1.74, 0.04, 0);
+  tipMarker.name = "rodTip";
+  rod.add(tipMarker);
+
+  rod.scale.setScalar(cfg.scale);
+  orientRodModel(rod);
+  return { rod, tip: tipMarker };
 }
 
 export function buildRealisticRod(rodLevel = 1) {
-  const assets = getAssets();
   const lvl = Math.min(5, Math.max(1, rodLevel));
+  const cfg = ROD_LEVEL_CONFIG[lvl];
+  const assets = getAssets();
   const gltf = assets?.rod?.[`FishingRod_Lvl${lvl}`];
 
   if (gltf) {
-    const rod = cloneModel(gltf, { scale: 0.55, rotationY: Math.PI, animate: false });
-    rod.rotation.x = -0.15;
+    const rod = cloneModel(gltf, { scale: cfg.scale, rotationY: 0, animate: false });
+    enhanceRodMaterials(rod, lvl);
+    orientRodModel(rod);
     const tip = addRodTipMarker(rod);
     return { rod, tip };
   }
 
-  return buildProceduralRod(rodLevel);
+  return buildProceduralRod(lvl);
 }
 
 function buildProceduralFish(species, size = 1) {
@@ -91,31 +162,54 @@ export function buildBaitMesh(bait) {
 
 export function buildBobber() {
   const group = new THREE.Group();
-  const top = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.025, 0.028, 0.04, 12),
-    mat(0xf8f8f8, { roughness: 0.35 })
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.003, 0.003, 0.09, 8),
+    mat(0xffffff, { roughness: 0.35, metalness: 0.05 })
   );
+  stem.position.y = -0.02;
+  group.add(stem);
+
+  const top = new THREE.Mesh(
+    new THREE.SphereGeometry(0.028, 16, 12),
+    mat(0xf4f4f4, { roughness: 0.32, metalness: 0.04 })
+  );
+  top.scale.y = 0.75;
   top.position.y = 0.02;
   group.add(top);
+
   const bottom = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.028, 0.022, 0.035, 12),
-    mat(0xcc2222, { roughness: 0.4 })
+    new THREE.SphereGeometry(0.024, 16, 12),
+    mat(0xcc2222, { roughness: 0.38, metalness: 0.05 })
   );
-  bottom.position.y = -0.015;
+  bottom.scale.y = 1.1;
+  bottom.position.y = -0.045;
   group.add(bottom);
+
+  const band = new THREE.Mesh(
+    new THREE.TorusGeometry(0.026, 0.003, 8, 20),
+    mat(0xffffff, { roughness: 0.4 })
+  );
+  band.rotation.x = Math.PI / 2;
+  band.position.y = 0.005;
+  group.add(band);
+
   return group;
 }
 
 export function buildHook() {
-  const hookMat = mat(0xaaaaaa, { metalness: 0.9, roughness: 0.2 });
+  const hookMat = mat(0xb8c0c8, { metalness: 0.95, roughness: 0.12, envMapIntensity: 1.4 });
   const hook = new THREE.Group();
-  const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.02, 4), hookMat);
-  shank.position.y = -0.01;
+  const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.0014, 0.0014, 0.022, 6), hookMat);
+  shank.position.y = -0.011;
   hook.add(shank);
-  const curve = new THREE.Mesh(new THREE.TorusGeometry(0.006, 0.0012, 4, 12, Math.PI * 1.2), hookMat);
+  const curve = new THREE.Mesh(new THREE.TorusGeometry(0.007, 0.0014, 6, 16, Math.PI * 1.25), hookMat);
   curve.rotation.z = Math.PI / 2;
-  curve.position.y = -0.022;
+  curve.position.y = -0.024;
   hook.add(curve);
+  const barb = new THREE.Mesh(new THREE.ConeGeometry(0.0015, 0.004, 4), hookMat);
+  barb.rotation.z = Math.PI / 2;
+  barb.position.set(0.005, -0.028, 0);
+  hook.add(barb);
   return hook;
 }
 
@@ -143,4 +237,27 @@ export function buildSplashRing() {
   );
   ring.rotation.x = -Math.PI / 2;
   return ring;
+}
+
+export function buildFishingLine() {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3));
+  const material = new THREE.LineBasicMaterial({
+    color: 0xc8ddd8,
+    transparent: true,
+    opacity: 0.88,
+  });
+  return new THREE.Line(geometry, material);
+}
+
+export function linePointsWithSag(start, end, segments = 10, sag = 0.12) {
+  const points = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const p = start.clone().lerp(end, t);
+    const droop = Math.sin(t * Math.PI) * sag * (1 + t * 0.35);
+    p.y -= droop;
+    points.push(p);
+  }
+  return points;
 }

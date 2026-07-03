@@ -467,7 +467,7 @@ function updateDesktopMovement(dt) {
     camera.position.z = Math.max(-WORLD_BOUNDS, Math.min(WORLD_BOUNDS, camera.position.z));
   }
 
-  const rodOffset = new THREE.Vector3(0.38, -0.22, -0.32).applyQuaternion(camera.quaternion);
+  const rodOffset = new THREE.Vector3(0.42, -0.28, -0.38).applyQuaternion(camera.quaternion);
   fishing.updateRodTransform({
     position: camera.position.clone().add(rodOffset),
     quaternion: camera.quaternion,

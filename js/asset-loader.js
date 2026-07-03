@@ -107,12 +107,26 @@ export function updateModelAnimations(object, dt) {
 
 export function addRodTipMarker(rodGroup) {
   const box = new THREE.Box3().setFromObject(rodGroup);
+  const center = new THREE.Vector3();
+  const size = new THREE.Vector3();
+  box.getCenter(center);
+  box.getSize(size);
+
+  const ends = [];
+  if (size.x >= size.y && size.x >= size.z) {
+    ends.push(new THREE.Vector3(box.min.x, center.y, center.z));
+    ends.push(new THREE.Vector3(box.max.x, center.y, center.z));
+  } else if (size.y >= size.z) {
+    ends.push(new THREE.Vector3(center.x, box.min.y, center.z));
+    ends.push(new THREE.Vector3(center.x, box.max.y, center.z));
+  } else {
+    ends.push(new THREE.Vector3(center.x, center.y, box.min.z));
+    ends.push(new THREE.Vector3(center.x, center.y, box.max.z));
+  }
+  ends.sort((a, b) => b.z - a.z);
+
   const tip = new THREE.Object3D();
-  tip.position.set(
-    (box.min.x + box.max.x) / 2,
-    box.max.y,
-    box.max.z
-  );
+  tip.position.copy(ends[0]);
   tip.name = "rodTip";
   rodGroup.add(tip);
   return tip;

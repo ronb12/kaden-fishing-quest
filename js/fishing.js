@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { ZONES, pickFish, rollWeight, formatCatch, getBait } from "./data.js";
 import { getState, recordCatch, getSelectedBait } from "./state.js";
 import * as audio from "./audio.js";
-import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing } from "./rod-model.js";
+import { buildRealisticRod, buildBaitMesh, buildBobber, buildHook, buildBiteFish, buildSplashRing, buildFishingLine, linePointsWithSag } from "./rod-model.js";
 
 export const FishingState = {
   IDLE: "idle",
@@ -44,7 +44,8 @@ export class FishingSystem {
     this.escapeTimer = 0;
     this.legendaryEvent = false;
     this.failReason = "default";
-    this.baseRodRotation = { x: -Math.PI / 3.2, y: 0.14, z: -0.06 };
+    this.baseRodRotation = { x: -0.42, y: 0.22, z: -0.1 };
+    this.rodBend = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
   }
@@ -58,14 +59,10 @@ export class FishingSystem {
       this.rodGroup.add(rod.children[0]);
     }
     this.rodTip = this.rodGroup.getObjectByName("rodTip");
-    this.rodGroup.scale.setScalar(1.1);
+    this.rodGroup.scale.setScalar(1);
 
     if (!this.line) {
-      const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-      this.line = new THREE.Line(
-        lineGeo,
-        new THREE.LineBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.85 })
-      );
+      this.line = buildFishingLine();
       this.scene.add(this.line);
     }
 
@@ -113,8 +110,11 @@ export class FishingSystem {
     if (!controller) return;
     this.rodGroup.position.copy(controller.position);
     this.rodGroup.quaternion.copy(controller.quaternion);
-    const castSwing = this.state === FishingState.CASTING ? Math.sin(this.castAnim * Math.PI) * 0.35 : 0;
-    this.rodGroup.rotateX(this.baseRodRotation.x - castSwing, true);
+    const castSwing = this.state === FishingState.CASTING ? Math.sin(this.castAnim * Math.PI) * 0.45 : 0;
+    const fightBend = this.state === FishingState.REELING ? this.tension * 0.22 : 0;
+    const biteBend = this.state === FishingState.BITING ? 0.12 : 0;
+    this.rodBend += ((fightBend + biteBend) - this.rodBend) * 0.12;
+    this.rodGroup.rotateX(this.baseRodRotation.x - castSwing + this.rodBend, true);
     this.rodGroup.rotateY(this.baseRodRotation.y, true);
     this.rodGroup.rotateZ(this.baseRodRotation.z, true);
   }
@@ -125,26 +125,27 @@ export class FishingSystem {
 
   updateLine() {
     const tip = this.getRodTipWorld();
-    const points = [tip.clone()];
+    const segments = [];
 
     if (this.bobber.visible) {
-      points.push(this.bobber.position.clone());
+      const sag = this.state === FishingState.REELING ? 0.06 : 0.14;
+      segments.push(...linePointsWithSag(tip, this.bobber.position, 12, sag));
       if (this.hookGroup.visible) {
         const hookPos = new THREE.Vector3();
         this.hookGroup.getWorldPosition(hookPos);
-        points.push(hookPos);
+        segments.push(...linePointsWithSag(this.bobber.position, hookPos, 6, 0.04).slice(1));
       }
     } else if (this.hookGroup.visible) {
       const hookPos = new THREE.Vector3();
       this.hookGroup.getWorldPosition(hookPos);
-      points.push(hookPos);
+      segments.push(...linePointsWithSag(tip, hookPos, 10, 0.08));
     } else {
       const end = tip.clone();
-      end.y -= 0.15;
-      points.push(end);
+      end.y -= 0.18;
+      segments.push(...linePointsWithSag(tip, end, 8, 0.05));
     }
 
-    this.line.geometry.setFromPoints(points);
+    this.line.geometry.setFromPoints(segments);
   }
 
   showRigAtTip() {
