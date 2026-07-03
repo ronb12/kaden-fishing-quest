@@ -5,6 +5,15 @@ import { Campground, isClearOfCampground } from "./campground.js";
 import { DOCK_GROUP, DOCK_SHORE_LOCAL_Z, DOCK_BRIDGE_LOCAL_Z, DOCK_STAIRS_LOCAL_Z, registerDockWalkCollisions, isOnDockStairs, isOnDockWalk, getDockStairEyeHeightFallback, DOCK_STAIRS, DOCK_WALK, DOCK_EYE_OFFSET } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
+/** Keep shore props out of active fishing pools and cast approach lanes. */
+function isNearFishingPool(x, z, margin = 16) {
+  return Object.values(ZONES).some((zone) => {
+    const dx = x - zone.castCenter.x;
+    const dz = z - zone.castCenter.z;
+    return Math.hypot(dx, dz) < zone.castRadius + margin;
+  });
+}
+
 const WATER_VERT = `
   uniform float uTime;
   varying vec2 vUv;
@@ -185,25 +194,10 @@ export class LakeEnvironment {
     const group = new THREE.Group();
     group.name = "Lake Dock";
     const assets = getAssets();
-    const padMat = new THREE.MeshStandardMaterial({ color: 0x3d8a4a, roughness: 0.9 });
-    for (let i = 0; i < 12; i++) {
-      const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.03, 8), padMat);
-      pad.position.set(-5 + (i % 6) * 2.2, 0.02, -5 - Math.floor(i / 6) * 2.2);
-      pad.rotation.x = Math.PI / 2;
-      group.add(pad);
-    }
-    const lilyGltf = assets?.kenney?.lily_small;
-    if (lilyGltf) {
-      for (let i = 0; i < 14; i++) {
-        const lily = cloneModel(lilyGltf, { scale: 1.6 + Math.random() * 0.5, rotationY: Math.random() * Math.PI });
-        lily.position.set(-8 + (i % 7) * 2.6, 0, -8 - Math.floor(i / 7) * 2.4);
-        groundAlign(lily, 0.02);
-        group.add(lily);
-      }
-    }
     const bushGltf = assets?.kenney?.plant_bushSmall;
     if (bushGltf) {
       [[-3, 10], [4, 9], [-6, 8]].forEach(([x, z], i) => {
+        if (isNearFishingPool(x, z, 10)) return;
         const bush = cloneModel(bushGltf, { scale: 1.8 + i * 0.2, rotationY: i });
         bush.position.set(x, 0, z);
         groundAlign(bush, 0.02);
@@ -311,7 +305,7 @@ export class LakeEnvironment {
       ? new THREE.MeshStandardMaterial({
           map: this.envMaps.groundDiff,
           normalMap: this.envMaps.groundNor,
-          normalScale: new THREE.Vector2(0.4, 0.4),
+          normalScale: new THREE.Vector2(0.22, 0.22),
           roughness: 0.92,
           metalness: 0.02,
         })
@@ -490,11 +484,12 @@ export class LakeEnvironment {
     const shoreMat = new THREE.MeshStandardMaterial({ color: 0xc4a878, roughness: 0.95 });
     const pebbleMat = new THREE.MeshStandardMaterial({ color: 0x8a8078, roughness: 0.9 });
 
-    for (let i = 0; i < 24; i++) {
-      const angle = (i / 24) * Math.PI * 1.4 - Math.PI * 0.2;
-      const radius = 28 + (i % 5) * 1.2;
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 1.4 - Math.PI * 0.2;
+      const radius = 30 + (i % 4) * 1.5;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius * 0.55 - 8;
+      if (isNearFishingPool(x, z, 8)) continue;
       const pebble = new THREE.Mesh(new THREE.SphereGeometry(0.12 + (i % 3) * 0.06, 6, 5), pebbleMat);
       pebble.scale.y = 0.45;
       pebble.position.set(x, 0.04, z);
@@ -513,6 +508,7 @@ export class LakeEnvironment {
     ];
     shoreRocks.forEach(([x, z], i) => {
       if (!isClearOfCampground(x, z, 2.5)) return;
+      if (isNearFishingPool(x, z, 10)) return;
       const gltf = assets?.kenney?.[rockKeys[i % rockKeys.length]];
       if (gltf) {
         const rock = cloneModel(gltf, { scale: 1.6 + (i % 3) * 0.4, rotationY: i * 0.8 });
@@ -527,6 +523,7 @@ export class LakeEnvironment {
     if (logGltf) {
       [[3, 12.5], [-6, 13.5], [9, 15]].forEach(([x, z], i) => {
         if (!isClearOfCampground(x, z, 2)) return;
+        if (isNearFishingPool(x, z, 10)) return;
         const log = cloneModel(logGltf, { scale: 1.5 + i * 0.2, rotationY: i * 1.1 });
         log.position.set(x, 0, z);
         groundAlign(log, 0.02);
@@ -535,9 +532,10 @@ export class LakeEnvironment {
     }
 
     const reedMat = new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 0.9 });
-    for (let i = 0; i < 18; i++) {
-      const x = -8 + (i % 9) * 2.2;
-      const z = 10 + Math.floor(i / 9) * 1.8;
+    for (let i = 0; i < 8; i++) {
+      const x = -10 + (i % 4) * 6.5;
+      const z = 12 + Math.floor(i / 4) * 2.2;
+      if (isNearFishingPool(x, z, 10)) continue;
       const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.55 + (i % 4) * 0.12, 5), reedMat);
       reed.position.set(x, 0.28, z);
       reed.rotation.z = (i % 3 - 1) * 0.12;
@@ -558,6 +556,7 @@ export class LakeEnvironment {
     ];
     extraTrees.forEach(([x, z], i) => {
       if (!isClearOfCampground(x, z, 8)) return;
+      if (isNearFishingPool(x, z, 12)) return;
       const key = ["tree_thin", "tree_cone", "tree_detailed"][i % 3];
       const gltf = assets?.kenney?.[key];
       if (!gltf) return;
@@ -573,6 +572,7 @@ export class LakeEnvironment {
     ];
     grassBush.forEach(([x, z], i) => {
       if (!isClearOfCampground(x, z, 2.5)) return;
+      if (isNearFishingPool(x, z, 12)) return;
       const gltf = i % 2 === 0 ? assets?.kenney?.grass : assets?.kenney?.plant_bushSmall;
       if (!gltf) return;
       const prop = cloneModel(gltf, { scale: 1.8 + (i % 3) * 0.4, rotationY: i * 0.7 });
@@ -598,6 +598,7 @@ export class LakeEnvironment {
       const useKenney = i % 2 === 0;
       const treeRadius = useKenney ? 9 : 3.5;
       if (!isClearOfCampground(x, z, treeRadius)) return;
+      if (isNearFishingPool(x, z, 14)) return;
       const source = useKenney ? treeSources[0] : treeSources[1];
       const key = source.keys[i % source.keys.length];
       const gltf = assets?.[source.cat]?.[key];
@@ -632,6 +633,7 @@ export class LakeEnvironment {
     ];
     scatter.forEach(([x, z], i) => {
       if (!isClearOfCampground(x, z, 2.5)) return;
+      if (isNearFishingPool(x, z, 12)) return;
       const gltf = i % 2 === 0 ? grassGltf : bushGltf;
       if (!gltf) return;
       const prop = cloneModel(gltf, { scale: 2.0 + Math.random() * 0.8, rotationY: Math.random() * Math.PI });
@@ -710,7 +712,7 @@ export class LakeEnvironment {
         new THREE.MeshBasicMaterial({
           color: 0x5ad4f0,
           transparent: true,
-          opacity: 0.1,
+          opacity: 0.05,
           side: THREE.DoubleSide,
           depthWrite: false,
         })
@@ -726,7 +728,7 @@ export class LakeEnvironment {
         new THREE.MeshBasicMaterial({
           color: 0x9ae8ff,
           transparent: true,
-          opacity: 0.55,
+          opacity: 0.32,
           side: THREE.DoubleSide,
           depthWrite: false,
         })
@@ -752,24 +754,6 @@ export class LakeEnvironment {
       innerRing.userData.poolY = { x: zone.castCenter.x, z: zone.castCenter.z, base: 0.06 };
       innerRing.renderOrder = 3;
       group.add(innerRing);
-
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        const bx = zone.castCenter.x + Math.cos(angle) * zone.castRadius;
-        const bz = zone.castCenter.z + Math.sin(angle) * zone.castRadius;
-        const buoy = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.1, 0.12, 0.32, 8),
-          new THREE.MeshStandardMaterial({
-            color: i % 2 === 0 ? 0xe85a4a : 0xf4f4f4,
-            emissive: i % 2 === 0 ? 0x661811 : 0x222222,
-            emissiveIntensity: 0.25,
-            roughness: 0.45,
-          })
-        );
-        buoy.position.set(bx, 0.16, bz);
-        buoy.userData.poolY = { x: bx, z: bz, base: 0.16 };
-        group.add(buoy);
-      }
 
       group.visible = false;
       this.scene.add(group);

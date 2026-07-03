@@ -33,13 +33,13 @@ export async function loadEnvironmentMaps(renderer, quality = "high") {
 
     const groundDiff = await texLoader.loadAsync("./assets/textures/ground_grass_rock_diff.jpg");
     groundDiff.wrapS = groundDiff.wrapT = THREE.RepeatWrapping;
-    groundDiff.repeat.set(36, 36);
+    groundDiff.repeat.set(24, 24);
     groundDiff.colorSpace = THREE.SRGBColorSpace;
     groundDiff.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
     const groundNor = await texLoader.loadAsync("./assets/textures/ground_grass_rock_nor.jpg");
     groundNor.wrapS = groundNor.wrapT = THREE.RepeatWrapping;
-    groundNor.repeat.set(36, 36);
+    groundNor.repeat.set(24, 24);
     groundNor.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
     return { background: hdr, envMap, groundDiff, groundNor };
