@@ -17,6 +17,7 @@ export async function loadCloudSave() {
   if (!cloudEnabled) return null;
   try {
     const res = await fetch(`${API_BASE}/progress?playerId=${encodeURIComponent(playerId)}`);
+    if (res.status === 404) return null;
     if (!res.ok) return null;
     const data = await res.json();
     if (data.found && data.save?.state) {

@@ -67,7 +67,7 @@ export function cloneModel(gltf, opts = {}) {
   if (!gltf) return new THREE.Group();
   const {
     scale = 1,
-    rotationY = -Math.PI / 2,
+    rotationY,
     animate = false,
     emissive = null,
     emissiveIntensity = 0,
@@ -75,12 +75,22 @@ export function cloneModel(gltf, opts = {}) {
 
   const root = gltf.scene.clone(true);
   root.scale.setScalar(scale);
-  if (rotationY) root.rotation.y = rotationY;
+  root.rotation.y = rotationY !== undefined ? rotationY : -Math.PI / 2;
 
   root.traverse((c) => {
     if (c.isMesh) {
       c.castShadow = true;
       c.receiveShadow = true;
+      if (c.material) {
+        const polish = (m) => {
+          const next = m.clone();
+          if (!next.map && next.color) {
+            next.roughness = Math.min(0.95, (next.roughness ?? 0.85) + 0.05);
+          }
+          return next;
+        };
+        c.material = Array.isArray(c.material) ? c.material.map(polish) : polish(c.material);
+      }
       if (emissive && c.material) {
         c.material = c.material.clone();
         c.material.emissive = new THREE.Color(emissive);
@@ -98,6 +108,20 @@ export function cloneModel(gltf, opts = {}) {
   }
 
   return root;
+}
+
+/** Lay environment planks/docks flat on the ground (Y-up). */
+export function layFlat(object) {
+  object.rotation.x = -Math.PI / 2;
+  return object;
+}
+
+/** Sit model base on the ground at floorY (after x/z position is set). */
+export function groundAlign(object, floorY = 0) {
+  if (!object) return object;
+  const box = new THREE.Box3().setFromObject(object);
+  object.position.y += floorY - box.min.y;
+  return object;
 }
 
 export function updateModelAnimations(object, dt) {

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { ZONES } from "./data.js";
-import { getAssets, cloneModel, updateModelAnimations } from "./asset-loader.js";
+import { getAssets, cloneModel, updateModelAnimations, groundAlign, layFlat } from "./asset-loader.js";
 import { Campground, isClearOfCampground } from "./campground.js";
 import { DOCK_GROUP } from "./dock-layout.js";
 
@@ -203,8 +203,10 @@ export class LakeEnvironment {
     }
     const pierGltf = assets?.env?.Dock_Long_NoRope || assets?.env?.Dock_Long;
     if (pierGltf) {
-      const pier = cloneModel(pierGltf, { scale: 0.35, rotationY: Math.PI / 2 });
+      const pier = cloneModel(pierGltf, { scale: 0.35, rotationY: 0 });
+      layFlat(pier);
       pier.position.set(-18, 0, -4);
+      groundAlign(pier, 0.02);
       group.add(pier);
     }
     group.visible = false;
@@ -284,6 +286,7 @@ export class LakeEnvironment {
     if (dockGltf) {
       const dock = cloneModel(dockGltf, { scale: 0.4, rotationY: Math.PI });
       dock.position.set(0, 0, -1.8);
+      groundAlign(dock, 0.02);
       dockGroup.add(dock);
     } else {
       for (let i = 0; i < 12; i++) {
@@ -293,11 +296,13 @@ export class LakeEnvironment {
       }
     }
 
-    const bridgeZ = [0.8, 2.8, 4.8, 6.8, 8.8];
+    const bridgeZ = [0.5, 2.2, 3.9, 5.6, 7.3, 9.0, 10.7];
     if (longGltf) {
       bridgeZ.forEach((z) => {
-        const seg = cloneModel(longGltf, { scale: 0.38, rotationY: Math.PI / 2 });
-        seg.position.set(0, 0.05, z);
+        const seg = cloneModel(longGltf, { scale: 0.4, rotationY: 0 });
+        layFlat(seg);
+        seg.position.set(0, 0, z);
+        groundAlign(seg, 0.06);
         dockGroup.add(seg);
       });
     } else {
@@ -311,7 +316,8 @@ export class LakeEnvironment {
     const stairsGltf = assets?.env?.Dock_Stairs;
     if (stairsGltf) {
       const stairs = cloneModel(stairsGltf, { scale: 0.38, rotationY: 0 });
-      stairs.position.set(0, 0.02, 10.2);
+      stairs.position.set(0, 0, 11.8);
+      groundAlign(stairs, 0.04);
       dockGroup.add(stairs);
     } else {
       const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 2.4), woodMat);
@@ -320,8 +326,8 @@ export class LakeEnvironment {
       dockGroup.add(ramp);
     }
 
-    const shoreDeck = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.1, 3.4), plankMat);
-    shoreDeck.position.set(0, 0.14, 12.2);
+    const shoreDeck = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.12, 3.6), plankMat);
+    shoreDeck.position.set(0, 0.1, 12.4);
     shoreDeck.receiveShadow = true;
     dockGroup.add(shoreDeck);
 
@@ -362,6 +368,7 @@ export class LakeEnvironment {
           : 0.55 + Math.random() * 0.25;
         const tree = cloneModel(gltf, { scale, rotationY: Math.random() * Math.PI * 2 });
         tree.position.set(x, 0, z);
+        groundAlign(tree, 0);
         this.scene.add(tree);
       } else {
         const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22 });
@@ -388,6 +395,7 @@ export class LakeEnvironment {
       if (!gltf) return;
       const prop = cloneModel(gltf, { scale: 2.0 + Math.random() * 0.8, rotationY: Math.random() * Math.PI });
       prop.position.set(x, 0, z);
+      groundAlign(prop, 0.02);
       this.scene.add(prop);
     });
   }
@@ -438,7 +446,7 @@ export class LakeEnvironment {
       pad.rotation.x = Math.PI / 2;
       pad.position.y = 0.03;
       group.add(ring, pillar, pad);
-      group.position.set(zone.teleport.x, 0, zone.teleport.z + 2);
+      group.position.set(zone.teleport.x + (zone.id === "Lake Dock" ? 3.5 : 0), 0, zone.teleport.z);
       group.userData.zoneId = zone.id;
       group.userData.zoneLabel = zone.label;
       this.scene.add(group);

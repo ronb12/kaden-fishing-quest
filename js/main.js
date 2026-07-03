@@ -37,7 +37,7 @@ renderer.xr.enabled = true;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 1.6, 10);
+camera.position.set(0, 1.6, 13.5);
 
 let env = null;
 let fishing = null;
