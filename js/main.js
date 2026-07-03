@@ -23,6 +23,8 @@ import { VRFishingMotion } from "./vr-fishing.js";
 import { moveWithCollisions } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
 import { DOCK_SPAWN } from "./dock-layout.js";
+import { tensionZone } from "./fish-fight.js";
+import { getRodStats } from "./gear-stats.js";
 
 let ui = null;
 let touch = { active: false };
@@ -109,6 +111,40 @@ let castCharging = false;
 let castCharge = 0;
 let spaceWasDown = false;
 let prevReelHeld = false;
+let lastTensionZone = "sweet";
+let gameStarted = false;
+
+function dismissLoadingHint() {
+  if (gameStarted) return;
+  gameStarted = true;
+  document.querySelector(".loading-hint")?.classList.add("hidden");
+  audio.resumeAudio();
+  audio.startAmbient();
+}
+
+function refreshStatus() {
+  if (!ui || inVR) return;
+  if (cabinInteractTarget && fishing.state === FishingState.IDLE) {
+    ui.setStatus(`[E] ${cabinInteractTarget.label}`);
+    return;
+  }
+  if (castCharging && fishing.state === FishingState.IDLE) {
+    const pct = Math.round((0.35 + castCharge * 0.65) * 100);
+    ui.setStatus(`Charging cast… ${pct}% — release Space`);
+    return;
+  }
+  if (fishing.state !== FishingState.IDLE) {
+    ui.setStatus(fishing.getStatusText(inVR));
+    return;
+  }
+  if (touch.active) {
+    ui.setStatus("Hold Cast to charge · drag right to look · joystick to move");
+  } else if (pointerLocked) {
+    ui.setStatus("WASD move · hold Space to cast · hold R to reel · M menu");
+  } else {
+    ui.setStatus("Click to look · WASD to move · walk the boardwalk to the lake");
+  }
+}
 
 function getAimDirection() {
   const aim = new THREE.Vector3(0, 0, -1);
@@ -240,6 +276,7 @@ document.addEventListener("keyup", (e) => {
 });
 
 canvas.addEventListener("click", () => {
+  dismissLoadingHint();
   audio.resumeAudio();
   if (!inVR && !touch.active) {
     if (env?.campground?.insideCabin && tryCabinInteract()) return;
@@ -248,6 +285,7 @@ canvas.addEventListener("click", () => {
 });
 document.addEventListener("pointerlockchange", () => {
   pointerLocked = document.pointerLockElement === canvas;
+  if (pointerLocked) dismissLoadingHint();
 });
 document.addEventListener("mousemove", (e) => {
   if (pointerLocked) {
@@ -313,7 +351,9 @@ function handleFishingAction() {
       return;
     }
     if (touch.active) {
-      performCast(0.75);
+      castCharging = true;
+      castCharge = 0;
+      updateTouchUI();
     } else {
       castCharging = true;
       castCharge = 0;
@@ -380,6 +420,7 @@ function onFishingEvent(type, data) {
       vibrate(12);
       break;
     case "preBite":
+      audio.playPreBite();
       ui?.setStatus(fishing.getStatusText());
       vibrate(30);
       break;
@@ -480,6 +521,7 @@ function teleportToZone(zoneId) {
 
 ui = initUI(fishing, {
   onEnterVR: () => {},
+  isVR: () => inVR,
   onZoneChange: (zone) => {
     teleportToZone(zone);
     env.applyZone(zone);
@@ -692,9 +734,6 @@ renderer.setAnimationLoop(() => {
 
   if (!inVR && env?.campground?.insideCabin && fishing.state === FishingState.IDLE) {
     cabinInteractTarget = env.campground.pickInteractable(camera);
-    if (cabinInteractTarget) {
-      ui?.setStatus(`[E] ${cabinInteractTarget.label}`);
-    }
   } else {
     cabinInteractTarget = null;
   }
@@ -714,6 +753,18 @@ renderer.setAnimationLoop(() => {
     fishing.stopReeling();
   }
   prevReelHeld = reelHeld && isReeling;
+
+  if (isReeling && !inVR) {
+    const zone = tensionZone(fishing.tension, getRodStats(getState().rodLevel));
+    if ((zone === "warning" || zone === "snap") && zone !== lastTensionZone) {
+      audio.playTensionWarning();
+    }
+    lastTensionZone = zone;
+  } else if (!isReeling) {
+    lastTensionZone = "sweet";
+  }
+
+  refreshStatus();
 
   fishing.update(dt, time);
   if (fishing.biteFish) updateModelAnimations(fishing.biteFish, dt);

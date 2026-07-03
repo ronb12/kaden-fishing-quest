@@ -196,6 +196,13 @@ export class FishingSystem {
   }
 
   updateLine() {
+    const active =
+      this.state !== FishingState.IDLE &&
+      this.state !== FishingState.CAUGHT &&
+      this.state !== FishingState.FAILED;
+    if (this.line) this.line.visible = active;
+    if (!active) return;
+
     const tip = this.getRodTipWorld();
     const segments = [];
     const fighting = this.state === FishingState.REELING;
@@ -689,6 +696,7 @@ export class FishingSystem {
     this.fishPull.set(0, 0);
     this.fightAI.reset(this.pendingFish);
     this.fightPhaseLabel = this.fightAI.getPhaseLabel();
+    audio.playHook();
     this.onEvent?.("hooked", { species: this.pendingFish, legendary: this.legendaryEvent });
     return true;
   }

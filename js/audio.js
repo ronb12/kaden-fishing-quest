@@ -175,6 +175,21 @@ export function playNibble() {
   }
 }
 
+export function playHook() {
+  if (!playSample("bite", { gain: 0.28, rate: 1.15 })) {
+    tone(640, 0.06, "square", 0.07, 0.12);
+    setTimeout(() => tone(820, 0.05, "sine", 0.05, 0.1), 70);
+  }
+}
+
+export function playPreBite() {
+  tone(280, 0.08, "triangle", 0.04, 0.14);
+}
+
+export function playTensionWarning() {
+  tone(180, 0.06, "sawtooth", 0.05, 0.1);
+}
+
 export function startReelLoop() {
   if (!sfxEnabled || reelNodes) return;
   const played = playSample("reel", { gain: 0.12, loop: true, rate: 0.85 });

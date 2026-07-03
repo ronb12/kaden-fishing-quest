@@ -45,9 +45,33 @@ export function initUI(fishing, callbacks) {
   const biteAlert = document.getElementById("bite-alert");
   const biteSpecies = document.getElementById("bite-species");
   const biteTimerFill = document.getElementById("bite-timer-fill");
+  const biteAlertAction = document.querySelector(".bite-alert-action");
   const reelAlert = document.getElementById("reel-alert");
+  const reelHint = document.querySelector(".reel-hint");
   const fightPhaseHint = document.getElementById("fight-phase-hint");
   const tensionZoneLabel = document.getElementById("tension-zone-label");
+
+  function inputMode() {
+    if (document.body.classList.contains("touch-mode")) return "touch";
+    if (callbacks.isVR?.()) return "vr";
+    return "desktop";
+  }
+
+  function biteActionText() {
+    switch (inputMode()) {
+      case "touch": return "Tap HOOK now!";
+      case "vr": return "Jerk rod up or pull trigger!";
+      default: return "Press Space or click HOOK!";
+    }
+  }
+
+  function reelHintText() {
+    switch (inputMode()) {
+      case "touch": return "Hold Reel in the green zone — ease off during runs";
+      case "vr": return "Crank your wrist to reel — ease off during runs";
+      default: return "Hold R to reel in the green zone — ease off during runs";
+    }
+  }
 
   function showToast(msg) {
     toast.textContent = msg;
@@ -447,10 +471,12 @@ export function initUI(fishing, callbacks) {
       reelAlert?.classList.toggle("visible", false);
       if (speciesName && biteSpecies) biteSpecies.textContent = speciesName;
       if (biteTimerFill) biteTimerFill.style.width = `${timerProgress * 100}%`;
+      if (biteAlertAction) biteAlertAction.textContent = biteActionText();
     },
     setReelAlert(visible) {
       reelAlert?.classList.toggle("visible", visible);
       biteAlert?.classList.toggle("visible", false);
+      if (reelHint) reelHint.textContent = reelHintText();
     },
     showCatch(catchData, onCastAgain) {
       if (!catchOverlay) return;
@@ -465,6 +491,7 @@ export function initUI(fishing, callbacks) {
           <p>${catchData.weight} lb · ${catchData.rarity}${catchData.baitUsed ? ` · ${catchData.baitUsed}` : ""}</p>
           <p class="catch-value">+${catchData.value} coins</p>
           ${newBadge}
+          <p class="catch-dismiss">Tap a button below or wait to continue</p>
           <div class="catch-actions">
             <button id="catch-cast-again" type="button">Cast Again</button>
             <button id="catch-view-codex" type="button">View Codex</button>

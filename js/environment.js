@@ -513,6 +513,7 @@ export class LakeEnvironment {
       );
       fill.rotation.x = -Math.PI / 2;
       fill.position.set(zone.castCenter.x, 0.055, zone.castCenter.z);
+      fill.userData.poolY = { x: zone.castCenter.x, z: zone.castCenter.z, base: 0.055 };
       fill.renderOrder = 2;
       group.add(fill);
 
@@ -528,6 +529,7 @@ export class LakeEnvironment {
       );
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(zone.castCenter.x, 0.065, zone.castCenter.z);
+      ring.userData.poolY = { x: zone.castCenter.x, z: zone.castCenter.z, base: 0.065 };
       ring.renderOrder = 3;
       group.add(ring);
 
@@ -543,6 +545,7 @@ export class LakeEnvironment {
       );
       innerRing.rotation.x = -Math.PI / 2;
       innerRing.position.set(zone.castCenter.x, 0.06, zone.castCenter.z);
+      innerRing.userData.poolY = { x: zone.castCenter.x, z: zone.castCenter.z, base: 0.06 };
       innerRing.renderOrder = 3;
       group.add(innerRing);
 
@@ -560,6 +563,7 @@ export class LakeEnvironment {
           })
         );
         buoy.position.set(bx, 0.16, bz);
+        buoy.userData.poolY = { x: bx, z: bz, base: 0.16 };
         group.add(buoy);
       }
 
@@ -642,6 +646,19 @@ export class LakeEnvironment {
   update(time, dt = 0.016, camera = null) {
     this.waterUniforms.uTime.value = time;
     if (camera) this.waterUniforms.uCameraPos.value.copy(camera.position);
+    if (this.sun) {
+      this.waterUniforms.uSunDir.value.copy(this.sun.position).normalize();
+    }
+    if (this.fishingPoolMarkers) {
+      Object.values(this.fishingPoolMarkers).forEach((group) => {
+        if (!group.visible) return;
+        group.traverse((child) => {
+          const py = child.userData?.poolY;
+          if (!py) return;
+          child.position.y = py.base + this.getWaterHeight(py.x, py.z, time);
+        });
+      });
+    }
     this.ambientFish.forEach((fish) => {
       const d = fish.userData;
       fish.position.x = d.origin.x + Math.sin(time * d.speed + d.phase) * d.radius;
@@ -664,7 +681,8 @@ export class LakeEnvironment {
       Math.sin(wx + time * 2.2) * 0.22 +
       Math.sin(wz * 1.3 - time * 1.7) * 0.16 +
       Math.sin((wx + wz) * 0.85 + time * 1.1) * 0.1 +
-      Math.sin(wx * 2.8 - time * 3.0) * 0.05
+      Math.sin(wx * 2.8 - time * 3.0) * 0.05 +
+      Math.sin(wz * 3.2 + time * 2.4) * 0.04
     );
   }
 }
