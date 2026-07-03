@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ZONES } from "./data.js";
 import { getAssets, cloneModel, updateModelAnimations } from "./asset-loader.js";
+import { Campground } from "./campground.js";
 
 const WATER_VERT = `
   uniform float uTime;
@@ -125,7 +126,8 @@ export class LakeEnvironment {
     this.buildTrees();
     this.buildMountains();
     this.buildZoneMarkers();
-    this.buildCamp();
+    this.campground = new Campground(scene);
+    this.campFire = this.campground.campFire;
     this.buildZoneDressing();
     this.spawnAmbientFish();
   }
@@ -403,43 +405,6 @@ export class LakeEnvironment {
     });
   }
 
-  buildCamp() {
-    const assets = getAssets();
-    const tentMat = new THREE.MeshStandardMaterial({ color: 0xe85a4f, roughness: 0.7 });
-    const tent = new THREE.Mesh(new THREE.ConeGeometry(1.5, 2.2, 4), tentMat);
-    tent.position.set(-3, 1.1, 10);
-    tent.rotation.y = Math.PI / 4;
-    tent.castShadow = true;
-    this.scene.add(tent);
-
-    const fireGroup = new THREE.Group();
-    const logGltf = assets?.kenney?.log;
-    if (logGltf) {
-      for (let i = 0; i < 4; i++) {
-        const log = cloneModel(logGltf, { scale: 0.35, rotationY: (i / 4) * Math.PI * 2 });
-        log.rotation.z = Math.PI / 2;
-        fireGroup.add(log);
-      }
-    } else {
-      const logMat = new THREE.MeshStandardMaterial({ color: 0x4a3020 });
-      for (let i = 0; i < 4; i++) {
-        const log = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.8), logMat);
-        log.rotation.z = Math.PI / 2;
-        log.rotation.y = (i / 4) * Math.PI * 2;
-        fireGroup.add(log);
-      }
-    }
-    const flame = new THREE.Mesh(
-      new THREE.ConeGeometry(0.2, 0.5, 6),
-      new THREE.MeshBasicMaterial({ color: 0xff8833 })
-    );
-    flame.position.y = 0.3;
-    fireGroup.add(flame);
-    fireGroup.position.set(2, 0.05, 9);
-    this.scene.add(fireGroup);
-    this.campFire = fireGroup;
-  }
-
   spawnAmbientFish() {
     const assets = getAssets();
     const fishKeys = [
@@ -493,7 +458,7 @@ export class LakeEnvironment {
       group.visible = id === zoneId;
     });
     if (this.dockGroup) this.dockGroup.visible = zoneId === "Lake Dock";
-    if (this.campFire) this.campFire.visible = zoneId === "Lake Dock";
+    if (this.campground?.group) this.campground.group.visible = zoneId === "Lake Dock";
   }
 
   setQuality(quality) {
@@ -508,13 +473,6 @@ export class LakeEnvironment {
   update(time, dt = 0.016, camera = null) {
     this.waterUniforms.uTime.value = time;
     if (camera) this.waterUniforms.uCameraPos.value.copy(camera.position);
-    if (this.campFire) {
-      const flame = this.campFire.children[4];
-      if (flame) {
-        flame.scale.y = 0.8 + Math.sin(time * 8) * 0.3;
-        flame.scale.x = 0.9 + Math.sin(time * 6) * 0.15;
-      }
-    }
     this.ambientFish.forEach((fish) => {
       const d = fish.userData;
       fish.position.x = d.origin.x + Math.sin(time * d.speed + d.phase) * d.radius;
