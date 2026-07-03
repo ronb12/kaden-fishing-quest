@@ -935,11 +935,11 @@ if (new URLSearchParams(location.search).has("playtest")) {
         : null,
       prospectSubmerged: (() => {
         if (!fishing.prospectFish) return false;
-        const bx = fishing.bobber?.visible ? fishing.bobber.position.x : fishing.hookGroup?.position.x;
-        const bz = fishing.bobber?.visible ? fishing.bobber.position.z : fishing.hookGroup?.position.z;
-        if (bx == null) return false;
-        const surface = fishing.surfaceY(bx, bz, performance.now() * 0.001);
-        return fishing.prospectFish.position.y < surface - 0.04;
+        const fx = fishing.prospectFish.position.x;
+        const fz = fishing.prospectFish.position.z;
+        const time = fishing.lastUpdateTime || performance.now() * 0.001;
+        const surface = fishing.surfaceY(fx, fz, time);
+        return fishing.prospectFish.position.y < surface - 0.03;
       })(),
       prospectShadow: Boolean(fishing.prospectFishShadow?.visible),
       biteFish: Boolean(fishing.biteFish),

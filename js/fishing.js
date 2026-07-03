@@ -80,6 +80,7 @@ export class FishingSystem {
     this.fightPhaseLabel = "";
     this.lureActivity = 0;
     this.lureMotionDecay = 0;
+    this.lastUpdateTime = 0;
     this.rebuildRod();
     scene.add(this.rodGroup);
     this.reelMechanism = null;
@@ -425,6 +426,7 @@ export class FishingSystem {
   }
 
   update(dt, time) {
+    this.lastUpdateTime = time;
     if (this.state === FishingState.CASTING) {
       this.castAnim += dt * (2.2 + this.castPower * 1.4);
       this.updateCastFlight(time);
@@ -595,8 +597,8 @@ export class FishingSystem {
     const radius = 1.15 - this.nibbleIndex * 0.12 + Math.sin(time * 0.7) * 0.15;
     const fx = bx + Math.cos(this.prospectAngle) * radius;
     const fz = bz + Math.sin(this.prospectAngle) * radius;
-    const swimDepth = 0.16 + this.nibbleIndex * 0.02;
-    const fishY = surface - swimDepth + Math.sin(time * 1.8) * 0.03;
+    const swimDepth = 0.24 + this.nibbleIndex * 0.02;
+    const fishY = surface - swimDepth + Math.sin(time * 1.8) * 0.025;
     this.prospectFish.position.set(fx, fishY, fz);
     this.prospectFish.lookAt(bx, surface - swimDepth - 0.06, bz);
     this.prospectFish.rotation.z = Math.sin(time * 2.4) * 0.08;
