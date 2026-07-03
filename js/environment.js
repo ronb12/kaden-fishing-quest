@@ -133,6 +133,8 @@ export class LakeEnvironment {
     this.buildDock();
     this.buildTrees();
     this.buildMountains();
+    this.buildShoreDetails();
+    this.buildLakeScatter();
     this.buildZoneMarkers();
     this.buildFishingPoolMarkers();
     this.campground = new Campground(this.scene, this.collisions);
@@ -180,27 +182,44 @@ export class LakeEnvironment {
     group.name = "Lake Dock";
     const assets = getAssets();
     const padMat = new THREE.MeshStandardMaterial({ color: 0x3d8a4a, roughness: 0.9 });
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.4, 0.03, 8), padMat);
-      pad.position.set(-4 + (i % 4) * 2.5, 0.02, -4 - Math.floor(i / 4) * 2);
+      pad.position.set(-5 + (i % 6) * 2.2, 0.02, -5 - Math.floor(i / 6) * 2.2);
       pad.rotation.x = Math.PI / 2;
       group.add(pad);
     }
     const lilyGltf = assets?.kenney?.lily_small;
     if (lilyGltf) {
-      for (let i = 0; i < 10; i++) {
-        const lily = cloneModel(lilyGltf, { scale: 1.6 + Math.random() * 0.4, rotationY: Math.random() * Math.PI });
-        lily.position.set(-7 + (i % 5) * 2.8, 0, -7 - Math.floor(i / 5) * 2.2);
+      for (let i = 0; i < 14; i++) {
+        const lily = cloneModel(lilyGltf, { scale: 1.6 + Math.random() * 0.5, rotationY: Math.random() * Math.PI });
+        lily.position.set(-8 + (i % 7) * 2.6, 0, -8 - Math.floor(i / 7) * 2.4);
         groundAlign(lily, 0.02);
         group.add(lily);
       }
     }
+    const bushGltf = assets?.kenney?.plant_bushSmall;
+    if (bushGltf) {
+      [[-3, 10], [4, 9], [-6, 8]].forEach(([x, z], i) => {
+        const bush = cloneModel(bushGltf, { scale: 1.8 + i * 0.2, rotationY: i });
+        bush.position.set(x, 0, z);
+        groundAlign(bush, 0.02);
+        group.add(bush);
+      });
+    }
+    const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.4), new THREE.MeshStandardMaterial({ color: 0x6a4a28 }));
+    signPost.position.set(2.2, 0.7, 11.5);
+    group.add(signPost);
     const sign = new THREE.Mesh(
       new THREE.BoxGeometry(1.2, 0.6, 0.08),
       new THREE.MeshStandardMaterial({ color: 0x8b5a34 })
     );
-    sign.position.set(2.2, 1.2, 11.5);
+    sign.position.set(2.2, 1.35, 11.5);
     group.add(sign);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.42, 10), new THREE.MeshStandardMaterial({
+      color: 0x5a4030, roughness: 0.85,
+    }));
+    barrel.position.set(-2.5, 0.21, 10.5);
+    group.add(barrel);
     group.visible = true;
     this.scene.add(group);
     this.zoneDressing["Lake Dock"] = group;
@@ -387,6 +406,156 @@ export class LakeEnvironment {
     this.dockGroup = dockGroup;
     dockGroup.traverse((child) => {
       if (child.isMesh) this.dockWalkMeshes.push(child);
+    });
+    this.buildDockAccessories(dockGroup, woodMat, plankMat);
+  }
+
+  buildDockAccessories(dockGroup, woodMat, plankMat) {
+    const assets = getAssets();
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.4), plankMat);
+    bench.position.set(1.35, 0.55, 2.5);
+    dockGroup.add(bench);
+    const benchBack = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.45, 0.06), woodMat);
+    benchBack.position.set(1.35, 0.78, 2.32);
+    dockGroup.add(benchBack);
+
+    for (const z of [0.5, 5.5, 9.5]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.1, 8), woodMat);
+      post.position.set(-1.55, 0.55, z);
+      dockGroup.add(post);
+      const postR = post.clone();
+      postR.position.x = 1.55;
+      dockGroup.add(postR);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.06, 0.06), woodMat);
+      rail.position.set(0, 0.95, z);
+      dockGroup.add(rail);
+    }
+
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.24, 10), new THREE.MeshStandardMaterial({
+      color: 0x6a7078, roughness: 0.4, metalness: 0.6,
+    }));
+    bucket.position.set(-1.2, 0.12, 1.2);
+    dockGroup.add(bucket);
+
+    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.38, 0.45), woodMat);
+    crate.position.set(1.1, 0.19, 6.8);
+    dockGroup.add(crate);
+
+    const logGltf = assets?.kenney?.log_stack;
+    if (logGltf) {
+      const logs = cloneModel(logGltf, { scale: 1.4, rotationY: 0.3 });
+      logs.position.set(-1.8, 0, 7.5);
+      groundAlign(logs, 0.02);
+      dockGroup.add(logs);
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const rope = new THREE.Mesh(
+        new THREE.TorusGeometry(0.18 + i * 0.02, 0.012, 6, 16, Math.PI * 1.4),
+        new THREE.MeshStandardMaterial({ color: 0xc8b898, roughness: 0.9 })
+      );
+      rope.rotation.x = Math.PI / 2;
+      rope.rotation.z = i * 0.4;
+      rope.position.set(1.45, 0.35 + i * 0.08, 3.5 + i * 0.15);
+      dockGroup.add(rope);
+    }
+  }
+
+  buildShoreDetails() {
+    const assets = getAssets();
+    const shoreMat = new THREE.MeshStandardMaterial({ color: 0xc4a878, roughness: 0.95 });
+    const pebbleMat = new THREE.MeshStandardMaterial({ color: 0x8a8078, roughness: 0.9 });
+
+    for (let i = 0; i < 24; i++) {
+      const angle = (i / 24) * Math.PI * 1.4 - Math.PI * 0.2;
+      const radius = 28 + (i % 5) * 1.2;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius * 0.55 - 8;
+      const pebble = new THREE.Mesh(new THREE.SphereGeometry(0.12 + (i % 3) * 0.06, 6, 5), pebbleMat);
+      pebble.scale.y = 0.45;
+      pebble.position.set(x, 0.04, z);
+      pebble.rotation.y = i * 0.7;
+      this.scene.add(pebble);
+    }
+
+    const sandPatch = new THREE.Mesh(new THREE.CircleGeometry(14, 32), shoreMat);
+    sandPatch.rotation.x = -Math.PI / 2;
+    sandPatch.position.set(2, 0.015, 14);
+    this.scene.add(sandPatch);
+
+    const rockKeys = ["rock_smallA", "rock_smallB", "rock_largeA"];
+    const shoreRocks = [
+      [4, 13], [-5, 12], [8, 11], [-8, 14], [12, 8], [-12, 10], [6, 16], [-3, 17],
+    ];
+    shoreRocks.forEach(([x, z], i) => {
+      if (!isClearOfCampground(x, z, 2.5)) return;
+      const gltf = assets?.kenney?.[rockKeys[i % rockKeys.length]];
+      if (gltf) {
+        const rock = cloneModel(gltf, { scale: 1.6 + (i % 3) * 0.4, rotationY: i * 0.8 });
+        rock.position.set(x, 0, z);
+        groundAlign(rock, 0.02);
+        this.scene.add(rock);
+        this.collisions.addCircle(x, z, 1.1);
+      }
+    });
+
+    const logGltf = assets?.kenney?.log || assets?.kenney?.campfire_logs;
+    if (logGltf) {
+      [[3, 12.5], [-6, 13.5], [9, 15]].forEach(([x, z], i) => {
+        if (!isClearOfCampground(x, z, 2)) return;
+        const log = cloneModel(logGltf, { scale: 1.5 + i * 0.2, rotationY: i * 1.1 });
+        log.position.set(x, 0, z);
+        groundAlign(log, 0.02);
+        this.scene.add(log);
+      });
+    }
+
+    const reedMat = new THREE.MeshStandardMaterial({ color: 0x4a7a3a, roughness: 0.9 });
+    for (let i = 0; i < 18; i++) {
+      const x = -8 + (i % 9) * 2.2;
+      const z = 10 + Math.floor(i / 9) * 1.8;
+      const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.55 + (i % 4) * 0.12, 5), reedMat);
+      reed.position.set(x, 0.28, z);
+      reed.rotation.z = (i % 3 - 1) * 0.12;
+      this.scene.add(reed);
+      if (i % 3 === 0) {
+        const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), reedMat);
+        tuft.scale.set(1.4, 2.2, 1.4);
+        tuft.position.set(x, 0.58, z);
+        this.scene.add(tuft);
+      }
+    }
+  }
+
+  buildLakeScatter() {
+    const assets = getAssets();
+    const extraTrees = [
+      [-10, 8], [18, 12], [-20, 14], [24, 6], [-14, 16], [11, 18],
+    ];
+    extraTrees.forEach(([x, z], i) => {
+      if (!isClearOfCampground(x, z, 8)) return;
+      const key = ["tree_thin", "tree_cone", "tree_detailed"][i % 3];
+      const gltf = assets?.kenney?.[key];
+      if (!gltf) return;
+      const tree = cloneModel(gltf, { scale: 2.8 + (i % 2) * 0.6, rotationY: i * 1.3 });
+      tree.position.set(x, 0, z);
+      groundAlign(tree, 0);
+      this.scene.add(tree);
+      this.collisions.addCircle(x, z, 1.0);
+    });
+
+    const grassBush = [
+      [-2, 9], [7, 7], [-11, 4], [14, 3], [5, 14], [-7, 11], [16, 10], [-15, 8],
+    ];
+    grassBush.forEach(([x, z], i) => {
+      if (!isClearOfCampground(x, z, 2.5)) return;
+      const gltf = i % 2 === 0 ? assets?.kenney?.grass : assets?.kenney?.plant_bushSmall;
+      if (!gltf) return;
+      const prop = cloneModel(gltf, { scale: 1.8 + (i % 3) * 0.4, rotationY: i * 0.7 });
+      prop.position.set(x, 0, z);
+      groundAlign(prop, 0.02);
+      this.scene.add(prop);
+      if (i % 2 === 1) this.collisions.addCircle(x, z, 0.5);
     });
   }
 

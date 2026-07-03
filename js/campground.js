@@ -42,6 +42,10 @@ function metalMat(color = 0x888888) {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.75 });
 }
 
+function stoneMat(color = 0x6a6860) {
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.94, metalness: 0.02 });
+}
+
 export class Campground {
   constructor(scene, collisions = null) {
     this.scene = scene;
@@ -69,6 +73,7 @@ export class Campground {
     this.buildFence();
     this.buildCabin();
     this.buildOutdoorCamp();
+    this.buildCampScatter();
     this.buildSigns();
     this.buildCollisions();
   }
@@ -80,6 +85,8 @@ export class Campground {
   }
 
   buildPathFromDock() {
+    const assets = getAssets();
+    const pathWood = assets?.kenney?.path_wood;
     const pathPoints = [
       { x: DOCK_SHORE.x, z: DOCK_SHORE.z },
       { x: -0.5, z: DOCK_SHORE.z + 1.8 },
@@ -98,18 +105,61 @@ export class Campground {
       const dz = b.z - a.z;
       const len = Math.hypot(dx, dz);
       const yaw = Math.atan2(dx, dz);
-      const steps = Math.max(1, Math.ceil(len / 1.35));
+      const steps = Math.max(1, Math.ceil(len / (pathWood ? 1.85 : 1.35)));
       for (let s = 0; s < steps; s++) {
         const t = (s + 0.5) / steps;
-        const plank = new THREE.Mesh(
-          new THREE.BoxGeometry(1.55, 0.06, 1.05),
-          plankMat(0x9a7048)
+        const px = a.x + dx * t;
+        const pz = a.z + dz * t;
+        if (pathWood) {
+          const plank = cloneModel(pathWood, { scale: 2.1, rotationY: yaw });
+          plank.position.set(px, 0, pz);
+          groundAlign(plank, 0.02);
+          plank.traverse((c) => {
+            if (c.isMesh) {
+              c.castShadow = true;
+              c.receiveShadow = true;
+            }
+          });
+          this.group.add(plank);
+        } else {
+          const plank = new THREE.Mesh(
+            new THREE.BoxGeometry(1.55, 0.06, 1.05),
+            plankMat(0x9a7048)
+          );
+          plank.position.set(px, 0.04, pz);
+          plank.rotation.y = yaw;
+          plank.castShadow = true;
+          plank.receiveShadow = true;
+          this.group.add(plank);
+        }
+      }
+    }
+
+    // Path edge logs and lanterns
+    for (let i = 1; i < pathPoints.length - 1; i += 2) {
+      const p = pathPoints[i];
+      const logGltf = assets?.kenney?.log;
+      if (logGltf) {
+        for (const side of [-1, 1]) {
+          const log = cloneModel(logGltf, { scale: 1.8, rotationY: side * 0.6 });
+          log.position.set(p.x + side * 1.1, 0, p.z + side * 0.3);
+          groundAlign(log, 0.02);
+          this.group.add(log);
+        }
+      }
+      if (i % 4 === 1) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.5, 8), woodMat(0x5a3a20));
+        post.position.set(p.x - 1.35, 0.75, p.z);
+        this.group.add(post);
+        const lamp = new THREE.Mesh(
+          new THREE.SphereGeometry(0.12, 10, 8),
+          new THREE.MeshStandardMaterial({ color: 0xffcc66, emissive: 0xff9933, emissiveIntensity: 0.6 })
         );
-        plank.position.set(a.x + dx * t, 0.04, a.z + dz * t);
-        plank.rotation.y = yaw;
-        plank.castShadow = true;
-        plank.receiveShadow = true;
-        this.group.add(plank);
+        lamp.position.set(p.x - 1.35, 1.55, p.z);
+        this.group.add(lamp);
+        const light = new THREE.PointLight(0xffa85a, 0.35, 6, 2);
+        light.position.copy(lamp.position);
+        this.group.add(light);
       }
     }
   }
@@ -206,6 +256,10 @@ export class Campground {
     );
     chimney.position.set(2.4, height + halfD * Math.tan(0.4) + 0.35, 1.8);
     cabin.add(chimney);
+
+    this.buildCabinFoundation(cabin, width, halfD);
+    this.buildPorchDetails(cabin, halfW, halfD, height);
+    this.buildExteriorTrim(cabin, halfW, halfD, height);
 
     this.buildInteriorFurnishing(cabin, halfW, halfD, height);
     this.buildInteriorLights(cabin);
@@ -584,10 +638,194 @@ export class Campground {
     radio.position.set(-4.0, 0.94, 1.5);
     cabin.add(radio);
 
-    // Windows
+    this.buildCeilingBeams(cabin, CABIN_SIZE.width, CABIN_SIZE.depth, height);
+    this.buildInteriorClutter(cabin, halfW, halfD);
+
+    // Windows — exterior + interior views
     this.addWindow(cabin, halfW - 0.12, 1.65, 0.5, -Math.PI / 2);
+    this.addWindow(cabin, halfW - 0.12, 1.65, -1.2, -Math.PI / 2);
     this.addWindow(cabin, -halfW + 0.12, 1.65, -0.5, Math.PI / 2);
+    this.addWindow(cabin, -halfW + 0.12, 1.65, 1.4, Math.PI / 2);
     this.addWindow(cabin, 0, 1.75, halfD - 0.12, 0, 1.5, 0.9);
+    this.addWindow(cabin, -2.2, 1.65, -halfD + 0.12, Math.PI, 1.0, 0.85);
+    this.addWindow(cabin, 2.2, 1.65, -halfD + 0.12, Math.PI, 1.0, 0.85);
+  }
+
+  buildCabinFoundation(cabin, width, halfD) {
+    const stoneH = 0.28;
+    const front = new THREE.Mesh(new THREE.BoxGeometry(width + 0.4, stoneH, 0.35), stoneMat());
+    front.position.set(0, stoneH / 2 + 0.02, -halfD - 0.12);
+    cabin.add(front);
+    const back = front.clone();
+    back.position.z = halfD + 0.12;
+    cabin.add(back);
+    const left = new THREE.Mesh(new THREE.BoxGeometry(0.35, stoneH, CABIN_SIZE.depth + 0.5), stoneMat(0x626058));
+    left.position.set(-width / 2 - 0.12, stoneH / 2 + 0.02, 0);
+    cabin.add(left);
+    const right = left.clone();
+    right.position.x = width / 2 + 0.12;
+    cabin.add(right);
+    for (let i = -3; i <= 3; i++) {
+      const block = new THREE.Mesh(new THREE.BoxGeometry(0.55, stoneH * 0.85, 0.28), stoneMat(0x706860));
+      block.position.set(i * 1.2, stoneH / 2 + 0.02, -halfD - 0.12);
+      cabin.add(block);
+    }
+  }
+
+  buildPorchDetails(cabin, halfW, halfD, height) {
+    const porchZ = -halfD - 1.0;
+    for (let i = -1; i <= 1; i++) {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.1, 0.42), plankMat(0x8a6840));
+      step.position.set(0, 0.04 + i * 0.1, porchZ - 1.35 + i * 0.42);
+      cabin.add(step);
+    }
+    const railMat = woodMat(0x5a3a20);
+    for (const side of [-1, 1]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.55, 2.0), railMat);
+      rail.position.set(side * 1.75, 0.55, porchZ);
+      cabin.add(rail);
+      for (let p = 0; p < 4; p++) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.75, 6), railMat);
+        post.position.set(side * 1.75, 0.38, porchZ - 0.75 + p * 0.5);
+        cabin.add(post);
+      }
+    }
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.45), woodMat(0x7a4e2a));
+    bench.position.set(-1.2, 0.42, porchZ + 0.35);
+    cabin.add(bench);
+    const benchLeg = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.34, 0.08), woodMat(0x6a4a28));
+    benchLeg.position.set(-1.2, 0.21, porchZ + 0.55);
+    cabin.add(benchLeg);
+    const mat = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.02, 0.7), fabricMat(0x4a3020));
+    mat.position.set(0.6, 0.14, porchZ + 0.2);
+    cabin.add(mat);
+    const porchLantern = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.14, 0.24, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffcc66, emissive: 0xff8833, emissiveIntensity: 0.7 })
+    );
+    porchLantern.position.set(1.55, height * 0.72, porchZ);
+    cabin.add(porchLantern);
+    const porchLight = new THREE.PointLight(0xffa85a, 0.5, 7, 2);
+    porchLight.position.copy(porchLantern.position);
+    cabin.add(porchLight);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(DOOR_WIDTH - 0.1, height * 0.68, 0.08), woodMat(0x5a3820));
+    door.position.set(0, height * 0.46, -halfD + 0.06);
+    cabin.add(door);
+    const handle = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), metalMat(0xcccccc));
+    handle.position.set(DOOR_WIDTH * 0.32, height * 0.42, -halfD + 0.12);
+    cabin.add(handle);
+  }
+
+  buildExteriorTrim(cabin, halfW, halfD, height) {
+    for (let y = 0.5; y < height; y += 0.55) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(CABIN_SIZE.width + 0.15, 0.06, CABIN_SIZE.depth + 0.15), woodMat(0x4a3018));
+      band.position.y = y;
+      cabin.add(band);
+    }
+    for (let x = -halfW + 0.6; x < halfW; x += 0.48) {
+      for (const z of [-halfD + 0.12, halfD - 0.12]) {
+        const log = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 0.32), woodMat(0x6a4428));
+        log.position.set(x, 0.35 + ((x * 3) % 2) * 0.08, z);
+        cabin.add(log);
+      }
+    }
+    const shutterMat = woodMat(0x4a3018);
+    const shutterPairs = [
+      [halfW - 0.12, 0.5, -Math.PI / 2],
+      [halfW - 0.12, -1.2, -Math.PI / 2],
+      [-halfW + 0.12, -0.5, Math.PI / 2],
+      [0, halfD - 0.12, 0],
+    ];
+    shutterPairs.forEach(([x, z, rot]) => {
+      for (const o of [-0.42, 0.42]) {
+        const shutter = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.85, 0.38), shutterMat);
+        shutter.position.set(
+          Math.abs(rot) < 0.1 ? x + o : x,
+          1.65,
+          Math.abs(rot) < 0.1 ? z : z + o * 0.3
+        );
+        shutter.rotation.y = rot;
+        cabin.add(shutter);
+      }
+    });
+  }
+
+  buildCeilingBeams(cabin, width, depth, height) {
+    const beamMat = woodMat(0x4a3018);
+    for (let i = -1; i <= 1; i++) {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(width - 0.6, 0.14, 0.22), beamMat);
+      beam.position.set(0, height - 0.12, i * 2.4);
+      cabin.add(beam);
+    }
+    for (let i = -2; i <= 2; i++) {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, depth - 0.8), beamMat);
+      beam.position.set(i * 2.0, height - 0.12, 0);
+      cabin.add(beam);
+    }
+  }
+
+  buildInteriorClutter(cabin, halfW, halfD) {
+    const bookshelf = new THREE.Group();
+    const caseBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.5, 0.32), woodMat(0x5a3a20));
+    caseBody.position.y = 0.75;
+    bookshelf.add(caseBody);
+    for (let row = 0; row < 4; row++) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.04, 0.28), woodMat(0x6a4a28));
+      shelf.position.set(0, 0.35 + row * 0.38, 0);
+      bookshelf.add(shelf);
+      for (let b = 0; b < 3; b++) {
+        const book = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, 0.22, 0.18),
+          fabricMat([0x8b4513, 0x2a4a6a, 0x6a3a2a][b % 3])
+        );
+        book.position.set(-0.22 + b * 0.22, 0.48 + row * 0.38, 0);
+        bookshelf.add(book);
+      }
+    }
+    bookshelf.position.set(-halfW + 0.55, 0, -1.8);
+    bookshelf.rotation.y = Math.PI / 2;
+    cabin.add(bookshelf);
+
+    const net = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.4, 1.0),
+      new THREE.MeshStandardMaterial({ color: 0xc8d0c0, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+    );
+    net.position.set(halfW - 0.35, 2.1, 1.6);
+    net.rotation.y = -Math.PI / 2;
+    cabin.add(net);
+
+    const quilt = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.04, 1.4), fabricMat(0x6a3a4a));
+    quilt.position.set(-2.8, 0.58, 2.6);
+    cabin.add(quilt);
+
+    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.14, 10), new THREE.MeshStandardMaterial({
+      color: 0xd8e8c8, transparent: true, opacity: 0.7, roughness: 0.2,
+    }));
+    jar.position.set(halfW - 0.65, 0.98, 0.2);
+    cabin.add(jar);
+
+    const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.22, 10), fabricMat(0x8a6a40));
+    basket.position.set(1.2, 0.12, -2.6);
+    cabin.add(basket);
+
+    for (let i = 0; i < 3; i++) {
+      const hook = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.008, 6, 12, Math.PI), metalMat());
+      hook.rotation.x = Math.PI / 2;
+      hook.position.set(-1.8 + i * 0.35, 1.55, -halfD + 0.25);
+      cabin.add(hook);
+    }
+
+    const curtainRod = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.35, 8), metalMat(0x888888));
+    curtainRod.rotation.z = Math.PI / 2;
+    curtainRod.position.set(halfW - 0.55, 2.05, 0.5);
+    cabin.add(curtainRod);
+    const curtain = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.2, 0.9),
+      new THREE.MeshStandardMaterial({ color: 0xc8b8a0, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+    );
+    curtain.position.set(halfW - 0.48, 1.6, 0.5);
+    curtain.rotation.y = -Math.PI / 2;
+    cabin.add(curtain);
   }
 
   buildInteriorLights(cabin) {
@@ -704,6 +942,43 @@ export class Campground {
     const bench = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.35), woodMat(0x7a4e2a));
     bench.position.set(cx + 2, 0.42, cz - 1.6);
     this.group.add(bench);
+    const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.42, 8), woodMat(0x6a4a28));
+    stool.position.set(cx + 3.2, 0.21, cz - 0.5);
+    this.group.add(stool);
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.28, 10), metalMat(0x6a7078));
+    bucket.position.set(cx + 1.2, 0.14, cz - 2.8);
+    this.group.add(bucket);
+  }
+
+  buildCampScatter() {
+    const assets = getAssets();
+    const { x: cx, z: cz } = CAMP_ORIGIN;
+    const scatter = [
+      { x: cx - 6, z: cz + 5, type: "bush", scale: 2.4 },
+      { x: cx + 7, z: cz + 4, type: "bush", scale: 2.0 },
+      { x: cx - 2, z: cz + 6, type: "grass", scale: 2.2 },
+      { x: cx + 4, z: cz + 5.5, type: "grass", scale: 1.9 },
+      { x: cx - 7, z: cz - 1, type: "rock", scale: 2.6 },
+      { x: cx + 6.5, z: cz - 3, type: "rock", scale: 2.2 },
+      { x: cx - 3, z: cz - 5, type: "grass", scale: 2.5 },
+      { x: cx + 1, z: cz + 7, type: "bush", scale: 1.8 },
+    ];
+    scatter.forEach(({ x, z, type, scale }, i) => {
+      let gltf;
+      if (type === "bush") gltf = assets?.kenney?.plant_bushLarge || assets?.kenney?.plant_bushSmall;
+      else if (type === "grass") gltf = assets?.kenney?.grass;
+      else gltf = assets?.kenney?.rock_smallA || assets?.kenney?.rock_smallB;
+      if (!gltf) return;
+      const prop = cloneModel(gltf, { scale, rotationY: i * 0.9 });
+      prop.position.set(x, 0, z);
+      groundAlign(prop, 0.02);
+      this.group.add(prop);
+      if (type === "rock") {
+        this.collisions?.addCircle(x, z, scale * 0.35);
+      } else if (type === "bush") {
+        this.collisions?.addCircle(x, z, scale * 0.28);
+      }
+    });
   }
 
   buildSigns() {
@@ -741,6 +1016,9 @@ export class Campground {
     const porchZ = cz - halfD - 1.0;
     c.addBoxCenter(cx - 1.6, porchZ, 0.18, 1.05);
     c.addBoxCenter(cx + 1.6, porchZ, 0.18, 1.05);
+
+    // Porch steps (front).
+    c.addBoxCenter(cx, cz - halfD - 1.35, 1.6, 0.45);
 
     // Chimney.
     c.addCircle(cx + 2.4, cz + 1.8, 0.45);
