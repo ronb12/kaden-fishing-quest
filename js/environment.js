@@ -19,7 +19,9 @@ import {
   DOCK_SHORE_DECK,
   DOCK_EYE_OFFSET,
   DOCK_FEET_OFFSET,
+  DOCK_PIER_FEET_OFFSET,
   DOCK_PIER_MIN_SURFACE_Y,
+  DOCK_PIER_SURFACE_Y,
 } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
@@ -124,6 +126,7 @@ export class LakeEnvironment {
     this.collisions = new CollisionSystem();
     this.dockStairsMeshes = [];
     this.dockWalkMeshes = [];
+    this.pierHeightMeshes = [];
     this.mooringBoat = null;
     this.deepWaterBoat = null;
     this._stairRaycaster = new THREE.Raycaster();
@@ -175,7 +178,25 @@ export class LakeEnvironment {
     this.buildZoneDressing();
     this.buildDockCollisions();
     this.buildEnvironmentCollisions();
+    this.buildPierWalkVolumes();
     this.spawnAmbientFish();
+  }
+
+  /** Invisible tread planes for reliable pier height (merged GLB meshes break raycasts). */
+  buildPierWalkVolumes() {
+    const mat = new THREE.MeshBasicMaterial({ visible: false, transparent: true, opacity: 0, depthWrite: false });
+    const cx = DOCK_GROUP.x;
+    const add = (y, cz, halfW, halfD) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(halfW * 2, 0.03, halfD * 2), mat);
+      mesh.position.set(cx, y, cz);
+      mesh.userData.walkSurface = true;
+      this.scene.add(mesh);
+      this.pierHeightMeshes.push(mesh);
+    };
+    // Lake-end wide platform (world z ~0.4–4.8)
+    add(DOCK_PIER_SURFACE_Y, 2.6, 1.45, 2.2);
+    // Main pier span through bridge (world z ~4.8–12)
+    add(DOCK_PIER_SURFACE_Y, 7.7, 1.35, 4.2);
   }
 
   buildDockCollisions() {
@@ -1025,18 +1046,27 @@ export class LakeEnvironment {
     );
   }
 
-  /** Raycast pier/stair tread top under the player (world Y). */
+  /** Sample walk tread under the player (world Y). */
   raycastDockSurface(x, z) {
+    if (isOnPierCorridor(z) && !isOnDockStairs(x, z) && !isOnShoreDeck(x, z)) {
+      if (!this.pierHeightMeshes.length) return DOCK_PIER_SURFACE_Y;
+      this._stairRayOrigin.set(x, 8, z);
+      this._stairRaycaster.set(this._stairRayOrigin, this._stairRayDir);
+      const hits = this._stairRaycaster.intersectObjects(this.pierHeightMeshes, false);
+      for (const hit of hits) {
+        if (hit.point.y >= DOCK_PIER_MIN_SURFACE_Y) return hit.point.y;
+      }
+      return DOCK_PIER_SURFACE_Y;
+    }
+
     if (!this.dockWalkMeshes.length) return null;
-    this._stairRayOrigin.set(x, 12, z);
+    this._stairRayOrigin.set(x, 8, z);
     this._stairRaycaster.set(this._stairRayOrigin, this._stairRayDir);
     const hits = this._stairRaycaster.intersectObjects(this.dockWalkMeshes, false);
     let surface = null;
     for (const hit of hits) {
-      const ny = hit.normal?.y ?? 0;
-      if (ny < 0.55) continue;
       if (hit.point.y < 0.05) continue;
-      if (isOnPierCorridor(z) && hit.point.y < DOCK_PIER_MIN_SURFACE_Y) continue;
+      if (isOnShoreDeck(x, z) && hit.point.y > 0.45) continue;
       if (surface == null || hit.point.y > surface) surface = hit.point.y;
     }
     return surface;
@@ -1067,8 +1097,8 @@ export class LakeEnvironment {
       return cache.y;
     }
 
-    if (isOnPierWalk(x, z) || isOnPierCorridor(z)) {
-      cache.y = DOCK_WALK.plankEyeY;
+    if (isOnPierCorridor(z) && !isOnDockStairs(x, z)) {
+      cache.y = DOCK_PIER_SURFACE_Y + DOCK_EYE_OFFSET;
       return cache.y;
     }
 

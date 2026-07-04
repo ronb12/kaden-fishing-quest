@@ -24,7 +24,7 @@ import { VRFishingMotion } from "./vr-fishing.js";
 import { VRHandRig } from "./vr-hands.js";
 import { moveWithCollisions, correctRigFromEye } from "./collisions.js";
 import { BUILD_ID } from "./version.js";
-import { DOCK_SPAWN, DOCK_EYE_OFFSET, DOCK_FEET_OFFSET, DOCK_WALK, clampBoardwalkX } from "./dock-layout.js";
+import { DOCK_SPAWN, DOCK_EYE_OFFSET, DOCK_FEET_OFFSET, DOCK_PIER_FEET_OFFSET, DOCK_PIER_SURFACE_Y, DOCK_WALK, clampBoardwalkX, isOnPierCorridor } from "./dock-layout.js";
 import { tensionZone } from "./fish-fight.js";
 import { getRodStats } from "./gear-stats.js";
 import { VRComfort } from "./vr-comfort.js";
@@ -743,7 +743,9 @@ function clampDockWalkPosition() {
 function applyGroundEyeHeight() {
   const surface = env?.getDockSurfaceHeight?.(player.position.x, player.position.z);
   if (surface != null) {
-    player.position.y = surface + DOCK_FEET_OFFSET;
+    const onPier = isOnPierCorridor(player.position.z);
+    const feetOffset = onPier ? DOCK_PIER_FEET_OFFSET : DOCK_FEET_OFFSET;
+    player.position.y = surface + feetOffset;
     if (!inVR) camera.position.y = DOCK_EYE_OFFSET;
   } else {
     player.position.y = 0;
@@ -1210,6 +1212,7 @@ if (new URLSearchParams(location.search).has("playtest")) {
       return {
         onStairs: walkY != null,
         eyeY: walkY,
+        pierDeckY: DOCK_PIER_SURFACE_Y,
         camera: { x: eye.x, y: eye.y, z: eye.z },
       };
     },

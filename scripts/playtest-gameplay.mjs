@@ -145,7 +145,7 @@ try {
 
   await page.evaluate(() => window.__playtest.moveTo(0, 2));
   const pierEnd = await page.evaluate(() => window.__playtest.getCamera());
-  if (pierEnd.y >= 2.48) pass(`lake-end pier stand height (${pierEnd.y.toFixed(2)}m)`);
+  if (pierEnd.y >= 2.72) pass(`lake-end pier stand height (${pierEnd.y.toFixed(2)}m)`);
   else fail("lake-end pier stand height", `y=${pierEnd.y.toFixed(2)}`);
 
   await page.evaluate(() => window.__playtest.moveTo(0, 18.8));

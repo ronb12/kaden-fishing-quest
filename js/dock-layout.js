@@ -26,8 +26,12 @@ export const DOCK_WALK = {
 };
 
 export const DOCK_EYE_OFFSET = 0.92;
-/** Lift feet slightly above tread tops to avoid clipping into plank meshes. */
-export const DOCK_FEET_OFFSET = 0.06;
+/** Measured pier tread top (world Y) — GLB bbox/raycast are unreliable on merged dock meshes. */
+export const DOCK_PIER_SURFACE_Y = 1.72;
+/** Lift feet above tread tops to avoid clipping into plank meshes. */
+export const DOCK_FEET_OFFSET = 0.08;
+/** Extra clearance on elevated pier segments (thick GLB deck geometry). */
+export const DOCK_PIER_FEET_OFFSET = 0.12;
 /** Pier deck tread is ~1.62–1.68m; reject lower ray hits (piles, stringers). */
 export const DOCK_PIER_MIN_SURFACE_Y = 1.52;
 
