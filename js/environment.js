@@ -11,12 +11,15 @@ import {
   isOnDockStairs,
   isOnDockWalk,
   isOnPierWalk,
+  isOnPierCorridor,
   isOnShoreDeck,
   getDockStairEyeHeightFallback,
   DOCK_STAIRS,
   DOCK_WALK,
   DOCK_SHORE_DECK,
   DOCK_EYE_OFFSET,
+  DOCK_FEET_OFFSET,
+  DOCK_PIER_MIN_SURFACE_Y,
 } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
 
@@ -1025,12 +1028,15 @@ export class LakeEnvironment {
   /** Raycast pier/stair tread top under the player (world Y). */
   raycastDockSurface(x, z) {
     if (!this.dockWalkMeshes.length) return null;
-    this._stairRayOrigin.set(x, 8, z);
+    this._stairRayOrigin.set(x, 12, z);
     this._stairRaycaster.set(this._stairRayOrigin, this._stairRayDir);
     const hits = this._stairRaycaster.intersectObjects(this.dockWalkMeshes, false);
     let surface = null;
     for (const hit of hits) {
+      const ny = hit.normal?.y ?? 0;
+      if (ny < 0.55) continue;
       if (hit.point.y < 0.05) continue;
+      if (isOnPierCorridor(z) && hit.point.y < DOCK_PIER_MIN_SURFACE_Y) continue;
       if (surface == null || hit.point.y > surface) surface = hit.point.y;
     }
     return surface;
@@ -1061,7 +1067,7 @@ export class LakeEnvironment {
       return cache.y;
     }
 
-    if (isOnPierWalk(x, z)) {
+    if (isOnPierWalk(x, z) || isOnPierCorridor(z)) {
       cache.y = DOCK_WALK.plankEyeY;
       return cache.y;
     }

@@ -21,11 +21,15 @@ export const DOCK_WALK = {
   collisionHalfWidth: 1.02,
   startZ: 0.35,
   endZ: DOCK_SHORE.z + 1.4,
-  /** Pier deck top ~1.67m + standing eye offset when raycast misses a gap. */
-  plankEyeY: 2.58,
+  /** Pier deck top eye height when raycast misses. */
+  plankEyeY: 2.62,
 };
 
 export const DOCK_EYE_OFFSET = 0.92;
+/** Lift feet slightly above tread tops to avoid clipping into plank meshes. */
+export const DOCK_FEET_OFFSET = 0.06;
+/** Pier deck tread is ~1.62–1.68m; reject lower ray hits (piles, stringers). */
+export const DOCK_PIER_MIN_SURFACE_Y = 1.52;
 
 /** Dock_Stairs.glb at local z=10.8, scale 0.38 — measured world XZ footprint. */
 export const DOCK_STAIRS = {

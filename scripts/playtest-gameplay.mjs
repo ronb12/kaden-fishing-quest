@@ -143,6 +143,11 @@ try {
   if (sidePos.x < 1.55) pass("dock side rail blocks water");
   else fail("dock side rail blocks water", `x=${sidePos.x}`);
 
+  await page.evaluate(() => window.__playtest.moveTo(0, 2));
+  const pierEnd = await page.evaluate(() => window.__playtest.getCamera());
+  if (pierEnd.y >= 2.48) pass(`lake-end pier stand height (${pierEnd.y.toFixed(2)}m)`);
+  else fail("lake-end pier stand height", `y=${pierEnd.y.toFixed(2)}`);
+
   await page.evaluate(() => window.__playtest.moveTo(0, 18.8));
   const spawnPos = await page.evaluate(() => window.__playtest.getCamera());
   if (spawnPos.y > 0.85 && spawnPos.y < 1.35) pass(`spawn height on shore (${spawnPos.y.toFixed(2)}m)`);
