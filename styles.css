@@ -12,6 +12,7 @@
 .asset-loading.hidden {
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
 }
 
 .asset-loading-card {
@@ -68,6 +69,7 @@ html, body {
   font-family: "DM Sans", sans-serif;
   color: white;
   background: #0a1a24;
+  touch-action: none;
 }
 
 #game-canvas {
@@ -1470,7 +1472,7 @@ body > button {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 18;
+  z-index: 70;
   pointer-events: none;
 }
 
@@ -1616,6 +1618,17 @@ body.touch-mode .tip-banner {
 
 body.touch-mode .tutorial-overlay.compact {
   padding-bottom: 150px;
+}
+
+body.touch-mode .tutorial-overlay.show {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 72px 12px 120px;
+  pointer-events: none;
+}
+
+body.touch-mode .tutorial-overlay.show .tutorial-card {
+  pointer-events: auto;
 }
 
 body.touch-mode .hud-stats {

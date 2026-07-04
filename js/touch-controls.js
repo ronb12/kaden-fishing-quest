@@ -4,6 +4,10 @@ export function isTouchDevice() {
   return "ontouchstart" in window || navigator.maxTouchPoints > 0;
 }
 
+export function isMobileLayout() {
+  return isTouchDevice() && Math.min(window.innerWidth, window.innerHeight) < 900;
+}
+
 export function initTouchControls(callbacks) {
   if (!isTouchDevice()) return { active: false };
 
@@ -28,6 +32,13 @@ export function initTouchControls(callbacks) {
   let joyCenter = { x: 0, y: 0 };
   let lookTouchId = null;
   let lastLook = { x: 0, y: 0 };
+  let started = false;
+
+  function ensureStarted() {
+    if (started) return;
+    started = true;
+    callbacks.onStart?.();
+  }
 
   function setActionLabel(text) {
     if (actionBtn) actionBtn.textContent = text;
@@ -59,6 +70,7 @@ export function initTouchControls(callbacks) {
     "touchstart",
     (e) => {
       e.preventDefault();
+      ensureStarted();
       const t = e.changedTouches[0];
       joyTouchId = t.identifier;
       const rect = joystick.getBoundingClientRect();
@@ -93,6 +105,7 @@ export function initTouchControls(callbacks) {
     "touchstart",
     (e) => {
       if (lookTouchId !== null) return;
+      ensureStarted();
       const t = e.changedTouches[0];
       lookTouchId = t.identifier;
       lastLook = { x: t.clientX, y: t.clientY };
@@ -128,6 +141,7 @@ export function initTouchControls(callbacks) {
     "touchstart",
     (e) => {
       e.preventDefault();
+      ensureStarted();
       callbacks.onAction?.();
       actionBtn.classList.add("pressed");
     },

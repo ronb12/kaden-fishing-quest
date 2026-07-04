@@ -17,7 +17,7 @@ import {
 } from "./state.js";
 import { BAITS, ZONES, BOAT_USE_LEVEL, canUseBoat, canBoatTravelToZone } from "./data.js";
 import * as audio from "./audio.js";
-import { initTouchControls } from "./touch-controls.js";
+import { initTouchControls, isMobileLayout } from "./touch-controls.js";
 import { loadGameAssets, updateModelAnimations } from "./asset-loader.js";
 import { loadEnvironmentMaps, reloadEnvironmentMaps } from "./environment-loader.js";
 import { VRFishingMotion } from "./vr-fishing.js";
@@ -38,11 +38,17 @@ let ui = null;
 let touch = { active: false };
 
 const canvas = document.getElementById("game-canvas");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+const mobileLayout = isMobileLayout();
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: !mobileLayout,
+  alpha: false,
+  powerPreference: mobileLayout ? "low-power" : "default",
+});
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileLayout ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !mobileLayout;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -808,7 +814,10 @@ ui = initUI(fishing, {
 
 await initState();
 audio.applyAudioSettings(getState().settings);
-env.setQuality(getState().settings?.quality || "high");
+const playQuality = getState().settings?.quality;
+const runtimeQuality =
+  mobileLayout && (!playQuality || playQuality === "high") ? "quest" : (playQuality || "high");
+env.setQuality(runtimeQuality);
 teleportToZone(getState().zone);
 env.applyZone(getState().zone);
 env.updateBoatForLevel(getState().boatLevel);
@@ -826,6 +835,9 @@ subscribe((state) => {
 });
 
 touch = initTouchControls({
+  onStart() {
+    dismissLoadingHint();
+  },
   onLook(dx, dy) {
     mouseX -= dx * 0.004;
     mouseY -= dy * 0.004;
@@ -860,8 +872,12 @@ touch = initTouchControls({
 }) || { active: false };
 
 if (touch.active) {
-  document.getElementById("status-text").textContent = "Drag right to look · joystick to move · follow the path to the cabin";
+  ui?.hideTutorialOverlay?.();
+  document.getElementById("status-text").textContent = "Hold Cast to fish · drag right to look · joystick to move";
   updateTouchUI();
+  setTimeout(() => {
+    ui?.showToast?.("Tap Cast, use the joystick to move, drag right side to look");
+  }, 1200);
 }
 
 function updateDesktopMovement(dt) {

@@ -9,7 +9,7 @@
     "db:setup": "node scripts/setup-db.js",
     "test": "node scripts/test-collisions.mjs && node scripts/test-fish-fight.mjs",
     "icons": "node scripts/generate-icons.mjs",
-    "playtest": "node scripts/playtest-assets.mjs && node scripts/playtest-gameplay.mjs && node scripts/playtest-stairs.mjs"
+    "playtest": "node scripts/playtest-assets.mjs && node scripts/playtest-gameplay.mjs && node scripts/playtest-stairs.mjs && node scripts/playtest-mobile.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

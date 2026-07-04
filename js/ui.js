@@ -365,6 +365,9 @@ export function initUI(fishing, callbacks) {
     } else {
       tutorialOverlay.classList.remove("compact");
     }
+    if (document.body.classList.contains("touch-mode")) {
+      tutorialOverlay.classList.add("compact");
+    }
     const step = GUIDED_STEPS[tut.step] || GUIDED_STEPS[0];
     const platform = inputMode();
     const body = getGuidedStepBody(step, platform);
@@ -1012,6 +1015,7 @@ export function initUI(fishing, callbacks) {
     },
     closeMenu,
     dismissTopOverlay,
+    hideTutorialOverlay,
     openPanel(name) {
       activePanel = name;
       document.querySelectorAll("[data-panel]").forEach((t) =>
