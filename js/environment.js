@@ -10,9 +10,12 @@ import {
   registerDockWalkCollisions,
   isOnDockStairs,
   isOnDockWalk,
+  isOnPierWalk,
+  isOnShoreDeck,
   getDockStairEyeHeightFallback,
   DOCK_STAIRS,
   DOCK_WALK,
+  DOCK_SHORE_DECK,
   DOCK_EYE_OFFSET,
 } from "./dock-layout.js";
 import { CollisionSystem } from "./collisions.js";
@@ -1027,7 +1030,7 @@ export class LakeEnvironment {
     const hits = this._stairRaycaster.intersectObjects(this.dockWalkMeshes, false);
     let surface = null;
     for (const hit of hits) {
-      if (hit.point.y < 0.25) continue;
+      if (hit.point.y < 0.05) continue;
       if (surface == null || hit.point.y > surface) surface = hit.point.y;
     }
     return surface;
@@ -1048,17 +1051,23 @@ export class LakeEnvironment {
       return cache.y;
     }
 
-    if (!isOnDockWalk(x, z)) {
-      cache.y = null;
-      return null;
-    }
-
     if (isOnDockStairs(x, z)) {
       cache.y = getDockStairEyeHeightFallback(x, z);
       return cache.y;
     }
-    cache.y = DOCK_WALK.plankEyeY;
-    return cache.y;
+
+    if (isOnShoreDeck(x, z)) {
+      cache.y = DOCK_SHORE_DECK.surfaceY + DOCK_EYE_OFFSET;
+      return cache.y;
+    }
+
+    if (isOnPierWalk(x, z)) {
+      cache.y = DOCK_WALK.plankEyeY;
+      return cache.y;
+    }
+
+    cache.y = null;
+    return null;
   }
 
   /** Feet height on pier/stairs, or null on open ground. */

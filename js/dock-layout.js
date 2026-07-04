@@ -27,25 +27,6 @@ export const DOCK_WALK = {
 
 export const DOCK_EYE_OFFSET = 0.92;
 
-export function isOnDockWalk(x, z) {
-  return (
-    Math.abs(x - DOCK_WALK.centerX) <= DOCK_WALK.halfWidth + 0.35 &&
-    z >= DOCK_WALK.startZ &&
-    z <= DOCK_WALK.endZ
-  );
-}
-
-export function clampBoardwalkX(x, z, getSurfaceHeight) {
-  const inCorridor = z >= DOCK_WALK.startZ && z <= DOCK_WALK.endZ;
-  const onSurface = getSurfaceHeight?.(x, z) != null;
-  if (!inCorridor && !onSurface) return x;
-
-  const cx = DOCK_WALK.centerX;
-  let hw = DOCK_WALK.collisionHalfWidth;
-  if (isOnDockStairs(x, z)) hw = DOCK_STAIRS.halfWidth;
-  return Math.max(cx - hw, Math.min(cx + hw, x));
-}
-
 /** Dock_Stairs.glb at local z=10.8, scale 0.38 — measured world XZ footprint. */
 export const DOCK_STAIRS = {
   centerX: DOCK_GROUP.x,
@@ -57,6 +38,57 @@ export const DOCK_STAIRS = {
   lowEyeY: 1.77,
   eyeOffset: DOCK_EYE_OFFSET,
 };
+
+/** Wide shore deck at the camp path — not the narrow pier planks. */
+export const DOCK_SHORE_DECK = {
+  centerX: DOCK_GROUP.x,
+  halfWidth: 2.7,
+  /** Top of shore deck mesh (dock group y=0). */
+  surfaceY: 0.16,
+  minZ: DOCK_STAIRS.maxZ - 0.05,
+  maxZ: DOCK_SHORE.z + 1.85,
+};
+
+export function isOnPierCorridor(z) {
+  return z >= DOCK_WALK.startZ && z < DOCK_STAIRS.minZ;
+}
+
+export function isOnPierWalk(x, z) {
+  return (
+    isOnPierCorridor(z) &&
+    Math.abs(x - DOCK_WALK.centerX) <= DOCK_WALK.halfWidth + 0.35
+  );
+}
+
+export function isOnShoreDeck(x, z) {
+  return (
+    Math.abs(x - DOCK_SHORE_DECK.centerX) <= DOCK_SHORE_DECK.halfWidth + 0.25 &&
+    z >= DOCK_SHORE_DECK.minZ &&
+    z <= DOCK_SHORE_DECK.maxZ
+  );
+}
+
+export function isOnDockWalk(x, z) {
+  return isOnPierWalk(x, z) || isOnDockStairs(x, z) || isOnShoreDeck(x, z);
+}
+
+export function clampBoardwalkX(x, z, getSurfaceHeight) {
+  void getSurfaceHeight;
+  const cx = DOCK_WALK.centerX;
+  if (isOnDockStairs(x, z)) {
+    const hw = DOCK_STAIRS.halfWidth;
+    return Math.max(cx - hw, Math.min(cx + hw, x));
+  }
+  if (isOnPierCorridor(z)) {
+    const hw = DOCK_WALK.collisionHalfWidth;
+    return Math.max(cx - hw, Math.min(cx + hw, x));
+  }
+  if (isOnShoreDeck(x, z)) {
+    const hw = DOCK_SHORE_DECK.halfWidth;
+    return Math.max(DOCK_SHORE_DECK.centerX - hw, Math.min(DOCK_SHORE_DECK.centerX + hw, x));
+  }
+  return x;
+}
 
 export function isOnDockStairs(x, z) {
   return (

@@ -362,8 +362,8 @@ document.addEventListener("keydown", (e) => {
     tryBoatInteract();
   }
   const baitKeyMap = {
-    Digit4: 0, Digit5: 1, Digit6: 2, Digit7: 3, Digit8: 4, Digit9: 5, Digit0: 6,
-    Minus: 7, Equal: 8, Backquote: 9,
+    Digit5: 0, Digit6: 1, Digit7: 2, Digit8: 3, Digit9: 4, Digit0: 5,
+    Minus: 6, Equal: 7, Backquote: 8,
   };
   if (baitKeyMap[e.code] !== undefined) {
     const bait = BAITS[baitKeyMap[e.code]];

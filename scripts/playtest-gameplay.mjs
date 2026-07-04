@@ -143,13 +143,24 @@ try {
   if (sidePos.x < 1.55) pass("dock side rail blocks water");
   else fail("dock side rail blocks water", `x=${sidePos.x}`);
 
+  await page.evaluate(() => window.__playtest.moveTo(0, 18.8));
+  const spawnPos = await page.evaluate(() => window.__playtest.getCamera());
+  if (spawnPos.y > 0.85 && spawnPos.y < 1.35) pass(`spawn height on shore (${spawnPos.y.toFixed(2)}m)`);
+  else fail("spawn height on shore", `y=${spawnPos.y.toFixed(2)} expected ~1.08`);
+
+  await page.evaluate(() => window.__setPlaytestCamera(-2, 1.08, 18.5, -8, 1.08, 20));
+  const pathTrace = await page.evaluate(() => window.__playtest.walk(-1, 0.2, 2.5));
+  const pathX = pathTrace.length ? pathTrace[pathTrace.length - 1].x : 0;
+  if (pathX < -1.5) pass("camp path walkable off boardwalk");
+  else fail("camp path walkable off boardwalk", `x=${pathX.toFixed(2)}`);
+
   await page.keyboard.press("KeyB");
   await page.waitForTimeout(400);
   const baitPanel = await page.evaluate(() => document.getElementById("vr-menu")?.classList.contains("open"));
   if (baitPanel) pass("bait menu opens");
   else fail("bait menu opens", "menu not open");
 
-  await page.keyboard.press("Digit4");
+  await page.keyboard.press("Digit5");
   await page.waitForTimeout(200);
   const hudBait = await page.evaluate(() => document.getElementById("hud-bait")?.textContent || "");
   if (/Nightcrawler|worm/i.test(hudBait)) pass("bait hotkey works");
